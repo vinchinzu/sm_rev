@@ -129,6 +129,30 @@ Already-split files from Bank $90:
 
 **Target:** → new **`samus_pose.c`**
 
+#### Cluster L extraction slices
+
+Start Cluster L with the widest shared surface, then pull in the narrower internal helpers behind it:
+
+1. **Pose update API first** — `SamusFunc_F433`, `Samus_SetAnimationFrameIfPoseChanged`
+   These are the highest-fan-out entry points in the cluster. They are called from `samus_transition.c`, `samus_special_move.c`, runtime code, and multiple non-$91 banks (`$82`, `$88`, `$8B`, `$9B`), so extracting them first removes the biggest dependency edge early.
+2. **Pose-change gate next** — `SamusFunc_F404`, `SamusFunc_EC80`
+   `SamusFunc_F404` is the bridge from transition logic into pose logic: it calls `HandleCollDueToChangedPose`, `SamusFunc_F433`, `HandleJumpTransition`, and `Samus_SetAnimationFrameIfPoseChanged`. Port it after the public pose-update API exists and after jump/collision declarations are visible.
+3. **Movement-type dispatcher bulk** — `SamusFunc_F468`, `SamusFunc_F468_*`
+   This is most of the file's line count, but it is structurally downstream of `SamusFunc_F433`. Once `F433` can call into the new file, the dispatcher and its movement-type handlers can move as a mostly self-contained block.
+4. **Keep the transition helpers private** — `Samus_CrouchTrans`, `Samus_MorphTrans`, `Samus_StandOrUnmorphTrans`, `MaybeUnused_sub_91F7F4`, `MaybeUnused_sub_91F840`, `MaybeUnused_sub_91F8B0`, `SamusFunc_FA0A`
+   These are only used by the `SamusFunc_F468_*` tables. Do not give them new cross-file callers during the split; keep them file-local in `samus_pose.c`.
+
+#### Cluster L minimal public surface
+
+Only four Cluster L symbols need to be shared across files during the split:
+
+- `SamusFunc_F433`
+- `Samus_SetAnimationFrameIfPoseChanged`
+- `SamusFunc_F404`
+- `SamusFunc_EC80`
+
+Everything else in Cluster L can stay internal to `samus_pose.c`, which keeps the header churn small and prevents the new file from becoming another grab-bag utility module.
+
 ---
 
 ### Cluster M — Jump transition initialisation (L3797–L3883)
@@ -174,7 +198,7 @@ Already-split files from Bank $90:
 
 ## Dependency notes
 
-- `samus_pose.c` (`SamusFunc_F433`, `Samus_SetAnimationFrameIfPoseChanged`) is called from nearly every other cluster. Extract its header declarations first.
+- `samus_pose.c` has the widest fan-out in the whole split. Extract `SamusFunc_F433` and `Samus_SetAnimationFrameIfPoseChanged` first, then add `SamusFunc_F404` / `SamusFunc_EC80` once `samus_jump.c` and `samus_collision.c` declarations are in place.
 - `samus_transition.c` calls `HandleJumpTransition` (→ `samus_jump.c`) and `HandleCollDueToChangedPose` (→ `samus_collision.c`) — forward-declare or include those headers.
 - `samus_xray.c` depends on `samus_palette.c` (`Samus_HandleXrayPals`) only indirectly via function-pointer table; no structural issue.
 - `samus_demo.c` calls `EnableDemoInput`/`DisableDemoInput` (→ `samus_input.c`) and `Projectile_Func7_Shinespark` (→ `samus_special_move.c`).
