@@ -1169,3 +1169,26 @@ extern int32 *cur_coll_amt32;
 #define ADDR16_OF_RAM(x) ((uint8*)&(x) - g_ram)
 
 #endif // SM_VARIABLES_H_
+
+// Backup variables for pausing (formerly in sm_82.c)
+extern uint8 reg_INIDISP_backup;
+extern uint8 reg_OBSEL_backup;
+extern uint8 reg_BGMODE_backup;
+extern uint8 reg_MOSAIC_backup;
+extern uint8 reg_BG1SC_backup;
+extern uint8 reg_BG2SC_backup;
+extern uint8 reg_BG3SC_backup;
+extern uint8 reg_BG4SC_backup;
+extern uint8 reg_BG12NBA_backup;
+extern uint8 reg_BG34NBA_backup;
+extern uint8 reg_W12SEL_backup;
+extern uint8 reg_W34SEL_backup;
+extern uint8 reg_WOBJSEL_backup;
+extern uint8 reg_TM_backup;
+extern uint8 reg_TMW_backup;
+extern uint8 reg_TS_backup;
+extern uint8 reg_TSW_backup;
+extern uint8 next_gameplay_CGWSEL_backup;
+extern uint8 next_gameplay_CGADSUB_backup;
+extern uint8 reg_COLDATA_backup[3];
+extern uint8 reg_SETINI_backup;

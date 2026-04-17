@@ -772,3 +772,142 @@ void Samus_MoveHandler_F072(void) {  // 0x90F072
     samus_movement_handler = FUNC16(Samus_MovementHandler_Normal);
   }
 }
+
+void MakeSamusFaceForward(void) {  // 0x91E3F6
+  if ((equipped_items & 0x20) != 0 || (equipped_items & 1) != 0)
+    samus_pose = kPose_9B_FaceF_VariaGravitySuit;
+  else
+    samus_pose = kPose_00_FaceF_Powersuit;
+  SamusFunc_F433();
+  Samus_SetAnimationFrameIfPoseChanged();
+  samus_last_different_pose = samus_prev_pose;
+  *(uint16 *)&samus_last_different_pose_x_dir = *(uint16 *)&samus_prev_pose_x_dir;
+  samus_prev_pose = samus_pose;
+  *(uint16 *)&samus_prev_pose_x_dir = *(uint16 *)&samus_pose_x_dir;
+  if (samus_y_radius != 24) {
+    samus_y_pos -= 3;
+    samus_prev_y_pos = samus_y_pos;
+  }
+  frame_handler_alfa = FUNC16(Samus_FrameHandlerAlfa_Func13);
+  frame_handler_beta = FUNC16(SetContactDamageIndexAndUpdateMinimap);
+  samus_new_pose = -1;
+  samus_new_pose_interrupted = -1;
+  samus_new_pose_transitional = -1;
+  samus_momentum_routine_index = 0;
+  samus_special_transgfx_index = 0;
+  samus_hurt_switch_index = 0;
+  CallSomeSamusCode(0x1F);
+  SetHiLo(&samus_x_extra_run_speed, &samus_x_extra_run_subspeed, 0);
+  samus_x_base_speed = 0;
+  samus_x_base_subspeed = 0;
+  samus_y_subspeed = 0;
+  samus_y_speed = 0;
+  samus_y_dir = 0;
+  used_for_ball_bounce_on_landing = 0;
+  samus_x_accel_mode = 0;
+  flare_counter = 0;
+  flare_animation_frame = 0;
+  flare_slow_sparks_anim_frame = 0;
+  flare_fast_sparks_anim_frame = 0;
+  flare_animation_timer = 0;
+  flare_slow_sparks_anim_timer = 0;
+  flare_fast_sparks_anim_timer = 0;
+  Samus_LoadSuitPalette();
+}
+
+static Func_U8 *const kSomeMotherBrainScripts[5] = {  // 0x91E4AD
+  SomeMotherBrainScripts_0,
+  SomeMotherBrainScripts_1,
+  SomeMotherBrainScripts_2,
+  SomeMotherBrainScripts_3_EnableHyperBeam,
+  SomeMotherBrainScripts_4,
+};
+
+void SomeMotherBrainScripts(uint16 a) {
+  if (kSomeMotherBrainScripts[a]() & 1) {
+    samus_last_different_pose = samus_prev_pose;
+    *(uint16 *)&samus_last_different_pose_x_dir = *(uint16 *)&samus_prev_pose_x_dir;
+    samus_prev_pose = samus_pose;
+    *(uint16 *)&samus_prev_pose_x_dir = *(uint16 *)&samus_pose_x_dir;
+    samus_new_pose = -1;
+    samus_new_pose_interrupted = -1;
+    samus_new_pose_transitional = -1;
+    samus_momentum_routine_index = 0;
+    samus_special_transgfx_index = 0;
+    samus_hurt_switch_index = 0;
+  }
+}
+
+uint8 SomeMotherBrainScripts_0(void) {  // 0x91E4F8
+  samus_y_pos -= 21 - samus_y_radius;
+  samus_prev_y_pos = samus_y_pos;
+  if (samus_pose_x_dir == 4)
+    samus_pose = kPose_E9_FaceL_Drained_CrouchFalling;
+  else
+    samus_pose = kPose_E8_FaceR_Drained_CrouchFalling;
+  samus_anim_frame_skip = 2;
+  SamusFunc_F433();
+  Samus_SetAnimationFrameIfPoseChanged();
+  samus_y_radius = kPoseParams[samus_pose].y_radius;
+  samus_x_base_speed = 0;
+  samus_x_base_subspeed = 0;
+  samus_y_subspeed = 0;
+  samus_y_speed = 0;
+  samus_y_dir = 2;
+  flare_counter = 0;
+  flare_animation_frame = 0;
+  flare_slow_sparks_anim_frame = 0;
+  flare_fast_sparks_anim_frame = 0;
+  flare_animation_timer = 0;
+  flare_slow_sparks_anim_timer = 0;
+  flare_fast_sparks_anim_timer = 0;
+  Samus_LoadSuitPalette();
+  return 1;
+}
+
+uint8 SomeMotherBrainScripts_1(void) {  // 0x91E571
+  samus_anim_frame_timer = 16;
+  samus_anim_frame = 0;
+  if (samus_pose_x_dir == 4)
+    samus_pose = kPose_EB_FaceL_Drained_Stand;
+  else
+    samus_pose = kPose_EA_FaceR_Drained_Stand;
+  frame_handler_gamma = FUNC16(nullsub_152);
+  return 1;
+}
+
+uint8 SomeMotherBrainScripts_2(void) {  // 0x91E59B
+  if (samus_pose == kPose_E8_FaceR_Drained_CrouchFalling || samus_pose == kPose_E9_FaceL_Drained_CrouchFalling) {
+    samus_anim_frame_timer = 1;
+    samus_anim_frame = 13;
+  } else if (samus_pose == kPose_EA_FaceR_Drained_Stand || samus_pose == kPose_EB_FaceL_Drained_Stand) {
+    samus_anim_frame_timer = 1;
+    samus_anim_frame = 4;
+  }
+  samus_y_radius = kPoseParams[samus_pose].y_radius;
+  samus_x_base_speed = 0;
+  samus_x_base_subspeed = 0;
+  samus_y_subspeed = 0;
+  samus_y_speed = 0;
+  samus_y_dir = 2;
+  return 1;
+}
+
+uint8 SomeMotherBrainScripts_3_EnableHyperBeam(void) {  // 0x91E5F0
+  equipped_beams = 4105;
+  UpdateBeamTilesAndPalette();
+  SpawnPalfxObject(addr_stru_8DE1F0);
+  hyper_beam_flag = FUNC16(Samus_InputHandler);
+  play_resume_charging_beam_sfx = 0;
+  return 0;
+}
+
+uint8 SomeMotherBrainScripts_4(void) {  // 0x91E60C
+  samus_anim_frame_timer = 16;
+  samus_anim_frame = 8;
+  if (samus_pose_x_dir == 4)
+    samus_pose = kPose_E9_FaceL_Drained_CrouchFalling;
+  else
+    samus_pose = kPose_E8_FaceR_Drained_CrouchFalling;
+  return 1;
+}

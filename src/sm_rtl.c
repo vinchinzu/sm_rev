@@ -773,3 +773,6 @@ void RtlWriteSram(void) {
     fprintf(stderr, "Unable to write saves/sm.srm\n");
   }
 }
+
+void GameState_28_Unused_(void) {  // 0x91D4DA
+}

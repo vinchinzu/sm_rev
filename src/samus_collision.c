@@ -232,3 +232,148 @@ LABEL_38:
     return 0;
   }
 }
+
+static Func_U8 *const off_91FE8A[4] = {  // 0x91FDAE
+  HandleCollDueToChangedPose_Solid_NoColl,
+  HandleCollDueToChangedPose_Solid_CollAbove,
+  HandleCollDueToChangedPose_Solid_CollBelow,
+  HandleCollDueToChangedPose_Solid_CollBoth,
+};
+static Func_U8 *const off_91FE92[4] = {
+  HandleCollDueToChangedPose_Block_NoColl,
+  HandleCollDueToChangedPose_Block_CollAbove,
+  HandleCollDueToChangedPose_Block_CollBelow,
+  HandleCollDueToChangedPose_Block_CollBoth,
+};
+
+void HandleCollDueToChangedPose(void) {
+  CheckEnemyColl_Result cres;
+  int32 amt;
+  int16 v0;
+
+  if (!samus_pose || samus_pose == kPose_9B_FaceF_VariaGravitySuit)
+    return;
+  solid_enemy_collision_flags = 0;
+  block_collision_flags = 0;
+  v0 = kPoseParams[samus_prev_pose].y_radius;
+  if (!sign16(v0 - kPoseParams[samus_pose].y_radius))
+    return;
+  samus_y_radius = kPoseParams[samus_prev_pose].y_radius;
+  samus_y_radius_diff = kPoseParams[samus_pose].y_radius - v0;
+  samus_collision_direction = 2;
+  cres = Samus_CheckSolidEnemyColl(INT16_SHL16(samus_y_radius_diff));
+  samus_collision_flag = cres.collision, amt = cres.amt;
+  if (samus_collision_flag)
+    solid_enemy_collision_flags = 1;
+  samus_space_to_move_up_enemy = (amt >> 16);
+  samus_collision_direction = 3;
+  cres = Samus_CheckSolidEnemyColl(INT16_SHL16(samus_y_radius_diff));
+  samus_collision_flag = cres.collision, amt = cres.amt;
+  if (samus_collision_flag)
+    solid_enemy_collision_flags |= 2;
+  samus_space_to_move_down_enemy = (amt >> 16);
+  if (off_91FE8A[solid_enemy_collision_flags]()) {
+    samus_pose = samus_prev_pose;
+    return;
+  }
+  amt = Samus_CollDetectChangedPose(INT16_SHL16(-samus_y_radius_diff));
+  if (samus_collision_flag)
+    block_collision_flags = 1;
+  samus_space_to_move_up_blocks = (amt >> 16);
+  
+  amt = Samus_CollDetectChangedPose(INT16_SHL16(samus_y_radius_diff));
+  if (samus_collision_flag)
+    block_collision_flags |= 2;
+  samus_space_to_move_down_blocks = (amt >> 16);
+  if (off_91FE92[block_collision_flags]()) {
+    samus_pose = samus_prev_pose;
+  }
+}
+
+uint8 HandleCollDueToChangedPose_Solid_NoColl(void) {  // 0x91FE9A
+  return 0;
+}
+
+uint8 HandleCollDueToChangedPose_Solid_CollBoth(void) {  // 0x91FE9C
+  return 0;
+}
+
+uint8 HandleCollDueToChangedPose_Solid_CollAbove(void) {  // 0x91FE9E
+  uint16 v1 = samus_y_radius;
+  samus_y_radius = kPoseParams[samus_pose].y_radius;
+  samus_collision_direction = 3;
+  CheckEnemyColl_Result cres = Samus_CheckSolidEnemyColl(INT16_SHL16(samus_y_radius_diff - samus_space_to_move_up_enemy));
+  samus_y_radius = v1;
+  samus_collision_flag = cres.collision;
+  if (samus_collision_flag)
+    return 1;
+  samus_space_to_move_up_enemy = cres.amt >> 16;
+  return 0;
+}
+
+uint8 HandleCollDueToChangedPose_Solid_CollBelow(void) {  // 0x91FEDF
+  uint16 v1 = samus_y_radius;
+  samus_y_radius = kPoseParams[samus_pose].y_radius;
+  samus_collision_direction = 2;
+  CheckEnemyColl_Result cres = Samus_CheckSolidEnemyColl(INT16_SHL16(samus_y_radius_diff - samus_space_to_move_down_enemy));
+  samus_y_radius = v1;
+  samus_collision_flag = cres.collision;
+  if (samus_collision_flag)
+    return 1;
+  samus_space_to_move_down_enemy = cres.amt >> 16;
+  return 0;
+}
+
+uint8 HandleCollDueToChangedPose_Block_CollAbove(void) {  // 0x91FF20
+  int32 amt = Samus_CollDetectChangedPose(INT16_SHL16(samus_y_radius_diff - samus_space_to_move_up_blocks));
+  if (samus_collision_flag)
+    return 1;
+  if ((solid_enemy_collision_flags & 2) != 0)
+    return HandleCollDueToChangedPose_Block_CollBoth();
+  samus_y_pos += amt >> 16;
+  samus_prev_y_pos = samus_y_pos;
+  return 0;
+}
+
+uint8 HandleCollDueToChangedPose_Block_CollBelow(void) {  // 0x91FF49
+  int32 amt = Samus_CollDetectChangedPose(INT16_SHL16(samus_space_to_move_down_blocks - samus_y_radius_diff));
+  if (samus_collision_flag)
+    return 1;
+  if ((solid_enemy_collision_flags & 1) != 0)
+    return HandleCollDueToChangedPose_Block_CollBoth();
+  samus_y_pos -= amt >> 16;
+  samus_prev_y_pos = samus_y_pos;
+  return 0;
+}
+
+uint8 HandleCollDueToChangedPose_Block_NoColl(void) {  // 0x91FF76
+  switch (solid_enemy_collision_flags) {
+  case 0:
+    return 0;
+  case 1:
+    samus_y_pos += samus_space_to_move_up_enemy;
+    samus_prev_y_pos = samus_y_pos;
+    return 0;
+  case 2:
+    samus_y_pos -= samus_space_to_move_down_enemy;
+    samus_prev_y_pos = samus_y_pos;
+    return 0;
+  case 3:
+    return HandleCollDueToChangedPose_Block_CollBoth();
+  default:
+    Unreachable();
+    return 0;
+  }
+}
+
+uint8 HandleCollDueToChangedPose_Block_CollBoth(void) {  // 0x91FFA7
+  if (sign16(samus_y_radius - 8))
+    return 1;
+  samus_pose = (samus_pose_x_dir == 4) ? kPose_28_FaceL_Crouch : kPose_27_FaceR_Crouch;
+  uint16 r18 = kPoseParams[samus_pose].y_radius;
+  if (sign16(samus_y_radius - r18)) {
+    samus_y_pos += samus_y_radius - r18;
+    samus_prev_y_pos = samus_y_pos;
+  }
+  return 0;
+}

@@ -168,5 +168,167 @@ uint16 Samus_DetermineGrappleSwingSpeed_X(void) {  // 0x909C21
   }
   if ((lava_acid_y_pos & 0x8000) != 0 || !sign16(lava_acid_y_pos - r18))
     return addr_stru_909F31;
-  return addr_kSamusSpeedTable_Normal_X;
+}
+
+void nullsub_17(void) {}
+
+static Func_V *const off_91E6E1[28] = {  // 0x91E633
+  SamusFunc_E633_0,
+  nullsub_17,
+  nullsub_17,
+  SamusFunc_E633_3,
+  SamusFunc_E633_4,
+  nullsub_17,
+  nullsub_17,
+  nullsub_17,
+  SamusFunc_E633_4,
+  nullsub_17,
+  nullsub_17,
+  nullsub_17,
+  nullsub_17,
+  nullsub_17,
+  nullsub_17,
+  nullsub_17,
+  nullsub_17,
+  SamusFunc_E633_17,
+  SamusFunc_E633_17,
+  SamusFunc_E633_17,
+  SamusFunc_E633_20,
+  nullsub_17,
+  nullsub_17,
+  nullsub_17,
+  nullsub_17,
+  nullsub_17,
+  nullsub_17,
+  nullsub_17,
+};
+
+void SamusFunc_E633(void) {
+  off_91E6E1[samus_movement_type]();
+  if ((equipped_items & 0x2000) != 0) {
+    if (samus_has_momentum_flag && !speed_boost_counter) {
+      special_samus_palette_timer = speed_boost_counter;
+      special_samus_palette_frame = 0;
+      speed_boost_counter = kSpeedBoostToCtr[0];
+    }
+  } else {
+    speed_echoes_index = 0;
+    speed_echo_xspeed[0] = 0;
+    speed_echo_xspeed[1] = 0;
+    samus_has_momentum_flag = 0;
+    speed_boost_counter = 0;
+    special_samus_palette_frame = 0;
+    special_samus_palette_timer = 0;
+    speed_echo_xpos[0] = 0;
+    speed_echo_xpos[1] = 0;
+    speed_echo_ypos[0] = 0;
+    speed_echo_ypos[1] = 0;
+  }
+  if (grapple_beam_function == FUNC16(GrappleBeamFunc_Inactive)) {
+    if ((equipped_beams & 0x1000) != 0) {
+      if (!sign16(flare_counter - 16))
+        QueueSfx1_Max6(0x41);
+    } else {
+      flare_counter = 0;
+      flare_animation_frame = 0;
+      flare_slow_sparks_anim_frame = 0;
+      flare_fast_sparks_anim_frame = 0;
+      flare_animation_timer = 0;
+      flare_slow_sparks_anim_timer = 0;
+      flare_fast_sparks_anim_timer = 0;
+    }
+  } else {
+    LoadProjectilePalette(2);
+    QueueSfx1_Max6(6);
+  }
+  Samus_LoadSuitPalette();
+  if (sign16(samus_health - 31))
+    QueueSfx3_Max6(2);
+}
+
+void Samus_UpdatePreviousPose_0(void) {  // 0x91E719
+  samus_last_different_pose = samus_prev_pose;
+  *(uint16 *)&samus_last_different_pose_x_dir = *(uint16 *)&samus_prev_pose_x_dir;
+  samus_prev_pose = samus_pose;
+  *(uint16 *)&samus_prev_pose_x_dir = *(uint16 *)&samus_pose_x_dir;
+}
+
+void SamusFunc_E633_0(void) {  // 0x91E733
+  if (samus_pose) {
+    if (samus_pose == kPose_9B_FaceF_VariaGravitySuit && (equipped_items & 1) == 0 && (equipped_items & 0x20) == 0) {
+      samus_pose = kPose_00_FaceF_Powersuit;
+      goto LABEL_10;
+    }
+  } else if ((equipped_items & 1) != 0 || (equipped_items & 0x20) != 0) {
+    samus_pose = kPose_9B_FaceF_VariaGravitySuit;
+LABEL_10:
+    SamusFunc_F433();
+    Samus_SetAnimationFrameIfPoseChanged();
+    Samus_UpdatePreviousPose_0();
+  }
+}
+
+void SamusFunc_E633_3(void) {  // 0x91E776
+  if (samus_pose_x_dir == 4)
+    *(uint16 *)&samus_prev_pose_x_dir = 260;
+  else
+    *(uint16 *)&samus_prev_pose_x_dir = 264;
+  if (samus_pose != kPose_81_FaceR_Screwattack && samus_pose != kPose_82_FaceL_Screwattack) {
+    if (samus_pose != kPose_1B_FaceR_SpaceJump && samus_pose != kPose_1C_FaceL_SpaceJump)
+      goto LABEL_18;
+    if ((equipped_items & 8) != 0) {
+      if (samus_pose_x_dir == 4)
+        samus_pose = kPose_82_FaceL_Screwattack;
+      else
+        samus_pose = kPose_81_FaceR_Screwattack;
+      goto LABEL_18;
+    }
+    goto LABEL_15;
+  }
+  if ((equipped_items & 8) == 0) {
+LABEL_15:
+    if (samus_pose_x_dir == 4)
+      samus_pose = kPose_1A_FaceL_SpinJump;
+    else
+      samus_pose = kPose_19_FaceR_SpinJump;
+  }
+LABEL_18:
+  SamusFunc_F433();
+  Samus_SetAnimationFrameIfPoseChanged();
+  if (samus_pose_x_dir == 4)
+    *(uint16 *)&samus_prev_pose_x_dir = 772;
+  else
+    *(uint16 *)&samus_prev_pose_x_dir = 776;
+  Samus_UpdatePreviousPose_0();
+}
+
+void SamusFunc_E633_4(void) {  // 0x91E83A
+  if ((equipped_items & 2) != 0) {
+    if (samus_pose_x_dir == 4)
+      samus_pose = kPose_7A_FaceL_Springball_Ground;
+    else
+      samus_pose = kPose_79_FaceR_Springball_Ground;
+    SamusFunc_F433();
+    Samus_SetAnimationFrameIfPoseChanged();
+    Samus_UpdatePreviousPose_0();
+  }
+}
+
+void SamusFunc_E633_17(void) {  // 0x91E867
+  if ((equipped_items & 2) == 0) {
+    if (samus_pose_x_dir == 4)
+      samus_pose = kPose_41_FaceL_Morphball_Ground;
+    else
+      samus_pose = kPose_1D_FaceR_Morphball_Ground;
+    SamusFunc_F433();
+    Samus_SetAnimationFrameIfPoseChanged();
+    Samus_UpdatePreviousPose_0();
+  }
+}
+
+void SamusFunc_E633_20(void) {  // 0x91E894
+  if ((equipped_items & 8) != 0)
+    samus_anim_frame = 23;
+  else
+    samus_anim_frame = 3;
 }

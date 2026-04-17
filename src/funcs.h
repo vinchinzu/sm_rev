@@ -294,6 +294,7 @@ void sub_81AEC8(void);
 void SoftReset(void);
 
 // Bank 82
+CoroutineRet CallUnpauseHook_Async(uint32 ea);
 uint16 CalculateNthTransitionColorComponentFromXtoY(uint16 a, uint16 k, uint16 j);
 uint16 CalculateNthTransitionColorFromXtoY(uint16 a, uint16 k, uint16 j);
 uint16 CheckIfMapPositionIsExplored(uint16 k, uint16 j);
@@ -500,7 +501,7 @@ CoroutineRet InitAndLoadGameData_Async(void);
 void InitCpuForGameplay(void);
 void InitIoForGameplay(void);
 void InitPpuForGameplay(void);
-void LoaadDesinationRoomCreBitset(void);
+void LoadDestinationRoomCreBitset(void);
 void LoadCRETilesTilesetTilesAndPalette(void);
 void LoadColorsForSpritesBeamsAndEnemies(void);
 void LoadControllerOptionsFromControllerBindings(void);
