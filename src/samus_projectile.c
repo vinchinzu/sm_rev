@@ -282,6 +282,33 @@ void CallProjPreInstr(uint32 ea, uint16 k) {
   }
 }
 
+void ProjPreInstr_UnknownProj8027(uint16 k) {  // 0x90EFD3
+  static const int16 kProjPreInstr_UnknownProj8027_X[4] = { -4, -4, 4, 4 };
+  static const int16 kProjPreInstr_UnknownProj8027_Y[4] = { 4, -4, -4, 4 };
+  static const int16 kProjPreInstr_UnknownProj8027_X2[4] = { 0x80, 0x80, -0x80, -0x80 };
+  static const int16 kProjPreInstr_UnknownProj8027_Y2[4] = { -0x80, 0x80, 0x80, -0x80 };
+
+  int v1 = k >> 1;
+  projectile_x_pos[v1] += kProjPreInstr_UnknownProj8027_X[v1];
+  uint16 v2 = kProjPreInstr_UnknownProj8027_Y[v1] + projectile_y_pos[v1];
+  projectile_y_pos[v1] = v2;
+  if (v2 == samus_y_pos) {
+    if (projectile_variables[v1] == 1) {
+      if (k == 6)
+        samus_movement_handler = FUNC16(Samus_Func25_ShineSpark);
+      ClearProjectile(k);
+    } else {
+      int v3 = k >> 1;
+      ++projectile_variables[v3];
+      samus_shine_timer = 180;
+      timer_for_shine_timer = 1;
+      special_samus_palette_frame = 0;
+      projectile_x_pos[v3] = kProjPreInstr_UnknownProj8027_X2[v3] + samus_x_pos;
+      projectile_y_pos[v3] = kProjPreInstr_UnknownProj8027_Y2[v3] + samus_y_pos;
+    }
+  }
+}
+
 void HandleProjectile(void) {  // 0x90AECE
   projectile_index = 18;
   for (int i = 18; i >= 0; projectile_index = i) {

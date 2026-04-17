@@ -1294,7 +1294,7 @@ void Samus_Func9(void);
 uint16 Samus_GetTop_R20(void);
 uint16 Samus_GetBottom_R18(void);
 void Samus_GrabbedByDraygonFrameHandler(void);
-static void Samus_HandleAnimDelay(void);
+void Samus_HandleAnimDelay(void);
 void Samus_HandleCooldown(void);
 void Samus_HandleExtraRunspeedX(void);
 void Samus_HandleHudSpecificBehaviorAndProjs(void);

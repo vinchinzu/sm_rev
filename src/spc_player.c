@@ -1592,7 +1592,16 @@ void SpcPlayer_GenerateSamples(SpcPlayer *p) {
   }
 }
 
+static void SpcPlayer_ResetForUpload(SpcPlayer *p) {
+  memset((uint8 *)p + offsetof(SpcPlayer, port_to_snes), 0,
+         offsetof(SpcPlayer, ram) - offsetof(SpcPlayer, port_to_snes));
+  memset(p->ram, 0, sizeof(p->ram));
+  Vector_Reset_Spc(p);
+  Spc_Loop_Part1(p);
+}
+
 void SpcPlayer_Upload(SpcPlayer *p, const uint8_t *data) {
+  SpcPlayer_ResetForUpload(p);
   Dsp_Write(p, EVOLL, 0);
   Dsp_Write(p, EVOLR, 0);
   Dsp_Write(p, KOF, 0xff);

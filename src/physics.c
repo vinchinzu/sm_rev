@@ -71,6 +71,21 @@ void Samus_UpdateSpeedEchoPos(void) {  // 0x90EEE7
   }
 }
 
+void DEPRECATED_Samus_UpdateSpeedEchoPos(void) {  // 0x90EEE7
+  Samus_UpdateSpeedEchoPos();
+}
+
+void MoveSamusWithControlPad(void) {  // 0x90ECD5
+  if ((joypad1_lastkeys & 0x800) != 0)
+    Samus_MoveUp(INT16_SHL16(-4));
+  if ((joypad1_lastkeys & 0x400) != 0)
+    Samus_MoveDown(INT16_SHL16(4));
+  if ((joypad1_lastkeys & 0x200) != 0)
+    Samus_MoveLeft(INT16_SHL16(-4));
+  if ((joypad1_lastkeys & 0x100) != 0)
+    Samus_MoveRight(INT16_SHL16(4));
+}
+
 void Samus_MovementHandler_Normal(void) {
   if (!time_is_frozen_flag) {
     kSamusMovementHandlers[samus_movement_type]();
