@@ -616,3 +616,7 @@ void DisplayMapElevatorDestinations(void) {  // 0x82BB30
     }
   }
 }
+
+void sub_82B932(void) {  // 0x82B932
+  HandleMapScrollArrows();
+}

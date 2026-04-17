@@ -756,3 +756,25 @@ void HandlePauseScreenPaletteAnimation(void) {  // 0x82A92B
     }
   }
 }
+
+void DrawPauseMenuDuringFadeIn(void) {  // 0x82B62B
+  if (menu_index) {
+    EquipmentScreenDrawItemSelector();
+    EquipmentScreenDisplayReserveTankAmount();
+  } else {
+    MapScreenDrawSamusPositionIndicator();
+    DrawMapIcons();
+    DisplayMapElevatorDestinations();
+  }
+}
+
+void UNKNOWN_sub_82B650(void) {  // 0x82B650
+  if (pausemenu_button_label_mode) {
+    DisplayMapElevatorDestinations();
+    MapScreenDrawSamusPositionIndicator();
+    DrawMapIcons();
+  } else {
+    EquipmentScreenDrawItemSelector();
+    EquipmentScreenDisplayReserveTankAmount();
+  }
+}

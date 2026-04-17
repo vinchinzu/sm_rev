@@ -744,3 +744,76 @@ void LoadLibraryBackground(void) {
     } while (bg_data_ptr);
   }
 }
+
+void LoaadDesinationRoomCreBitset(void) {  // 0x82DDF1
+  uint16 room_definition_ptr = get_DoorDef(door_def_ptr)->room_definition_ptr;
+  previous_cre_bitset = cre_bitset;
+  cre_bitset = get_RoomDefHeader(room_definition_ptr)->cre_bitset_;
+}
+
+void LoadLevelScrollAndCre(void) {  // 0x82EA73
+  int16 rdf_scroll_ptr;
+  uint16 m;
+  int8 v10;
+  int8 v11;
+  int8 v12;
+
+  for (int i = 6398; i >= 0; i -= 2) {
+    level_data[i >> 1] = 0x8000;
+    level_data[(i >> 1) + 3200 * 1] = 0x8000;
+    level_data[(i >> 1) + 3200 * 2] = 0x8000;
+    level_data[(i >> 1) + 3200 * 3] = 0x8000;
+  }
+  DecompressToMem(Load24(&room_compr_level_data_ptr), (uint8 *)&ram7F_start);
+
+  uint16 size = ram7F_start;
+  memmove(custom_background, (uint8*)level_data + size + (size >> 1), size);
+  memmove(BTS, (uint8 *)level_data + size, size >> 1);
+
+  if (area_index == 6) {
+    DecompressToMem(Load24(&tileset_tile_table_pointer), (uint8*)&tile_table);
+  } else {
+    if ((cre_bitset & 2) != 0) {
+      DecompressToMem(0xb9a09d, (uint8*)&tile_table);
+    }
+    DecompressToMem(Load24(&tileset_tile_table_pointer), tile_table_cre_hi);
+  }
+  RoomDefRoomstate *RD = get_RoomDefRoomstate(roomdefroomstate_ptr);
+  rdf_scroll_ptr = RD->rdf_scroll_ptr;
+  if (rdf_scroll_ptr >= 0) {
+    uint16 r18 = RD->rdf_scroll_ptr;
+    uint8 r20 = room_height_in_scrolls - 1;
+    uint8 v8 = 2;
+    uint8 v9 = 0;
+    v10 = 0;
+    do {
+      if (v10 == r20)
+        v8 = r18 + 1;
+      v12 = v10;
+      v11 = 0;
+      do {
+        scrolls[v9++] = v8;
+        ++v11;
+      } while (v11 != (uint8)room_width_in_scrolls);
+      v10 = v12 + 1;
+    } while (v12 + 1 != (uint8)room_height_in_scrolls);
+  } else {
+    for (m = 0; m != 50; m += 2) {
+      *(uint16 *)&scrolls[m] = *(uint16 *)RomPtr_8F(rdf_scroll_ptr);
+      rdf_scroll_ptr += 2;
+    }
+  }
+}
+
+void CreatePlmsExecuteDoorAsmRoomSetup(void) {  // 0x82EB6C
+  RoomDefRoomstate *RoomDefRoomstate;
+  RoomDefRoomstate = get_RoomDefRoomstate(roomdefroomstate_ptr);
+  if (RoomDefRoomstate->room_plm_header_ptr) {
+    for (int i = RoomDefRoomstate->room_plm_header_ptr; get_RoomPlmEntry(i)->plm_header_ptr_; i += 6)
+      SpawnRoomPLM(i);
+  }
+  RunDoorSetupCode();
+  RunRoomSetupCode();
+  if (elevator_flags)
+    elevator_status = 2;
+}
