@@ -1,0 +1,57 @@
+# ROMs and local game binaries
+*.smc
+*.sfc
+sm_rev
+
+# Build artifacts
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+build/
+dist/
+out/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.venv/
+venv/
+env/
+ENV/
+
+# Tooling and local agent state
+.beads/
+beads/
+.gemini/
+
+# Logs and scratch files
+*.log
+*.tmp
+*.bak
+*.orig
+*.rej
+*.swp
+*.swo
+*~
+scratch.patch
+
+# Local recovery/output directories
+recovered/
+recovered_matched/
+
+# Keep local save files available
+!saves/
+!saves/**
