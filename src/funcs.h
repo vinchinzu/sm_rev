@@ -1890,7 +1890,7 @@ void Xray_SetupStage7(void);
 void Xray_SetupStage8_SetBackdropColor(void);
 void sub_91EFC3(void);
 
-// Bank 92
+// Former sm_92.c (extracted into samus_draw.c / samus_runtime.c)
 uint8 PlaySamusFanfare(void);
 void DrawSamusSuitExploding(void);
 void SetSamusTilesDefsForCurAnim(void);

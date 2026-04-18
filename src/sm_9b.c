@@ -3,6 +3,9 @@
 #include "variables.h"
 #include "funcs.h"
 
+// Forward declaration for function now in samus_draw.c
+void DrawSamusSuitExploding(void);
+
 #define g_off_9BA4B3 ((uint16*)RomFixedPtr(0x9ba4b3))
 #define g_off_9BA4CB ((uint16*)RomFixedPtr(0x9ba4cb))
 #define g_off_9BA4E3 ((uint16*)RomFixedPtr(0x9ba4e3))

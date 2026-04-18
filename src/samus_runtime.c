@@ -7,6 +7,9 @@
 #include "sm_rtl.h"
 #include "funcs.h"
 
+// Forward declarations for functions defined later in this file
+uint8 PlaySamusFanfare(void);
+
 static const uint8 kSamus_MoveDown_SetPoseCalcInput_Tab0[28] = {  // 0x90E61B
   0, 0, 4, 4, 1, 0, 4, 2,
   4, 4, 0, 0, 0, 0, 4, 4,
@@ -1127,5 +1130,27 @@ LABEL_15:
       && frame_handler_gamma == FUNC16(DrawTimer_)
       && game_state != kGameState_35_TimeUp) {
     game_state = kGameState_35_TimeUp;
+  }
+}
+
+// Extracted from sm_92.c: Item acquisition fanfare
+
+uint8 PlaySamusFanfare(void) {  // 0x92ED24
+  if (substate) {
+    if (substate == 5)
+      PlayRoomMusicTrackAfterAFrames(0x168);
+  } else {
+    QueueMusic_DelayedY(1, 0xE);
+  }
+  if (sign16(substate - 359)) {
+    ++substate;
+    return 0;
+  } else {
+    samus_last_different_pose = samus_prev_pose;
+    *(uint16 *)&samus_last_different_pose_x_dir = *(uint16 *)&samus_prev_pose_x_dir;
+    samus_prev_pose = samus_pose;
+    *(uint16 *)&samus_prev_pose_x_dir = *(uint16 *)&samus_pose_x_dir;
+    substate = 0;
+    return 1;
   }
 }
