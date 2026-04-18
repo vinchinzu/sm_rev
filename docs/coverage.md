@@ -36,7 +36,7 @@ Generated: 2026-04-16
 | sm_91.c | $91 | Aran (extended Samus state) | 272 | 10 | ✅ |
 | sm_92.c | $92 | Samus animations | — | 0 | ✅ |
 | sm_93.c | $93 | Projectiles | — | 0 | ✅ |
-| sm_94.c | $94 | Block properties, cutscene gfx | 134 | 3 | ✅ |
+| bank_94 split | $94 | Block properties, trig tables | 134 | 3 | ✅ |
 | sm_9b.c | $9B | CPU infrastructure (misc) | 55 | 0 | ✅ |
 | sm_a0.c | $A0 | Enemies (common AI, collision) | 153 | 0 | ✅ |
 | sm_a2.c | $A2 | Enemy AI — gunship, shutters | 306 | 1 | ✅ |
@@ -84,17 +84,18 @@ widely in size and importance if the goal is to port them into smaller, purpose-
 | `sm_91.c` | $91 | Aran (extended Samus state) | 2654 | 7.1% | L | P0 | Samus input/pose/transition hub; highest core risk |
 | `sm_92.c` | $92 | Samus animations | 52 | 0.1% | XS | P2 | Very small animation bank |
 | `sm_93.c` | $93 | Projectiles | 262 | 0.7% | XS | P0 | Cheap combat-coverage win |
-| `sm_94.c` | $94 | Block properties, cutscene gfx | 1580 | 4.2% | M | P0 | Traversal-critical block and projectile reactions; grapple runtime moved out |
 | `sm_9b.c` | $9B | CPU infrastructure (misc) | 1119 | 3.0% | M | P1 | Support bank; touch when blocked by shared infra |
 
-**80s/90s total:** 37,212 raw lines
+**80s/90s total:** 36,289 raw lines
 
-`sm_94.c` now excludes the grapple subsystem. The extracted [`samus_grapple.c`](../src/samus_grapple.c)
-is 742 LOC and intentionally sits outside this bank-shaped tracker so `mini` can drop grapple cleanly.
+Bank $94 is now fully retired as a bank-shaped file. Its gameplay/runtime code lives in
+[`samus_collision.c`](../src/samus_collision.c), [`samus_grapple.c`](../src/samus_grapple.c), and
+[`projectile_block_collision.c`](../src/projectile_block_collision.c), while the shared sine/cosine
+table now lives in [`trig_tables.c`](../src/trig_tables.c).
 
 ### Suggested Triage Order
 
-- **Start here for core coverage:** `sm_90.c`, `sm_91.c`, `sm_94.c`, `sm_82.c`, `sm_84.c`
+- **Start here for core coverage:** `sm_90.c`, `sm_91.c`, `sm_82.c`, `sm_84.c`
 - **Cheap core wins to slot in early:** `sm_93.c`, `sm_8f.c`, `sm_89.c`
 - **Secondary but important after core path:** `sm_86.c`, `sm_80.c`, `sm_9b.c`
 - **Usually safe to defer:** `sm_81.c`, `sm_85.c`, `sm_87.c`, `sm_88.c`, `sm_8b.c`, `sm_8d.c`, `sm_92.c`
@@ -150,7 +151,7 @@ small shared enemy support banks can be higher-value than a very large boss-only
 
 ### Intentional No-Ops Worth Understanding
 
-- **`SetCarry_Spikeblk` / `ClearCarry_8`** (`sm_94.c`) — spike block collision table entries.
+- **`SetCarry_Spikeblk` / `ClearCarry_8`** (`samus_collision.c`) — spike block collision table entries.
   These are legitimately empty: the carry flag manipulation was a SNES CPU artifact.
   In C, the carry-setting is handled by the dispatch table return value, so these are genuine no-ops.
 

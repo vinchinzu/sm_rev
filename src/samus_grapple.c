@@ -1,4 +1,4 @@
-// Samus grapple helpers extracted from sm_94.c: post-grapple ejection,
+// Samus grapple helpers extracted from bank 94: post-grapple ejection,
 // beam collision probing, swing constraints, and beam rendering.
 
 #include "ida_types.h"
