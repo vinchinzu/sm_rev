@@ -982,35 +982,10 @@ void SpawnEprojWithRoomGfx(uint16 j, uint16 a);
 void SpawnMotherBrainDeathBeam(uint16 k);
 
 // Bank 87
-uint16 AnimtilesInstr_Clear3PaletteColors(uint16 k, uint16 j);
-uint16 AnimtilesInstr_DecrementTimerAndGoto(uint16 k, uint16 j);
-uint16 AnimtilesInstr_DecrementTimerAndGotoRel(uint16 k, uint16 j);
-uint16 AnimtilesInstr_Delete(uint16 k, uint16 j);
-uint16 AnimtilesInstr_Goto(uint16 k, uint16 j);
-uint16 AnimtilesInstr_GotoIfBossBitSet(uint16 k, uint16 j);
-uint16 AnimtilesInstr_GotoIfBossBitSetInArea(uint16 k, uint16 j);
-uint16 AnimtilesInstr_GotoIfEventHappened(uint16 k, uint16 j);
-uint16 AnimtilesInstr_GotoIfTourianStatueBusy(uint16 k, uint16 j);
-uint16 AnimtilesInstr_GotoRel(uint16 k, uint16 j);
-uint16 AnimtilesInstr_QueueMusic(uint16 k, uint16 j);
-uint16 AnimtilesInstr_QueueSfx1(uint16 k, uint16 j);
-uint16 AnimtilesInstr_QueueSfx2(uint16 k, uint16 j);
-uint16 AnimtilesInstr_QueueSfx3(uint16 k, uint16 j);
-uint16 AnimtilesInstr_SetBossBit(uint16 k, uint16 j);
-uint16 AnimtilesInstr_SetEventHappened(uint16 k, uint16 j);
-uint16 AnimtilesInstr_SetTimer(uint16 k, uint16 j);
-uint16 AnimtilesInstr_SpawnPalfxObj(uint16 k, uint16 j);
-uint16 AnimtilesInstr_SpawnTourianStatueEyeGlow(uint16 k, uint16 j);
-uint16 AnimtilesInstr_SpawnTourianStatueSoul(uint16 k, uint16 j);
-uint16 AnimtilesInstr_TourianStatueClearState(uint16 k, uint16 j);
-uint16 AnimtilesInstr_TourianStatueSetState(uint16 k, uint16 j);
-uint16 AnimtilesInstr_WaitUntilAreaBossDead_DoubleRet(uint16 k, uint16 j);
-uint16 AnimtilesInstr_Write8PaletteColors(uint16 k, uint16 j);
 void AnimtilesHandler(void);
 void ClearAnimtiles(void);
 void DisableAnimtiles(void);
 void EnableAnimtiles(void);
-void ProcessAnimtilesObject(void);
 void SpawnAnimtiles(uint16 j);
 
 // Bank 88
@@ -1231,7 +1206,6 @@ uint16 sub_8BB51E(uint16 k, uint16 j);
 void ClearPaletteFXObjects(void);
 void DisablePaletteFx(void);
 void EnablePaletteFx(void);
-void PalFx_ProcessOne(uint16 k);
 void PaletteFxHandler(void);
 void SpawnPalfxObject(uint16 j);
 
@@ -1943,7 +1917,6 @@ uint16 GameState_24_SamusNoHealth_Explosion_2(void);
 uint16 GameState_24_SamusNoHealth_Explosion_Helper(void);
 uint16 HandleSamusDeathSequence(void);
 uint8 CheckIfGrappleIsConnectedToBlock(void);
-uint8 ClearCarry_12(void);
 uint8 HandleSpecialGrappleBeamAngles(void);
 void CancelGrappleBeamIfIncompatiblePose(void);
 void CopyPalettesForSamusDeath(uint16 k);
@@ -1969,11 +1942,11 @@ void ProjectileTrail_Func5(uint16 k, uint16 j);
 void PropelSamusFromGrappleSwing(void);
 void QueueTransferOfSamusDeathSequence(uint16 j);
 void StartSamusDeathAnimation(void);
-void UpdateGrappleBeamTiles(void);
 void UpdateGrappleBeamTilesAndIncrFlameCtr(void);
 void GrappleBeamFunc_BD95(void);
 void GrappleBeamFunc_BEEB(void);
 void GrappleBeamFunc_BF1B(void);
+void CallGrappleNextFunc(uint32 ea);
 
 // Bank A0
 uint16 Abs16(uint16 a);
@@ -4359,7 +4332,6 @@ void sub_AAE445(uint16 k);
 void sub_AAE784(void);
 
 // Bank AD
-uint8 MotherBrain_EEF6(uint16 a);
 uint8 MotherBrain_FadeFromGray_Drained(uint16 a);
 uint8 MotherBrain_FadeFromGray_FakeDeath(uint16 a);
 uint8 MotherBrain_FadePalToBlack(uint16 a);
@@ -4370,16 +4342,6 @@ uint8 MotherBrain_Phase3_TurnLightsBackOn(uint16 a);
 void EnableEarthquakeAframes(uint16 a);
 void HandleMotherBrainBodyFlickering(void);
 void MotherBrain_CalcHdma(void);
-void MotherBrain_CalcHdma_BeamAimedRight(uint16 r22, uint16 r24);
-void MotherBrain_CalcHdma_BeamAimedRight2(void);
-void MotherBrain_CalcHdma_BeamAimedUp(void);
-void MotherBrain_CalcHdma_Down(void);
-void MotherBrain_CalcHdma_Down_Down(uint16 r22, uint16 r24);
-void MotherBrain_CalcHdma_Down_DownLeft(uint16 r22, uint16 r24);
-void MotherBrain_CalcHdma_Down_DownRight(uint16 r22, uint16 r24);
-void MotherBrain_CalcHdma_Up_Up(uint16 r22, uint16 r24);
-void MotherBrain_CalcHdma_Up_UpLeft(uint16 r22, uint16 r24);
-void MotherBrain_CalcHdma_Up_UpRight(uint16 r22, uint16 r24);
 void MotherBrain_HealthBasedPaletteHandling(void);
 void MotherBrain_SealWall(void);
 void TurnOffLightsForShitroidDeath(void);

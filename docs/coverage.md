@@ -74,12 +74,9 @@ These `src/sm_XX.c` files are what the triage targets. Core priority rubric:
 | File | Bank | System | LOC | LOE | Core priority | Triage note |
 |------|------|--------|-----|-----|---------------|-------------|
 | `sm_81.c` | $81 | SRAM, spritemaps, save/file-select/map menus | 2527 | L | P2 | Menu/UI mass; low gameplay leverage. Clear split: save vs. menus vs. spritemap helpers. |
-| `sm_85.c` | $85 | Message boxes | 427 | S | P2 | Isolated UI; fast standalone win. |
 | `sm_86.c` | $86 | Enemy projectiles (eprojs) | 5294 | XL | P1 | Biggest remaining combat surface. Factors cleanly by owning boss/room. |
-| `sm_87.c` | $87 | Animated tiles | 273 | XS | P2 | Tiny; lift to `anim_tiles.c` in one session. |
 | `sm_88.c` | $88 | HDMA — layer blending, power bomb, liquid FX, suit pickup | 3342 | L | P2 | Large presentation bank; splits cleanly by HDMA effect. |
 | `sm_8b.c` | $8B | Cinematics (intro, credits, Mode7, text) | 6395 | XL | P2 | Biggest file remaining. Safely last. |
-| `sm_8d.c` | $8D | Palette-FX objects | 324 | S | P2 | Small enough to lift whole → `palette_fx.c`. |
 | `sm_9b.c` | $9B | Samus death seq, grapple (partial), projectile trail | 1122 | M | P1 | Small but touches Samus death + grapple — split into existing `samus_*` files. |
 
 ### Enemy banks
@@ -101,23 +98,21 @@ Core priority uses a separate rubric here:
 | `sm_a8.c` | $A8 | Enemy AI — Ki-Hunter | 4068 | XL | P1 | Broad combat patterns, good midgame rep |
 | `sm_a9.c` | $A9 | Enemy AI — Mother Brain, Shitroid | 6499 | XL | P2 | Largest + finale-specific. Defer. |
 | `sm_aa.c` | $AA | Enemy AI — Torizo, Tourian statue, Shaktool | 1546 | M | P1 | Compact progression-gate coverage |
-| `sm_ad.c` | $AD | Mother Brain HDMA support | 443 | S | P2 | Mostly Phase-3 HDMA |
 | `sm_b2.c` | $B2 | Enemy AI — Space Pirates | 775 | S | P1 | Cheap common-enemy win |
 | `sm_b3.c` | $B3 | Enemy AI — Botwoon | 1403 | M | P2 | Boss-only |
 
-**Bank-shaped total remaining:** 60,402 raw lines across 22 files.
+**Bank-shaped total remaining:** 58,935 raw lines across 18 files.
 
 ## What's driving priority
 
 See [port_triage.md](port_triage.md) for the chunked plan. Short form:
 
 1. Samus / SNES / mini-build unblockers first (`sm_9b`, leftover `sm_80` migration).
-2. Cheap atomic modules next (`sm_87`, `sm_8d`, `sm_85`).
-3. Shared enemy infrastructure (`sm_a0`) before any individual enemy bank.
-4. Enemy projectiles (`sm_86`) after common enemy infra exists.
-5. Small enemies & progression-gate bosses (`sm_b2`, `sm_aa`).
-6. Large HDMA / menu banks (`sm_88`, `sm_81`) when blocked by them.
-7. Cinematics (`sm_8b`) and full-boss banks (`sm_a9`, `sm_a6`, etc.) last.
+2. Shared enemy infrastructure (`sm_a0`) before any individual enemy bank.
+3. Enemy projectiles (`sm_86`) after common enemy infra exists.
+4. Small enemies & progression-gate bosses (`sm_b2`, `sm_aa`).
+5. Large HDMA / menu banks (`sm_88`, `sm_81`) when blocked by them.
+6. Cinematics (`sm_8b`) and full-boss banks (`sm_a9`, `sm_a6`, etc.) last.
 
 ## Non-coverage scope still open
 

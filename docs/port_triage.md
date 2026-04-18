@@ -21,9 +21,10 @@ mini-build value and keeps each session within a 700–1000 LOC refactor budget
 
 - ✅ GONE: `sm_80.c` (→ `game_init`/`game_state_extras`/`nmi_transfer`/`palette_fader`/
   `util`/`hud`/`timer`/`irq`), `sm_82.c` (→ split), `sm_84.c` (→ `plm_*`), `sm_89.c`,
-  `sm_8f.c`, `sm_90.c` / `sm_91.c` (→ `samus_*`), `sm_92.c`, `sm_93.c`, `sm_b4.c`.
-- ⚠ In-flight in working tree: the `sm_80.c` piece migration (5 files M + 1 D in `git status`).
-- 📁 Remaining bank-shaped files: 22, totalling ~60k LOC.
+  `sm_8f.c`, `sm_90.c` / `sm_91.c` (→ `samus_*`), `sm_92.c`, `sm_93.c`, `sm_b4.c`,
+  `sm_85.c` (→ `message_box.c`), `sm_87.c` (→ `anim_tiles.c`), `sm_8d.c` (→ `palette_fx.c`),
+  `sm_ad.c` (→ `mother_brain_hdma.c`).
+- 📁 Remaining bank-shaped files: 18, totalling ~58.9k LOC.
 
 ---
 
@@ -57,28 +58,27 @@ Not a bank file, but oversized and blocks future projectile work.
 
 ---
 
-# Phase 2 — small standalone modules (cheap wins; one session each)
+# Phase 2 — small standalone modules (complete)
 
 Each of these is <500 LOC and can be lifted whole into a topical file. Keep for
 days when you want low-risk forward progress.
 
-### Session 2.1 — `sm_87.c` (273 LOC) → `anim_tiles.c`
+### Session 2.1 — `sm_87.c` (273 LOC) → `anim_tiles.c` ✅
 - Straight rename + internal cleanup (instr table, handler).
 - Make instr handlers `static`; expose only `EnableAnimtiles`/`DisableAnimtiles`/
   `ClearAnimtiles`/`SpawnAnimtiles`/`AnimtilesHandler` via `funcs.h`.
 
-### Session 2.2 — `sm_8d.c` (324 LOC) → `palette_fx.c`
+### Session 2.2 — `sm_8d.c` (324 LOC) → `palette_fx.c` ✅
 - Straight rename. Small cluster of `PalFx*` handlers + palette-object dispatcher.
 - Expose `EnablePaletteFx`/`DisablePaletteFx`/`ClearPaletteFXObjects`/
   `SpawnPalfxObject`/`PaletteFxHandler`.
 
-### Session 2.3 — `sm_85.c` (427 LOC) → `message_box.c`
+### Session 2.3 — `sm_85.c` (427 LOC) → `message_box.c` ✅
 - Already fully `static`-gated internally; lift as-is.
-- Only public symbol: `DisplayMessageBox`.
+- Keep the existing `DisplayMessageBox*` entry points stable; internal helpers stay local.
 
-### Session 2.4 — `sm_ad.c` (443 LOC) → `mother_brain_hdma.c` (defer bucket)
-- Self-contained Mother Brain Phase-3 HDMA helpers.
-- Low value now (MB is finale-only); park unless blocked.
+### Session 2.4 — `sm_ad.c` (443 LOC) → `mother_brain_hdma.c` ✅
+- Self-contained Mother Brain Phase-3 HDMA helpers lifted as a topical module.
 
 ---
 

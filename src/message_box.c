@@ -3,7 +3,7 @@
 #include "variables.h"
 #include "funcs.h"
 
-uint16 message_box_das0l_value;
+static uint16 message_box_das0l_value;
 
 
 #define kMessageBoxDefs ((MsgBoxConfig*)RomFixedPtr(0x85869b))

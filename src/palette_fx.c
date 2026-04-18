@@ -4,9 +4,11 @@
 #include "funcs.h"
 
 
-void CallPalfxFunc(uint32 ea, uint16 k, uint16 j);
-PairU16 CallPalInstr(uint32 ea, uint16 k, uint16 j);
-void CallPalFxPreInstr(uint32 ea, uint16 k);
+static void CallPalfxFunc(uint32 ea, uint16 k, uint16 j);
+static PairU16 CallPalInstr(uint32 ea, uint16 k, uint16 j);
+static void CallPalFxPreInstr(uint32 ea, uint16 k);
+static void PalPreInstr_nullsub_129(uint16 k);
+static void PalFx_ProcessOne(uint16 k);
 
 void EnablePaletteFx(void) {  // 0x8DC4C2
   flag_for_palette_fx_objects |= 0x8000;
@@ -41,7 +43,7 @@ void SpawnPalfxObject(uint16 j) {  // 0x8DC4E9
   CallPalfxFunc(PalFxDef->func | 0x8D0000, -1, v1);
 }
 
-void PalPreInstr_nullsub_129(uint16 k) {  // 0x8DC526
+static void PalPreInstr_nullsub_129(uint16 k) {  // 0x8DC526
 }
 
 void PaletteFxHandler(void) {  // 0x8DC527
@@ -56,7 +58,7 @@ void PaletteFxHandler(void) {  // 0x8DC527
   }
 }
 
-void PalFx_ProcessOne(uint16 k) {  // 0x8DC54A
+static void PalFx_ProcessOne(uint16 k) {  // 0x8DC54A
   CallPalFxPreInstr(palettefx_pre_instr[k >> 1] | 0x8D0000, k);
   uint16 v1 = palettefx_index;
   if (palettefx_instr_timers[v1 >> 1]-- != 1)
@@ -94,56 +96,56 @@ void PalFx_ProcessOne(uint16 k) {  // 0x8DC54A
   } while (j);
 }
 
-PairU16 PalInstr_Wait(uint16 k, uint16 j) {  // 0x8DC595
+static PairU16 PalInstr_Wait(uint16 k, uint16 j) {  // 0x8DC595
   palettefx_instr_list_ptrs[palettefx_index >> 1] = j + 4;
   return MakePairU16(0, 0);
 }
 
-PairU16 PalInstr_ColorPlus2(uint16 k, uint16 j) {  // 0x8DC599
+static PairU16 PalInstr_ColorPlus2(uint16 k, uint16 j) {  // 0x8DC599
   return MakePairU16(k + 4, j + 2);
 }
 
-PairU16 PalInstr_ColorPlus3(uint16 k, uint16 j) {  // 0x8DC5A2
+static PairU16 PalInstr_ColorPlus3(uint16 k, uint16 j) {  // 0x8DC5A2
   return MakePairU16(k + 6, j + 2);
 }
 
-PairU16 PalInstr_ColorPlus4(uint16 k, uint16 j) {  // 0x8DC5AB
+static PairU16 PalInstr_ColorPlus4(uint16 k, uint16 j) {  // 0x8DC5AB
   return MakePairU16(k + 8, j + 2);
 }
 
-PairU16 PalInstr_ColorPlus8(uint16 k, uint16 j) {  // 0x8DC5B4
+static PairU16 PalInstr_ColorPlus8(uint16 k, uint16 j) {  // 0x8DC5B4
   return MakePairU16(k + 16, j + 2);
 }
 
-PairU16 PalInstr_ColorPlus9(uint16 k, uint16 j) {  // 0x8DC5BD
+static PairU16 PalInstr_ColorPlus9(uint16 k, uint16 j) {  // 0x8DC5BD
   return MakePairU16(k + 18, j + 2);
 }
 
-PairU16 PalInstr_ColorPlus15(uint16 k, uint16 j) {  // 0x8DC5C6
+static PairU16 PalInstr_ColorPlus15(uint16 k, uint16 j) {  // 0x8DC5C6
   return MakePairU16(k + 30, j + 2);
 }
 
-PairU16 PalInstr_Delete(uint16 k, uint16 j) {  // 0x8DC5CF
+static PairU16 PalInstr_Delete(uint16 k, uint16 j) {  // 0x8DC5CF
   palettefx_ids[k >> 1] = 0;
   return MakePairU16(k, 0);
 }
 
-PairU16 PalInstr_SetPreInstr(uint16 k, uint16 j) {  // 0x8DC5D4
+static PairU16 PalInstr_SetPreInstr(uint16 k, uint16 j) {  // 0x8DC5D4
   palettefx_pre_instr[k >> 1] = *(uint16 *)RomPtr_8D(j);
   return MakePairU16(k, j + 2);
 }
 
-PairU16 PalInstr_ClearPreInstr(uint16 k, uint16 j) {  // 0x8DC5DD
+static PairU16 PalInstr_ClearPreInstr(uint16 k, uint16 j) {  // 0x8DC5DD
   palettefx_pre_instr[k >> 1] = addr_locret_8DC5E3;
   return MakePairU16(k, j);
 }
 
-PairU16 PalInstr_Goto(uint16 k, uint16 j) {  // 0x8DC61E
+static PairU16 PalInstr_Goto(uint16 k, uint16 j) {  // 0x8DC61E
   uint16 v2 = *(uint16 *)RomPtr_8D(j);
   return MakePairU16(k, v2);
 }
 
-PairU16 PalInstr_DecTimerGoto(uint16 k, uint16 j) {  // 0x8DC639
+static PairU16 PalInstr_DecTimerGoto(uint16 k, uint16 j) {  // 0x8DC639
   PairU16 v4;
 
   int v2 = k >> 1;
@@ -153,45 +155,45 @@ PairU16 PalInstr_DecTimerGoto(uint16 k, uint16 j) {  // 0x8DC639
   return MakePairU16(v4.k, v4.j);
 }
 
-PairU16 PalInstr_SetTimer(uint16 k, uint16 j) {  // 0x8DC648
+static PairU16 PalInstr_SetTimer(uint16 k, uint16 j) {  // 0x8DC648
   *((uint8 *)palettefx_timers + k) = *RomPtr_8D(j);
   return MakePairU16(k, j + 1);
 }
 
-PairU16 PalInstr_SetColorIndex(uint16 k, uint16 j) {  // 0x8DC655
+static PairU16 PalInstr_SetColorIndex(uint16 k, uint16 j) {  // 0x8DC655
   palettefx_color_indexes[k >> 1] = *(uint16 *)RomPtr_8D(j);
   return MakePairU16(k, j + 2);
 }
 
-PairU16 PalInstr_QueueMusic(uint16 k, uint16 j) {  // 0x8DC65E
+static PairU16 PalInstr_QueueMusic(uint16 k, uint16 j) {  // 0x8DC65E
   const uint8 *v2 = RomPtr_8D(j);
   QueueMusic_Delayed8(*v2);
   return MakePairU16(k, j + 1);
 }
 
-PairU16 PalInstr_QueueSfx1(uint16 k, uint16 j) {  // 0x8DC66A
+static PairU16 PalInstr_QueueSfx1(uint16 k, uint16 j) {  // 0x8DC66A
   const uint16 *v2 = (const uint16 *)RomPtr_8D(j);
   QueueSfx1_Max6(*v2);
   return MakePairU16(k, j + 1);
 }
 
-PairU16 PalInstr_QueueSfx2(uint16 k, uint16 j) {  // 0x8DC673
+static PairU16 PalInstr_QueueSfx2(uint16 k, uint16 j) {  // 0x8DC673
   const uint16 *v2 = (const uint16 *)RomPtr_8D(j);
   QueueSfx2_Max6(*v2);
   return MakePairU16(k, j + 1);
 }
 
-PairU16 PalInstr_QueueSfx3(uint16 k, uint16 j) {  // 0x8DC67C
+static PairU16 PalInstr_QueueSfx3(uint16 k, uint16 j) {  // 0x8DC67C
   const uint16 *v2 = (const uint16 *)RomPtr_8D(j);
   QueueSfx3_Max6(*v2);
   return MakePairU16(k, j + 1);
 }
 
-void PalInit_E1BC(uint16 k, uint16 j) {  // 0x8DE204
+static void PalInit_E1BC(uint16 k, uint16 j) {  // 0x8DE204
   palettefx_pre_instr[j >> 1] = FUNC16(PalPreInstr_E1BC);
 }
 
-void PalPreInstr_E1BC(uint16 k) {  // 0x8DE20B
+static void PalPreInstr_E1BC(uint16 k) {  // 0x8DE20B
   if (cinematic_function == FUNC16(CinematicFunction_Intro_Page2)) {
     int v1 = k >> 1;
     palettefx_instr_list_ptrs[v1] = addr_off_8DE192;
@@ -199,12 +201,12 @@ void PalPreInstr_E1BC(uint16 k) {  // 0x8DE20B
   }
 }
 
-void PalPreInstr_CheckEnemy0Health(uint16 k) {  // 0x8DE2E0
+static void PalPreInstr_CheckEnemy0Health(uint16 k) {  // 0x8DE2E0
   if (!enemy_data[0].health)
     palettefx_ids[k >> 1] = 0;
 }
 
-void PalPreInstr_SamusInHeat(uint16 k) {  // 0x8DE379
+static void PalPreInstr_SamusInHeat(uint16 k) {  // 0x8DE379
   if ((equipped_items & 0x21) == 0) {
     AddToHiLo(&samus_periodic_damage, &samus_periodic_subdamage, 0x4000);
     if ((nmi_frame_counter_word & 7) == 0 && samus_health > 0x46)
@@ -226,7 +228,7 @@ void PalPreInstr_SamusInHeat(uint16 k) {  // 0x8DE379
   }
 }
 
-void PalInit_F761_Norfair1(uint16 k, uint16 j) {  // 0x8DE440
+static void PalInit_F761_Norfair1(uint16 k, uint16 j) {  // 0x8DE440
   uint16 v2;
   if ((equipped_items & 0x20) != 0) {
     v2 = addr_off_8DE8B6;
@@ -238,7 +240,7 @@ void PalInit_F761_Norfair1(uint16 k, uint16 j) {  // 0x8DE440
   palettefx_instr_list_ptrs[j >> 1] = v2;
 }
 
-void PalPreInstr_SwitchIfYpos(uint16 k) {  // 0x8DEC59
+static void PalPreInstr_SwitchIfYpos(uint16 k) {  // 0x8DEC59
   if (samus_y_pos < 0x380) {
     int v2 = k >> 1;
     palettefx_instr_timers[v2] = 1;
@@ -246,7 +248,7 @@ void PalPreInstr_SwitchIfYpos(uint16 k) {  // 0x8DEC59
   }
 }
 
-void PalPreInstr_SwitchIfYpos2(uint16 k) {  // 0x8DED84
+static void PalPreInstr_SwitchIfYpos2(uint16 k) {  // 0x8DED84
   if (samus_y_pos < 0x380) {
     int v2 = k >> 1;
     palettefx_instr_timers[v2] = 1;
@@ -254,27 +256,27 @@ void PalPreInstr_SwitchIfYpos2(uint16 k) {  // 0x8DED84
   }
 }
 
-void PalPreInstr_DeletePalfxIfMinibossDead(uint16 k) {  // 0x8DEEC5
+static void PalPreInstr_DeletePalfxIfMinibossDead(uint16 k) {  // 0x8DEEC5
   if ((*(uint16 *)&boss_bits_for_area[area_index] & 2) != 0)
     palettefx_ids[k >> 1] = 0;
 }
 
-PairU16 PalInstr_SetPalfxIndex(uint16 k, uint16 j) {  // 0x8DF1C6
+static PairU16 PalInstr_SetPalfxIndex(uint16 k, uint16 j) {  // 0x8DF1C6
   samus_in_heat_palfx_index = *RomPtr_8D(j);
   return MakePairU16(k, j + 1);
 }
 
-void PalPreInstr_F621(uint16 k) {  // 0x8DF621
+static void PalPreInstr_F621(uint16 k) {  // 0x8DF621
   if (*(uint16 *)((uint8 *)&flag_for_palette_fx_objects + k))
     palettefx_ids[k >> 1] = 0;
 }
 
-void PalInit_F779_Brinstar8(uint16 k, uint16 j) {  // 0x8DF730
+static void PalInit_F779_Brinstar8(uint16 k, uint16 j) {  // 0x8DF730
   if ((*(uint16 *)&boss_bits_for_area[area_index] & 2) != 0)
     palettefx_ids[j >> 1] = 0;
 }
 
-void CallPalFxPreInstr(uint32 ea, uint16 k) {
+static void CallPalFxPreInstr(uint32 ea, uint16 k) {
   switch (ea) {
   case fnPalPreInstr_nullsub_129: PalPreInstr_nullsub_129(k); return;
   case fnPalPreInstr_E1BC: PalPreInstr_E1BC(k); return;
@@ -288,7 +290,7 @@ void CallPalFxPreInstr(uint32 ea, uint16 k) {
   }
 }
 
-PairU16 CallPalInstr(uint32 ea, uint16 k, uint16 j) {
+static PairU16 CallPalInstr(uint32 ea, uint16 k, uint16 j) {
   switch (ea) {
   case fnPalInstr_Wait: return PalInstr_Wait(k, j);
   case fnPalInstr_ColorPlus2: return PalInstr_ColorPlus2(k, j);
@@ -313,7 +315,7 @@ PairU16 CallPalInstr(uint32 ea, uint16 k, uint16 j) {
   }
 }
 
-void CallPalfxFunc(uint32 ea, uint16 k, uint16 j) {
+static void CallPalfxFunc(uint32 ea, uint16 k, uint16 j) {
   switch (ea) {
   case fnnullsub_131: return;
   case fnPalInit_E1BC: PalInit_E1BC(k, j); return;
