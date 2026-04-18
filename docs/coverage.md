@@ -59,7 +59,7 @@ This is a cleanup/refactor tracker for the still bank-shaped `src/sm_8*.c` / `sr
 files. It is separate from function coverage: coverage is complete, but these files still vary
 widely in size and importance if the goal is to port them into smaller, purpose-built modules.
 
-- LOC is raw `wc -l` output measured on 2026-04-17.
+- LOC is raw `wc -l` output measured on 2026-04-18.
 - LOE buckets are rough refactor size only: `XS < 300`, `S < 1000`, `M < 2500`, `L < 4000`, `XL >= 4000`.
 - Core priority uses a simple triage rubric:
   - `P0` = directly blocks core gameplay coverage
@@ -68,26 +68,29 @@ widely in size and importance if the goal is to port them into smaller, purpose-
 
 | File | Bank | System | LOC | Share | LOE | Core priority | Triage note |
 |------|------|--------|-----|-------|-----|---------------|-------------|
-| `sm_80.c` | $80 | System routines | 2668 | 7.0% | L | P1 | Shared engine routines; broad dependency surface |
-| `sm_81.c` | $81 | SRAM, spritemap, menus | 2527 | 6.6% | L | P2 | Save/menu/UI work; low gameplay leverage |
-| `sm_82.c` | $82 | Top-level game routines | 5130 | 13.4% | XL | P0 | Main game-state flow; high-leverage core bank |
-| `sm_84.c` | $84 | PLMs (Pre-Loaded Modules) | 3199 | 8.4% | L | P0 | Doors, items, triggers, room scripting |
+| `sm_80.c` | $80 | System routines | 2668 | 7.2% | L | P1 | Shared engine routines; broad dependency surface |
+| `sm_81.c` | $81 | SRAM, spritemap, menus | 2527 | 6.8% | L | P2 | Save/menu/UI work; low gameplay leverage |
+| `sm_82.c` | $82 | Top-level game routines | 5130 | 13.8% | XL | P0 | Main game-state flow; high-leverage core bank |
+| `sm_84.c` | $84 | PLMs (Pre-Loaded Modules) | 3199 | 8.6% | L | P0 | Doors, items, triggers, room scripting |
 | `sm_85.c` | $85 | Message boxes | 427 | 1.1% | S | P2 | Isolated UI cleanup; fast win |
-| `sm_86.c` | $86 | Enemy projectiles | 5294 | 13.9% | XL | P1 | Large combat surface; do after Samus/PLM core |
+| `sm_86.c` | $86 | Enemy projectiles | 5294 | 14.2% | XL | P1 | Large combat surface; do after Samus/PLM core |
 | `sm_87.c` | $87 | Animated tiles | 273 | 0.7% | XS | P2 | Tiny visual subsystem |
-| `sm_88.c` | $88 | HDMA | 3342 | 8.8% | L | P2 | Large visual/HDMA bank; usually deferrable |
+| `sm_88.c` | $88 | HDMA | 3342 | 9.0% | L | P2 | Large visual/HDMA bank; usually deferrable |
 | `sm_89.c` | $89 | Item PLM graphics, FX loader | 150 | 0.4% | XS | P1 | Tiny FX/loader cleanup; easy opportunistic win |
-| `sm_8b.c` | $8B | Non-gameplay (cinematics, intro) | 6395 | 16.8% | XL | P2 | Biggest file, but safely defer for core coverage |
-| `sm_8d.c` | $8D | Projectile spritemaps, palette FX | 324 | 0.8% | S | P2 | Mostly presentation-side work |
-| `sm_8f.c` | $8F | Room definitions | 969 | 2.5% | S | P0 | Room/state routing; useful content cleanup |
-| `sm_90.c` | $90 | Samus (collision, physics) | 847 | 2.2% | S | P0 | Already partly split; high-value quick win |
-| `sm_91.c` | $91 | Aran (extended Samus state) | 2654 | 7.0% | L | P0 | Samus input/pose/transition hub; highest core risk |
+| `sm_8b.c` | $8B | Non-gameplay (cinematics, intro) | 6395 | 17.2% | XL | P2 | Biggest file, but safely defer for core coverage |
+| `sm_8d.c` | $8D | Projectile spritemaps, palette FX | 324 | 0.9% | S | P2 | Mostly presentation-side work |
+| `sm_8f.c` | $8F | Room definitions | 969 | 2.6% | S | P0 | Room/state routing; useful content cleanup |
+| `sm_90.c` | $90 | Samus (collision, physics) | 847 | 2.3% | S | P0 | Already partly split; high-value quick win |
+| `sm_91.c` | $91 | Aran (extended Samus state) | 2654 | 7.1% | L | P0 | Samus input/pose/transition hub; highest core risk |
 | `sm_92.c` | $92 | Samus animations | 52 | 0.1% | XS | P2 | Very small animation bank |
 | `sm_93.c` | $93 | Projectiles | 262 | 0.7% | XS | P0 | Cheap combat-coverage win |
-| `sm_94.c` | $94 | Block properties, cutscene gfx | 2510 | 6.6% | L | P0 | Traversal- and collision-critical |
-| `sm_9b.c` | $9B | CPU infrastructure (misc) | 1119 | 2.9% | M | P1 | Support bank; touch when blocked by shared infra |
+| `sm_94.c` | $94 | Block properties, cutscene gfx | 1580 | 4.2% | M | P0 | Traversal-critical block and projectile reactions; grapple runtime moved out |
+| `sm_9b.c` | $9B | CPU infrastructure (misc) | 1119 | 3.0% | M | P1 | Support bank; touch when blocked by shared infra |
 
-**80s/90s total:** 38,142 raw lines
+**80s/90s total:** 37,212 raw lines
+
+`sm_94.c` now excludes the grapple subsystem. The extracted [`samus_grapple.c`](../src/samus_grapple.c)
+is 742 LOC and intentionally sits outside this bank-shaped tracker so `mini` can drop grapple cleanly.
 
 ### Suggested Triage Order
 
