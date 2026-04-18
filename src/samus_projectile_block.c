@@ -5,6 +5,7 @@
 #include "ida_types.h"
 #include "variables.h"
 #include "funcs.h"
+#include "samus_projectile.h"
 #include "block_reaction.h"
 
 #define kBlockBombedReactSpecialPlm ((uint16 *)RomPtr_94(0x9da4))

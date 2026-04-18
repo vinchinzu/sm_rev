@@ -7,12 +7,18 @@
 #include "variables_extra.h"
 #include "sm_rtl.h"
 #include "funcs.h"
+#include "samus_projectile.h"
 
 #define kBeamTilePtrs ((uint16*)RomFixedPtr(0x90c3b1))
 #define kBeamPalettePtrs ((uint16*)RomFixedPtr(0x90c3c9))
 #define off_90B5BB ((uint16*)RomFixedPtr(0x90b5bb))
 #define off_90B609 ((uint16*)RomFixedPtr(0x90b609))
 #define kFlareAnimDelays ((uint16*)RomFixedPtr(0x90c481))
+
+// ROM pointers for ProjectileTrail_Func5 (from sm_9b.c)
+#define g_off_9BA4B3 ((uint16*)RomFixedPtr(0x9ba4b3))
+#define g_off_9BA4CB ((uint16*)RomFixedPtr(0x9ba4cb))
+#define g_off_9BA4E3 ((uint16*)RomFixedPtr(0x9ba4e3))
 
 #define kProjectileData_UnchargedBeams ((uint16*)RomFixedPtr(0x9383c1))
 #define kProjectileData_ChargedBeams ((uint16*)RomFixedPtr(0x9383d9))
@@ -34,6 +40,8 @@ static const uint8 kProjectileCooldown_Uncharged[38] = {
 };
 static const uint8 kNonBeamProjectileCooldowns[9] = { 0, 0xa, 0x14, 0x28, 0, 0x10, 0, 0, 0 };
 static const uint8 kBeamAutoFireCooldowns[12] = { 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19 };
+
+#ifdef SAMUS_PROJECTILE_BEAM_IMPL
 
 void Samus_HandleCooldown(void) {  // 0x90AC1C
   if (time_is_frozen_flag) {
@@ -107,6 +115,10 @@ void LoadProjectilePalette(uint16 a) {  // 0x90ACFC
     v1 += 2;
   } while ((int16)(v1 - 32) < 0);
 }
+
+#endif
+
+#ifdef SAMUS_PROJECTILE_CORE_IMPL
 
 void ResetProjectileData(void) {  // 0x90AD22
   uint16 v0 = 0;
@@ -292,6 +304,10 @@ void CallProjPreInstr(uint32 ea, uint16 k) {
   }
 }
 
+#endif
+
+#ifdef SAMUS_PROJECTILE_BEAM_IMPL
+
 void ProjPreInstr_UnknownProj8027(uint16 k) {  // 0x90EFD3
   static const int16 kProjPreInstr_UnknownProj8027_X[4] = { -4, -4, 4, 4 };
   static const int16 kProjPreInstr_UnknownProj8027_Y[4] = { 4, -4, -4, 4 };
@@ -319,6 +335,10 @@ void ProjPreInstr_UnknownProj8027(uint16 k) {  // 0x90EFD3
   }
 }
 
+#endif
+
+#ifdef SAMUS_PROJECTILE_CORE_IMPL
+
 void HandleProjectile(void) {  // 0x90AECE
   projectile_index = 18;
   for (int i = 18; i >= 0; projectile_index = i) {
@@ -328,9 +348,13 @@ void HandleProjectile(void) {  // 0x90AECE
       RunProjectileInstructions();
       i = projectile_index;
     }
-    i -= 2;
+      i -= 2;
   }
 }
+
+#endif
+
+#ifdef SAMUS_PROJECTILE_BEAM_IMPL
 
 static const int16 kDirToVelMult16_X[10] = { 0, 16, 16, 16, 0, 0, -16, -16, -16, 0 };
 static const int16 kDirToVelMult16_Y[10] = { -16, -16, 0, 16, 16, 16, 16, 0, -16, -16 };
@@ -811,6 +835,10 @@ void SuperMissileBlockCollDetect_X(void) {  // 0x90B406
   }
 }
 
+#endif
+
+#ifdef SAMUS_PROJECTILE_CORE_IMPL
+
 void ProjInstr_MoveLeftProjectileTrailDown(uint16 j) {  // 0x90B525
   ++projectiletrail_left_y_pos[j >> 1];
 }
@@ -848,6 +876,36 @@ void SpawnProjectileTrail(uint16 k) {  // 0x90B657
   projectiletrail_left_instr_list_ptr[v5] = off_90B5BB[v6];
   projectiletrail_right_instr_list_ptr[v5] = off_90B609[v6];
   ProjectileTrail_Func5(projectile_index, v4);
+}
+
+void ProjectileTrail_Func5(uint16 k, uint16 j) {  // 0x9BA3CC
+  uint16 R22 = ProjectileInsts_GetValue(k);
+  uint16 r18, r20;
+  if ((ceres_status & 0x8000) == 0) {
+    int v2 = k >> 1;
+    r18 = projectile_x_pos[v2];
+    r20 = projectile_y_pos[v2];
+  } else {
+    Point16U pt = CalcExplosion_Mode7(k);
+    r18 = layer1_x_pos + pt.x;
+    r20 = layer1_y_pos + pt.y;
+  }
+  int v3 = k >> 1;
+  uint16 v4 = projectile_type[v3], v5;
+  if ((v4 & 0x20) != 0) {
+    v5 = g_off_9BA4E3[projectile_type[v3] & 0xF] + 2 * (projectile_dir[v3] & 0xF);
+  } else if ((v4 & 0x10) != 0) {
+    v5 = g_off_9BA4CB[projectile_type[v3] & 0xF] + 2 * (projectile_dir[v3] & 0xF);
+  } else {
+    v5 = g_off_9BA4B3[projectile_type[v3] & 0xF] + 2 * (projectile_dir[v3] & 0xF);
+  }
+  uint16 v6 = *(uint16 *)RomPtr_9B(v5) + 4 * R22;
+  const uint8 *p = RomPtr_9B(v6);
+  int v7 = j >> 1;
+  projectiletrail_left_y_pos[v7] = r20 + (int8)p[1] - 4;
+  projectiletrail_left_x_pos[v7] = r18 + (int8)p[0] - 4;
+  projectiletrail_right_y_pos[v7] = r20 + (int8)p[3] - 4;
+  projectiletrail_right_x_pos[v7] = r18 + (int8)p[2] - 4;
 }
 
 void CallProjInstr(uint32 ea, uint16 j) {
@@ -1004,6 +1062,10 @@ LABEL_10:
     }
   }
 }
+
+#endif
+
+#ifdef SAMUS_PROJECTILE_BEAM_IMPL
 
 void HudSelectionHandler_NothingOrPowerBombs(void) {  // 0x90B80D
   prev_beam_charge_counter = flare_counter;
@@ -2479,6 +2541,10 @@ void HudSelectionHandler_GrabbedByDraygon(void) {  // 0x90DDD8
     HudSelectionHandler_Normal();
 }
 
+#endif
+
+#ifdef SAMUS_PROJECTILE_CORE_IMPL
+
 void InitializeProjectile(uint16 k) {  // 0x938000
   int v1 = k >> 1;
   int r18 = (projectile_dir[v1] & 0xF);
@@ -2725,3 +2791,5 @@ LABEL_16:
     projectile_index = v0;
   } while ((v0 & 0x8000) == 0);
 }
+
+#endif

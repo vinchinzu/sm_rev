@@ -27,17 +27,6 @@ mini-build value and keeps each session within a 700–1000 LOC refactor budget
 
 ---
 
-# Phase 0 — housekeeping (half session)
-
-Before any bigger work, clear the decks.
-
-### Session 0.1 — commit in-flight `sm_80.c` migration (≤100 LOC review)
-- **Source:** current `git status` delta (D `src/sm_80.c`; M `game_init.c`, `game_state_extras.c`, `nmi_transfer.c`, `palette_fader.c`, `util.c`, and caller fixes in `map_screen.c`, `room_fx.c`, `room_setup.c`, `room_transition.c`, `samus_input.c`).
-- **Verify:** build + pytest `test_build.py`.
-- **Commit:** "Finalize sm_80.c extraction into topical modules".
-
----
-
 # Phase 1 — Samus-adjacent bank cleanup (finish the Samus story)
 
 These unblock the mini-build path. `sm_9b.c` is the last bank file still holding
