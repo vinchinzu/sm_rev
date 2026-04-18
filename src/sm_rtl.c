@@ -685,14 +685,14 @@ void RtlApuUpload(const uint8 *p) {
 }
 
 void RtlRestoreMusicAfterLoad_Locked(bool is_reset) {
-  if (g_use_my_apu_code) {
-    memcpy(g_spc_player->ram, g_snes->apu->ram, 65536);
-    memcpy(g_spc_player->dsp->ram, g_snes->apu->dsp->ram, sizeof(Dsp) - offsetof(Dsp, ram));
-    SpcPlayer_CopyVariablesFromRam(g_spc_player);
-  }
-
   if (is_reset) {
+    g_use_my_apu_code = true;
     SpcPlayer_Initialize(g_spc_player);
+  } else {
+    // Savestates can resume the music engine in the middle of effect handling.
+    // The emulated APU state is authoritative after load, while the custom SPC
+    // player does not support every mid-stream restore path yet.
+    g_use_my_apu_code = false;
   }
 
   RtlResetApuQueue();

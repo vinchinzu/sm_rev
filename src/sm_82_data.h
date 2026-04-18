@@ -60,7 +60,7 @@ extern const uint16 kEquipmentScreenWireframePtrs[3];
 #define addr_kEquipmentScreenTilemap_Blank 0xb2d4
 #define addr_kEquipmentScreenTilemap_AUTO 0xb2cb
 #define addr_kEquipmentScreenTilemap_MANUAL 0xb2c2
-#define addr_kDoorClosingPlmIds 0xe8eb
+#define addr_kDoorClosingPlmIds 0xe68a
 #define addr_kPauseMenuMapData 0x9717
 #define addr_stru_82B9A0 0xb9a0
 #define addr_stru_82B9AA 0xb9aa
