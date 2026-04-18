@@ -350,3 +350,58 @@ void RunOneFrameOfGame(void) {  // 0x828948
 
   Vector_NMI();
 }
+
+uint16 NextRandom(void) {  // 0x808111
+  uint16 RegWord = LOBYTE(random_number) * 5;
+  uint8 Reg = HIBYTE(random_number) * 5;
+
+  int carry = HIBYTE(RegWord) + Reg + 1;
+  HIBYTE(RegWord) = carry;
+  uint16 result = (carry >> 8) + RegWord + 17;
+  random_number = result;
+  return result;
+}
+
+uint16 PrepareBitAccess(uint16 a) {  // 0x80818E
+  bitmask = 1 << (a & 7);
+  return a >> 3;
+}
+
+void SetBossBitForCurArea(uint16 a) {  // 0x8081A6
+  boss_bits_for_area[area_index] |= a;
+}
+
+void ClearBossBitForCurArea(uint16 a) {  // 0x8081C0
+  boss_bits_for_area[area_index] &= ~a;
+}
+
+uint8 CheckBossBitForCurArea(uint16 a) {  // 0x8081DC
+  return (a & boss_bits_for_area[area_index]) != 0;
+}
+
+void SetEventHappened(uint16 a) {  // 0x8081FA
+  uint16 v1 = PrepareBitAccess(a);
+  events_that_happened[v1] |= bitmask;
+}
+
+void ClearEventHappened(uint16 v0) {  // 0x808212
+  uint16 v1 = PrepareBitAccess(v0);
+  events_that_happened[v1] &= ~bitmask;
+}
+
+uint16 CheckEventHappened(uint16 a) {  // 0x808233
+  uint16 idx = PrepareBitAccess(a);
+  return (bitmask & events_that_happened[idx]) != 0;
+}
+
+void DebugScrollPosSaveLoad(void) {  // 0x80A9AC
+  if ((joypad2_new_keys & 0x40) != 0)
+    ++debug_saveload_scrollpos_toggle;
+  if (debug_saveload_scrollpos_toggle & 1) {
+    layer1_x_pos = debug_saved_xscroll;
+    layer1_y_pos = debug_saved_yscroll;
+  } else {
+    debug_saved_xscroll = layer1_x_pos;
+    debug_saved_yscroll = layer1_y_pos;
+  }
+}

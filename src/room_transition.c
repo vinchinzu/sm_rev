@@ -817,3 +817,71 @@ void CreatePlmsExecuteDoorAsmRoomSetup(void) {  // 0x82EB6C
   if (elevator_flags)
     elevator_status = 2;
 }
+
+CoroutineRet StartGameplay_Async(void) {  // 0x80A07B
+  COROUTINE_BEGIN(coroutine_state_2, 0)
+  WriteRegWord(MDMAEN, 0);
+  scrolling_finished_hook = 0;
+  music_data_index = 0;
+  music_track_index = 0;
+  timer_status = 0;
+  ResetSoundQueues();
+  debug_disable_sounds = -1;
+  DisableNMI();
+  DisableIrqInterrupts();
+  LoadDestinationRoomThings();
+  COROUTINE_AWAIT(1, Play20FramesOfMusic_Async());
+  ClearAnimtiles();
+  WaitUntilEndOfVblankAndClearHdma();
+  InitializeSpecialEffectsForNewRoom();
+  ClearPLMs();
+  ClearEprojs();
+  ClearPaletteFXObjects();
+  UpdateBeamTilesAndPalette();
+  LoadColorsForSpritesBeamsAndEnemies();
+  LoadEnemies();
+  LoadRoomMusic();
+  COROUTINE_AWAIT(2, Play20FramesOfMusic_Async());
+  UpdateMusicTrackIndex();
+  NullFunc();
+  ClearBG2Tilemap();
+  LoadLevelDataAndOtherThings();
+  LoadFXHeader();
+  LoadLibraryBackground();
+  CalculateLayer2Xpos();
+  CalculateLayer2Ypos();
+  bg2_x_scroll = layer2_x_pos;
+  bg2_y_scroll = layer2_y_pos;
+  CalculateBgScrolls();
+  DisplayViewablePartOfRoom();
+  EnableNMI();
+  irqhandler_next_handler = (room_loading_irq_handler == 0) ? 4 : room_loading_irq_handler;
+  EnableIrqInterrupts();
+  COROUTINE_AWAIT(3, Play20FramesOfMusic_Async());
+  SpawnHardcodedPlm((SpawnHardcodedPlmArgs) { 0x08, 0x08, 0xb7eb });
+  door_transition_function = FUNC16(DoorTransition_FadeInScreenAndFinish);
+  COROUTINE_END(0);
+}
+
+CoroutineRet Play20FramesOfMusic_Async(void) {  // 0x80A12B
+  COROUTINE_BEGIN(coroutine_state_3, 0)
+  EnableNMI();
+  for(my_counter = 0; my_counter != 20; my_counter++) {
+    HandleMusicQueue();
+    COROUTINE_AWAIT(1, WaitForNMI_Async());
+  }
+  DisableNMI();
+  COROUTINE_END(0);
+}
+
+void ResumeGameplay(void) {  // 0x80A149
+  WriteRegWord(MDMAEN, 0);
+  DisableNMI();
+  DisableIrqInterrupts();
+  LoadCRETilesTilesetTilesAndPalette();
+  LoadLibraryBackground();
+  DisplayViewablePartOfRoom();
+  LoadRoomPlmGfx();
+  EnableNMI();
+  EnableIrqInterrupts();
+}

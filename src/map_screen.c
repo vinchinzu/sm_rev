@@ -620,3 +620,26 @@ void DisplayMapElevatorDestinations(void) {  // 0x82BB30
 void sub_82B932(void) {  // 0x82B932
   HandleMapScrollArrows();
 }
+
+void LoadMirrorOfExploredMapTiles(void) {  // 0x80858C
+  uint16 v1 = swap16(area_index);
+  uint16 v2 = 0;
+  do {
+    *(uint16 *)&map_tiles_explored[v2] = explored_map_tiles_saved[v1 >> 1];
+    v1 += 2;
+    v2 += 2;
+  } while ((int16)(v2 - 256) < 0);
+  has_area_map = map_station_byte_array[area_index];
+}
+
+void SaveExploredMapTilesToSaved(void) {  // 0x8085C6
+  uint16 v1 = swap16(area_index);
+  uint16 v2 = 0;
+  do {
+    explored_map_tiles_saved[v1 >> 1] = *(uint16 *)&map_tiles_explored[v2];
+    v1 += 2;
+    v2 += 2;
+  } while ((int16)(v2 - 256) < 0);
+  if (has_area_map)
+    *(uint16 *)&map_station_byte_array[area_index] |= 0xFF;
+}

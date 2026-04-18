@@ -116,3 +116,15 @@ void LoadFXHeader(void) {
   if (fx->animtiles_bitset)
     SpawnAreaAnimtiles(fx->animtiles_bitset);
 }
+
+void ConfigureMode7RotationMatrix(void) {  // 0x80B0C2
+  if (irq_enable_mode7) {
+    if ((nmi_frame_counter_word & 7) == 0) {
+      reg_M7B = kSinCosTable8bit_Sext[((uint8)mode7_rotation_angle) + 64];
+      reg_M7C = -reg_M7B;
+      reg_M7A = kSinCosTable8bit_Sext[((uint8)(mode7_rotation_angle + 64)) + 64];
+      reg_M7D = reg_M7A;
+      ++mode7_rotation_angle;
+    }
+  }
+}

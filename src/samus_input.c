@@ -260,3 +260,93 @@ LABEL_2:
   samus_momentum_routine_index = 1;
   return 1;
 }
+
+void ReleaseButtonsFilter(uint16 v0) {  // 0x808146
+  timed_held_input_timer_reset = v0;
+  bool v1 = ((uint16)~joypad1_newkeys & joypad1_lastkeys) == joypad_released_keys;
+  joypad_released_keys = ~joypad1_newkeys & joypad1_lastkeys;
+  if (!v1) {
+    timed_held_input_timer = timed_held_input_timer_reset;
+    timed_held_input = 0;
+    goto LABEL_6;
+  }
+  if ((--timed_held_input_timer & 0x8000) == 0) {
+    timed_held_input = 0;
+    goto LABEL_6;
+  }
+  timed_held_input_timer = 0;
+  previous_timed_held_input = timed_held_input;
+  timed_held_input = ~joypad1_newkeys & joypad1_lastkeys;
+LABEL_6:
+  newly_held_down_timed_held_input = timed_held_input & (previous_timed_held_input ^ timed_held_input);
+}
+
+void ReadJoypadInputs(void) {  // 0x809459
+  uint16 RegWord = ReadRegWord(JOY1L);
+  uint16 v1 = ReadRegWord(JOY2L);
+  joypad1_lastkeys = RegWord;
+  joypad1_newkeys = RegWord & (joypad1_prev ^ RegWord);
+  joypad1_newkeys2_UNUSED = RegWord & (joypad1_prev ^ RegWord);
+  if (RegWord && RegWord == joypad1_prev) {
+    if (!--joypad1_keyrepeat_ctr) {
+      joypad1_newkeys2_UNUSED = joypad1_lastkeys;
+      joypad1_keyrepeat_ctr = joypad_ctr_repeat_next;
+    }
+  } else {
+    joypad1_keyrepeat_ctr = joypad_ctr_repeat_first;
+  }
+  joypad1_prev = joypad1_lastkeys;
+  joypad2_last = v1;
+  joypad2_new_keys = v1 & (joypad2_prev ^ v1);
+  joypad2_newkeys2 = v1 & (joypad2_prev ^ v1);
+  if (v1 && v1 == joypad2_prev) {
+    if (!--joypad2_keyrepeat_ctr) {
+      joypad2_newkeys2 = joypad2_last;
+      joypad2_keyrepeat_ctr = joypad_ctr_repeat_next;
+    }
+  } else {
+    joypad2_keyrepeat_ctr = joypad_ctr_repeat_first;
+  }
+  joypad2_prev = joypad2_last;
+  if (enable_debug) {
+    if (is_uploading_apu || joypad1_lastkeys != (kButton_Select | kButton_Start | kButton_L | kButton_R)) {
+      joypad_dbg_1 = 0;
+      joypad_dbg_2 = 0;
+      if ((joypad_dbg_flags & 0x4000) == 0) {
+        if ((joypad1_lastkeys & (kButton_Select | kButton_L)) == (kButton_Select | kButton_L)) {
+          joypad_dbg_1 = joypad1_newkeys;
+          joypad1_lastkeys = 0;
+          joypad1_newkeys = 0;
+        }
+        if ((joypad1_lastkeys & (kButton_Select | kButton_R)) == (kButton_Select | kButton_R)) {
+          joypad_dbg_2 = joypad1_newkeys;
+          joypad1_lastkeys = 0;
+          joypad1_newkeys = 0;
+        }
+        if ((joypad_dbg_2 & 0x80) != 0)
+          *(uint16 *)&reg_NMITIMEN ^= 0x30;
+        if ((joypad_dbg_2 & 0x8000) != 0) {
+          bool v2 = (~joypad_dbg_flags & 0x8000) != 0;
+          joypad_dbg_flags ^= 0x8000;
+          if (v2) {
+            joypad_dbg_missiles_swap = samus_missiles;
+            joypad_dbg_super_missiles_swap = samus_super_missiles;
+            joypad_dbg_power_bombs_swap = samus_power_bombs;
+            samus_missiles = 0;
+            samus_super_missiles = 0;
+            samus_power_bombs = 0;
+          } else {
+            samus_missiles = joypad_dbg_missiles_swap;
+            samus_super_missiles = joypad_dbg_super_missiles_swap;
+            samus_power_bombs = joypad_dbg_power_bombs_swap;
+          }
+        }
+        if ((joypad_dbg_2 & 0x40) != 0)
+          joypad_dbg_flags ^= 0x2000;
+      }
+    } else {
+      debug_disable_sounds = 0;
+      SoftReset();
+    }
+  }
+}

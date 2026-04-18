@@ -170,3 +170,14 @@ void ByteArray_AppendByte(ByteArray *arr, uint8 v) {
   ByteArray_Resize(arr, arr->size + 1);
   arr->data[arr->size - 1] = v;
 }
+
+uint32 Multiply16x16(uint16 a, uint16 j) {  // 0x8082D6
+  uint32 result = (uint32)a * (uint32)j;
+  return result;
+}
+
+void memset7E(uint16 *k, uint16 a, uint16 j) {  // 0x8083F6
+  do {
+    *k++ = a;
+  } while (j -= 2);
+}

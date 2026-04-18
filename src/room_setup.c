@@ -167,3 +167,31 @@ void RunRoomSetupCode(void) {  // 0x8FE88F
   if (room_state->room_setup_code)
     CallRoomSetupCode(room_state->room_setup_code | 0x8F0000);
 }
+
+#define kLoadStationLists ((uint16*)RomFixedPtr(0x80c4b5))
+#define off_80CD46 ((uint16*)RomFixedPtr(0x80cd46))
+
+void LoadFromLoadStation(void) {  // 0x80C437
+  save_station_lockout_flag = 1;
+  const LoadStationList *L = (LoadStationList *)RomPtr_80(kLoadStationLists[area_index] + 14 * load_station_index);
+
+  room_ptr = L->room_ptr_;
+  door_def_ptr = L->door_ptr;
+//  door_bts = v0[2];
+  bg1_x_offset = layer1_x_pos = L->screen_x_pos;
+  bg1_y_offset = layer1_y_pos = L->screen_y_pos;
+  samus_y_pos = layer1_y_pos + L->samus_y_offset;
+  samus_prev_y_pos = samus_y_pos;
+  samus_x_pos = layer1_x_pos + 128 + L->samus_x_offset;
+  samus_prev_x_pos = samus_x_pos;
+  reg_BG1HOFS = 0;
+  reg_BG1VOFS = 0;
+  LOBYTE(area_index) = get_RoomDefHeader(room_ptr)->area_index_;
+  LOBYTE(debug_disable_minimap) = 0;
+}
+
+void SetElevatorsAsUsed(void) {  // 0x80CD07
+  const uint8 *v0 = RomPtr_80(off_80CD46[area_index] + 4 * ((elevator_door_properties_orientation & 0xF) - 1));
+  used_save_stations_and_elevators[v0[0]] |= v0[1];
+  used_save_stations_and_elevators[v0[2]] |= v0[3];
+}

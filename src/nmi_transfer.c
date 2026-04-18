@@ -403,3 +403,54 @@ void CopyToVramNow(uint16 vram_dst, uint32 src, uint16 size) {
   WriteReg(MDMAEN, 2);
   WriteReg(INIDISP, 0xF);
 }
+
+CoroutineRet WaitForNMI_Async(void) {  // 0x808338
+  // Return 0 from this routine as soon as the coroutine has finished
+  if (coroutine_completion_flags) {
+    coroutine_completion_flags = 0;
+    return 0;
+  }
+  waiting_for_nmi = 1;
+  coroutine_completion_flags = 1;
+  return 1;
+}
+
+CoroutineRet WaitForNMI_NoUpdate_Async(void) {
+  // Return 0 from this routine as soon as the coroutine has finished
+  if (coroutine_completion_flags) {
+    coroutine_completion_flags = 0;
+    return 0;
+  }
+  coroutine_completion_flags = 1;
+  return 1;
+}
+
+void EnableNMI(void) {  // 0x80834B
+  uint8 v0 = reg_NMITIMEN | 0x80;
+  WriteReg(NMITIMEN, reg_NMITIMEN | 0x80);
+  reg_NMITIMEN = v0;
+}
+
+void DisableNMI(void) {  // 0x80835D
+  uint8 v0 = reg_NMITIMEN & 0x7F;
+  WriteReg(NMITIMEN, reg_NMITIMEN & 0x7F);
+  reg_NMITIMEN = v0;
+}
+
+void ScreenOff(void) {
+  reg_INIDISP |= 0x80;
+}
+
+void ScreenOn(void) {
+  reg_INIDISP &= ~0x80;
+}
+
+void ClearUnusedOam(void) {
+  for (int i = oam_next_ptr >> 2; i < 0x80; i++)
+    oam_ent[i].ycoord = 0xf0;
+  oam_next_ptr = 0;
+}
+
+void ClearOamExt(void) {  // 0x808B1A
+  memset(oam_ext, 0, sizeof(oam_ext[0]) * 16);
+}

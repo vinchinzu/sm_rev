@@ -128,3 +128,27 @@ void LoadColorsForSpritesBeamsAndEnemies(void) {  // 0x82E139
   for (k = 30; (k & 0x8000) == 0; k -= 2)
     target_palettes[(k >> 1) + 128] = kCommonSpritesPalette1[k >> 1];
 }
+
+void HandleFadeOut(void) {  // 0x808924
+  if ((int16)(screen_fade_counter - 1) < 0) {
+    screen_fade_counter = screen_fade_delay;
+    if ((reg_INIDISP & 0xF) != 0) {
+      if ((reg_INIDISP & 0xF) == 1)
+        reg_INIDISP = 0x80;
+      else
+        reg_INIDISP = (reg_INIDISP & 0xF) - 1;
+    }
+  } else {
+    --screen_fade_counter;
+  }
+}
+
+void HandleFadeIn(void) {  // 0x80894D
+  if ((int16)(screen_fade_counter - 1) < 0) {
+    screen_fade_counter = screen_fade_delay;
+    if (((reg_INIDISP + 1) & 0xF) != 0)
+      reg_INIDISP = (reg_INIDISP + 1) & 0xF;
+  } else {
+    --screen_fade_counter;
+  }
+}

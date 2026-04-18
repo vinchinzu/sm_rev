@@ -1,8 +1,10 @@
+#include <stdio.h>
 #include "sm_rtl.h"
 #include "ida_types.h"
 #include "variables.h"
 #include "funcs.h"
 #include "sm_82_data.h"
+#include "spc_player.h"
 
 #define kInitialPalette ((uint16*)RomFixedPtr(0x9a8000))
 #define kDemoRoomData ((uint16*)RomFixedPtr(0x82876c))
@@ -255,4 +257,232 @@ void LoadStdBG3andSpriteTilesClearTilemaps(void) {  // 0x8282E2
   static const StartDmaCopy unk_828358 = { 1, 1, 0x18, LONGPTR(0x7e4000), 0x0800 };
   SetupDmaTransfer(&unk_828358);
   WriteReg(MDMAEN, 2);
+}
+
+void APU_UploadBank(uint32 addr) {  // 0x808028
+  if (!g_use_my_apu_code)
+    return;
+  RtlApuUpload(RomPtr(addr));
+}
+
+void CopySuperMetroidString(void) {  // 0x80824F
+  memcpy(&g_sram[0x1fe0], "supermetroid", 12);
+  RtlWriteSram();
+}
+
+void VerifySRAM(void) {  // 0x808261
+  num_demo_sets = 3;
+  if (LoadFromSram(0) && LoadFromSram(1) && LoadFromSram(2)) {
+    memcpy(&g_sram[0x1fe0], "madadameyohn", 12);
+    RtlWriteSram();
+  } else {
+    if (!memcmp(&g_sram[0x1fe0], "supermetroid", 12))
+      num_demo_sets = 4;
+  }
+}
+
+CoroutineRet Vector_RESET_Async(void) {  // 0x80841C
+  COROUTINE_BEGIN(coroutine_state_0, 1)
+  WriteReg(MEMSEL, 1);
+  reg_MEMSEL = 1;
+  // Removed code to wait 4 frames
+  uint16 bak = bug_fix_counter;
+  memset(g_ram, 0, 8192);
+  bug_fix_counter = bak;
+  COROUTINE_AWAIT(2, InitializeIoDisplayLogo_Async());
+  COROUTINE_MANUAL_POS(3); // Soft reset position
+  APU_UploadBank(0xCF8000);
+  WriteReg(INIDISP, 0x8F);
+  bak = bug_fix_counter;
+  memset(g_ram, 0, 0x10000);
+  bug_fix_counter = bak;
+  WriteReg(NMITIMEN, 0);
+  reg_NMITIMEN = 0;
+  reg_INIDISP = 0x8f;
+  InitializeCpuIoRegs();
+  InitializePpuIoRegs();
+  WriteLotsOf0x1c2f();
+  sfx_readpos[0] = 0;
+  sfx_readpos[1] = 0;
+  sfx_readpos[2] = 0;
+  sfx_writepos[0] = 0;
+  sfx_writepos[1] = 0;
+  sfx_writepos[2] = 0;
+  sfx_state[0] = 0;
+  sfx_state[1] = 0;
+  sfx_state[2] = 0;
+  sfx_cur[0] = 0;
+  sfx_cur[1] = 0;
+  sfx_cur[2] = 0;
+  sfx_clear_delay[0] = 0;
+  sfx_clear_delay[1] = 0;
+  sfx_clear_delay[2] = 0;
+  sfx1_queue[0] = 0;
+  sfx2_queue[0] = 0;
+  sfx3_queue[0] = 0;
+  oam_next_ptr = 0;
+  reg_OAMaddr_UNUSED = 0;
+  ClearOamExt();
+  ClearUnusedOam();
+  nmi_copy_samus_halves = 0;
+  nmi_copy_samus_top_half_src = 0;
+  nmi_copy_samus_bottom_half_src = 0;
+  EnableNMI();
+  RtlApuWrite(APUI00, 0);
+  RtlApuWrite(APUI02, 0);
+
+  // Removed code to wait 4 frames
+  random_number = 97;
+  music_timer = 0;
+  music_queue_delay[0] = 0;
+  music_queue_delay[1] = 0;
+  music_queue_delay[2] = 0;
+  music_queue_delay[3] = 0;
+  music_queue_delay[4] = 0;
+  music_queue_delay[5] = 0;
+  music_queue_delay[6] = 0;
+  music_queue_delay[7] = 0;
+  enable_debug = 0;
+  VerifySRAM();
+  debug_disable_sounds = 0;
+  sound_handler_downtime = 0;
+  COROUTINE_END(2);
+}
+
+void InvalidInterrupt_Crash(void) {  // 0x808573
+  printf("InvalidInterrupt_Crash\n");
+  Unreachable();
+  for (;;);
+}
+
+void InitializeCpuIoRegs(void) {  // 0x80875D
+  WriteReg(NMITIMEN, 1);
+  reg_NMITIMEN = 1;
+  WriteReg(WRIO, 0);
+  WriteReg(WRMPYA, 0);
+  WriteReg(WRMPYB, 0);
+  WriteReg(WRDIVL, 0);
+  WriteReg(WRDIVH, 0);
+  WriteReg(WRDIVB, 0);
+  WriteReg(HTIMEL, 0);
+  WriteReg(HTIMEH, 0);
+  WriteReg(VTIMEL, 0);
+  WriteReg(VTIMEH, 0);
+  WriteReg(MDMAEN, 0);
+  WriteReg(HDMAEN, 0);
+  reg_HDMAEN = 0;
+  WriteReg(MEMSEL, 1);
+  reg_MEMSEL = 1;
+}
+
+void InitializePpuIoRegs(void) {  // 0x808792
+  WriteReg(INIDISP, 0x8F);
+  reg_INIDISP = 0x8f;
+  WriteReg(OBSEL, 3);
+  reg_OBSEL = 3;
+  WriteReg(OAMADDL, 0);
+  LOBYTE(reg_OAMaddr_UNUSED) = 0;
+  WriteReg(OAMADDH, 0x80);
+  HIBYTE(reg_OAMaddr_UNUSED) = 0x80;
+  WriteReg(OAMDATA, 0);
+  WriteReg(OAMDATA, 0);
+  WriteReg(BGMODE, 9);
+  reg_BGMODE = 9;
+  WriteReg(MOSAIC, 0);
+  reg_MOSAIC = 0;
+  WriteReg(BG1SC, 0x40);
+  reg_BG1SC = 64;
+  WriteReg(BG2SC, 0x44);
+  reg_BG2SC = 68;
+  WriteReg(BG3SC, 0x48);
+  reg_BG3SC = 72;
+  WriteReg(BG4SC, 0);
+  reg_BG4SC = 0;
+  WriteReg(BG12NBA, 0);
+  reg_BG12NBA = 0;
+  WriteReg(BG34NBA, 5);
+  reg_BG34NBA = 5;
+  WriteReg(BG1HOFS, 0);
+  WriteReg(BG1HOFS, 0);
+  WriteReg(BG1VOFS, 0);
+  WriteReg(BG1VOFS, 0);
+  WriteReg(BG2HOFS, 0);
+  WriteReg(BG2HOFS, 0);
+  WriteReg(BG2VOFS, 0);
+  WriteReg(BG2VOFS, 0);
+  WriteReg(BG3HOFS, 0);
+  WriteReg(BG3HOFS, 0);
+  WriteReg(BG3VOFS, 0);
+  WriteReg(BG3VOFS, 0);
+  WriteReg(BG4HOFS, 0);
+  WriteReg(BG4HOFS, 0);
+  WriteReg(BG4VOFS, 0);
+  WriteReg(BG4VOFS, 0);
+  WriteReg(VMAIN, 0);
+  WriteReg(M7SEL, 0);
+  reg_M7SEL = 0;
+  WriteReg(M7A, 0);
+  WriteReg(M7B, 0);
+  WriteReg(M7C, 0);
+  WriteReg(M7D, 0);
+  WriteReg(M7X, 0);
+  WriteReg(M7Y, 0);
+  WriteReg(W12SEL, 0);
+  reg_W12SEL = 0;
+  WriteReg(W34SEL, 0);
+  reg_W34SEL = 0;
+  WriteReg(WOBJSEL, 0);
+  reg_WOBJSEL = 0;
+  WriteReg(WH0, 0);
+  reg_WH0 = 0;
+  WriteReg(WH1, 0xF8);
+  reg_WH1 = -8;
+  WriteReg(WH2, 0);
+  reg_WH2 = 0;
+  WriteReg(WH3, 0);
+  reg_WH3 = 0;
+  WriteReg(WBGLOG, 0);
+  reg_WBGLOG = 0;
+  WriteReg(WOBJLOG, 0);
+  reg_WOBJLOG = 0;
+  WriteReg(TM, 0x11);
+  reg_TM = 17;
+  WriteReg(TMW, 0x11);
+  reg_TMW = 17;
+  WriteReg(TS, 2);
+  reg_TS = 2;
+  WriteReg(TSW, 2);
+  reg_TSW = 2;
+  WriteReg(CGWSEL, 2);
+  next_gameplay_CGWSEL = 2;
+  WriteReg(CGADSUB, 0xA1);
+  next_gameplay_CGADSUB = -95;
+  WriteReg(COLDATA, 0xE0);
+  WriteReg(COLDATA, 0xE0);
+  WriteReg(COLDATA, 0x80);
+  reg_COLDATA[0] = 0x80;
+  WriteReg(COLDATA, 0x40);
+  reg_COLDATA[1] = 64;
+  WriteReg(COLDATA, 0x20);
+  reg_COLDATA[2] = 32;
+  WriteReg(SETINI, 0);
+  reg_SETINI = 0;
+}
+
+void WriteLotsOf0x1c2f(void) {  // 0x8088D1
+  sub_8088EB(0x1C2F);
+  sub_8088FE(0x1C2F);
+  sub_808911(0x1C2F);
+}
+
+void sub_8088EB(uint16 a) {  // 0x8088EB
+  memset7E((uint16*)&ram3000, a, 0x800);
+}
+
+void sub_8088FE(uint16 a) {  // 0x8088FE
+  memset7E((uint16*)&ram4000, a, 0x800);
+}
+
+void sub_808911(uint16 a) {  // 0x808911
+  memset7E(ram6000, a, 0x800);
 }
