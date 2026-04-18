@@ -14,61 +14,84 @@
 #include "sm_rtl.h"
 #include "funcs.h"
 #include "physics_config.h"
+#include "samus_env.h"
 
-static const uint16 kSamus_HandleExtraRunspeedX_Tab0[3] = { 0, 0, 0 };
-static const uint16 kSamus_HandleExtraRunspeedX_Tab1[3] = { 0x1000, 0x400, 0x400 };
-static const uint16 kSamus_HandleExtraRunspeedX_Tab2[3] = { 7, 4, 4 };
-static const uint16 kSamus_HandleExtraRunspeedX_Tab3[3] = { 0, 0, 0 };
-static const uint16 kSamus_HandleExtraRunspeedX_Tab4[3] = { 2, 1, 0 };
-static const uint16 kSamus_HandleExtraRunspeedX_Tab5[3] = { 0, 0, 0 };
+// Extra-run-speed accel applied every frame while running on ground.
+// Tables were originally keyed by env — but every call site read only
+// the [0] slot. The [1]/[2] entries for water/lava-acid are preserved as
+// dead data only to document the original table structure.
+static const uint16 kSamus_ExtraRunAccel_Subspeed[3] = { 0x1000, 0x400, 0x400 };
+static const uint16 kSamus_ExtraRunCap_SpeedBoostSpeed[3] = { 7, 4, 4 };
+static const uint16 kSamus_ExtraRunCap_NormalSpeed[3] = { 2, 1, 0 };
 
-void Samus_HandleExtraRunspeedX(void) {  // 0x90973E
-  if ((equipped_items & 0x20) == 0) {
-    uint16 r18 = Samus_GetBottom_R18();
-    if ((fx_y_pos & 0x8000) != 0) {
-      if ((lava_acid_y_pos & 0x8000) == 0 && sign16(lava_acid_y_pos - r18)) {
-LABEL_24:
-        if (!samus_has_momentum_flag) {
-          samus_x_extra_run_speed = 0;
-          samus_x_extra_run_subspeed = 0;
-        }
-        goto LABEL_26;
-      }
-    } else if (sign16(fx_y_pos - r18) && (fx_liquid_options & 4) == 0) {
-      goto LABEL_24;
-    }
+// speed_boost_counter is a packed { high_byte = phase, low_byte = frame
+// counter } pair. Phase 4 ("charged / shinespark ready") is what most
+// callers test via `(counter & 0xFF00) == 0x400`. Expose the phase as a
+// shifted enum so comparisons read as the state machine they really are.
+enum {
+  kSpeedBoostPhase_Charged = 4,
+};
+#define SPEED_BOOST_PHASE(ctr) (((ctr) & 0xFF00) >> 8)
+
+static void Samus_ClearExtraRunSpeedIfNoMomentum(void) {
+  if (!samus_has_momentum_flag) {
+    samus_x_extra_run_speed = 0;
+    samus_x_extra_run_subspeed = 0;
   }
-  if (samus_movement_type != 1 || (button_config_run_b & joypad1_lastkeys) == 0)
-    goto LABEL_24;
-  if ((equipped_items & 0x2000) != 0) {
-    if (!samus_has_momentum_flag) {
-      samus_has_momentum_flag = 1;
-      special_samus_palette_timer = 1;
-      special_samus_palette_frame = 0;
-      speed_boost_counter = kSpeedBoostToCtr[0];
-    }
-    if ((int16)(samus_x_extra_run_speed - kSamus_HandleExtraRunspeedX_Tab2[0]) >= 0
-        && (int16)(samus_x_extra_run_subspeed - kSamus_HandleExtraRunspeedX_Tab3[0]) >= 0) {
-      samus_x_extra_run_speed = kSamus_HandleExtraRunspeedX_Tab2[0];
-      samus_x_extra_run_subspeed = kSamus_HandleExtraRunspeedX_Tab3[0];
-      goto LABEL_26;
-    }
-  } else {
-    if (!samus_has_momentum_flag) {
-      samus_has_momentum_flag = 1;
-      speed_boost_counter = 0;
-    }
-    if ((int16)(samus_x_extra_run_speed - kSamus_HandleExtraRunspeedX_Tab4[0]) >= 0
-        && (int16)(samus_x_extra_run_subspeed - kSamus_HandleExtraRunspeedX_Tab5[0]) >= 0) {
-      samus_x_extra_run_speed = kSamus_HandleExtraRunspeedX_Tab4[0];
-      samus_x_extra_run_subspeed = kSamus_HandleExtraRunspeedX_Tab5[0];
-      goto LABEL_26;
-    }
+}
+
+static bool Samus_IsRunningOnGround(void) {
+  // movement_type 1 = Samus_Movement_01_Running (see physics.c handler table).
+  return samus_movement_type == 1
+      && (button_config_run_b & joypad1_lastkeys) != 0;
+}
+
+static void Samus_TickExtraRunSpeed_Boosted(void) {
+  if (!samus_has_momentum_flag) {
+    samus_has_momentum_flag = 1;
+    special_samus_palette_timer = 1;
+    special_samus_palette_frame = 0;
+    speed_boost_counter = kSpeedBoostToCtr[0];
+  }
+  uint16 cap_speed = kSamus_ExtraRunCap_SpeedBoostSpeed[0];
+  if ((int16)(samus_x_extra_run_speed - cap_speed) >= 0
+      && (int16)samus_x_extra_run_subspeed >= 0) {
+    samus_x_extra_run_speed = cap_speed;
+    samus_x_extra_run_subspeed = 0;
+    return;
   }
   AddToHiLo(&samus_x_extra_run_speed, &samus_x_extra_run_subspeed,
-      __PAIR32__(kSamus_HandleExtraRunspeedX_Tab0[0], kSamus_HandleExtraRunspeedX_Tab1[0]));
-LABEL_26:
-  if ((speed_boost_counter & 0xFF00) == 1024)
+      __PAIR32__(0, kSamus_ExtraRunAccel_Subspeed[0]));
+}
+
+static void Samus_TickExtraRunSpeed_Normal(void) {
+  if (!samus_has_momentum_flag) {
+    samus_has_momentum_flag = 1;
+    speed_boost_counter = 0;
+  }
+  uint16 cap_speed = kSamus_ExtraRunCap_NormalSpeed[0];
+  if ((int16)(samus_x_extra_run_speed - cap_speed) >= 0
+      && (int16)samus_x_extra_run_subspeed >= 0) {
+    samus_x_extra_run_speed = cap_speed;
+    samus_x_extra_run_subspeed = 0;
+    return;
+  }
+  AddToHiLo(&samus_x_extra_run_speed, &samus_x_extra_run_subspeed,
+      __PAIR32__(0, kSamus_ExtraRunAccel_Subspeed[0]));
+}
+
+void Samus_HandleExtraRunspeedX(void) {  // 0x90973E
+  // If submerged (without Gravity Suit) or not running on the ground,
+  // extra run speed cannot build up. Otherwise branch on Speed Booster.
+  if (Samus_GetVerticalEnv() != kSamusVerticalEnv_Air
+      || !Samus_IsRunningOnGround()) {
+    Samus_ClearExtraRunSpeedIfNoMomentum();
+  } else if (Samus_HasEquip(kSamusEquip_SpeedBooster)) {
+    Samus_TickExtraRunSpeed_Boosted();
+  } else {
+    Samus_TickExtraRunSpeed_Normal();
+  }
+  if (SPEED_BOOST_PHASE(speed_boost_counter) == kSpeedBoostPhase_Charged)
     samus_contact_damage_index = 1;
 }
 
@@ -145,29 +168,35 @@ Pair_Bool_Amt Samus_CalcBaseSpeed_NoDecel_X(uint16 k) {  // 0x909B1F
 }
 
 uint16 Samus_DetermineSpeedTableEntryPtr_X(void) {  // 0x909BD1
-  if ((equipped_items & 0x20) == 0) {
-    uint16 r18 = Samus_GetBottom_R18();
-    if ((fx_y_pos & 0x8000) != 0) {
-      if ((lava_acid_y_pos & 0x8000) == 0 && sign16(lava_acid_y_pos - r18))
-        samus_x_speed_table_pointer = addr_kSamusSpeedTable_LavaAcid_X;
-    } else if (sign16(fx_y_pos - r18) && (fx_liquid_options & 4) == 0) {
-      samus_x_speed_table_pointer = addr_kSamusSpeedTable_Water_X;
-    }
+  // Note: the "Air" case leaves samus_x_speed_table_pointer untouched
+  // (matches Bank 90 — caller is expected to pre-set it to Normal).
+  switch (Samus_GetVerticalEnv()) {
+  case kSamusVerticalEnv_Water:
+    samus_x_speed_table_pointer = addr_kSamusSpeedTable_Water_X;
+    break;
+  case kSamusVerticalEnv_LavaAcid:
+    samus_x_speed_table_pointer = addr_kSamusSpeedTable_LavaAcid_X;
+    break;
+  default:
+    break;
   }
   return samus_x_speed_table_pointer + 12 * samus_movement_type;
 }
 
 uint16 Samus_DetermineGrappleSwingSpeed_X(void) {  // 0x909C21
-  if ((equipped_items & 0x20) != 0)
+  // Bank 90 quirk preserved: the LavaAcid branch in the original had
+  // no grapple-swing table and fell off the end without returning
+  // (uninitialized return value). Grappling while submerged in
+  // lava/acid is gameplay-impossible, so the quirk isn't observable.
+  switch (Samus_GetVerticalEnv()) {
+  case kSamusVerticalEnv_Water:
+    return addr_stru_909F3D;
+  case kSamusVerticalEnv_Air:
     return addr_stru_909F31;
-  uint16 r18 = Samus_GetBottom_R18();
-  if ((fx_y_pos & 0x8000) == 0) {
-    if (sign16(fx_y_pos - r18) && (fx_liquid_options & 4) == 0)
-      return addr_stru_909F3D;
+  default:
+    Unreachable();
     return addr_stru_909F31;
   }
-  if ((lava_acid_y_pos & 0x8000) != 0 || !sign16(lava_acid_y_pos - r18))
-    return addr_stru_909F31;
 }
 
 void nullsub_17(void) {}

@@ -13,6 +13,7 @@ from pathlib import Path
 
 SM_REV_DIR = Path(__file__).parent.parent
 BINARY = SM_REV_DIR / "sm_rev"
+MINI_BINARY = SM_REV_DIR / "sm_rev_mini"
 
 
 def run(cmd: list[str], **kw) -> subprocess.CompletedProcess:
@@ -46,3 +47,25 @@ class TestBuild:
         # -Werror makes warnings into errors, so a clean build has no warning lines
         for line in r2.stderr.splitlines():
             assert "warning:" not in line.lower(), f"Unexpected warning in build:\n{line}"
+
+
+class TestBuildMini:
+    def test_make_mini_succeeds(self):
+        """Mini shell build must compile cleanly."""
+        r = run(["make", "mini"])
+        assert r.returncode == 0, f"make mini failed:\n{r.stderr}\n{r.stdout}"
+
+    def test_mini_binary_exists(self):
+        """Mini shell binary must exist after build."""
+        assert MINI_BINARY.exists(), f"Mini binary not found at {MINI_BINARY}"
+
+    def test_mini_binary_is_executable(self):
+        """Mini shell binary must be executable."""
+        assert os.access(MINI_BINARY, os.X_OK), f"Mini binary not executable: {MINI_BINARY}"
+
+    def test_mini_headless_smoke(self):
+        """Mini shell headless mode must exit 0 and report mini build metadata."""
+        r = run([str(MINI_BINARY), "--headless", "--frames", "3"])
+        assert r.returncode == 0, f"mini headless smoke failed:\n{r.stderr}\n{r.stdout}"
+        assert '"build":"mini"' in r.stdout
+        assert '"frames":3' in r.stdout

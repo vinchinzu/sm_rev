@@ -11,40 +11,7 @@
 #include "sm_rtl.h"
 #include "funcs.h"
 #include "physics_config.h"
-
-static const uint16 kEquippedItem_GravitySuit = 0x20;
-static const uint16 kEquippedItem_HiJumpBoots = 0x100;
-static const uint16 kEquippedItem_SpeedBooster = 0x2000;
-
-enum {
-  kSamusVerticalEnv_Air,
-  kSamusVerticalEnv_Water,
-  kSamusVerticalEnv_LavaAcid,
-};
-
-static const uint16 kSamus_InitWallJump_Speed[3] = { 4, 0, 2 };
-static const uint16 kSamus_InitWallJump_Subspeed[3] = { 0xa000, 0x4000, 0xa000 };
-static const uint16 kSamus_InitWallJump_HiJumpSpeed[3] = { 5, 0, 3 };
-static const uint16 kSamus_InitWallJump_HiJumpSubspeed[3] = { 0x8000, 0x8000, 0x8000 };
-static const uint16 kSamus_SetSpeedForKnockback_Y_Speed[3] = { 5, 2, 2 };
-static const uint16 kSamus_SetSpeedForKnockback_Y_Subspeed[3] = { 0, 0, 0 };
-static const uint16 kSamus_InitBombJump_Speed[3] = { 2, 0, 0 };
-static const uint16 kSamus_InitBombJump_Subspeed[3] = { 0xc000, 0x1000, 0x1000 };
-
-static uint16 Samus_GetVerticalEnvironmentIndex(void) {
-  if ((equipped_items & kEquippedItem_GravitySuit) != 0)
-    return kSamusVerticalEnv_Air;
-
-  uint16 samus_bottom = Samus_GetBottom_R18();
-  if ((fx_y_pos & 0x8000) == 0) {
-    if (sign16(fx_y_pos - samus_bottom) && (fx_liquid_options & 4) == 0)
-      return kSamusVerticalEnv_Water;
-    return kSamusVerticalEnv_Air;
-  }
-  if ((lava_acid_y_pos & 0x8000) == 0 && sign16(lava_acid_y_pos - samus_bottom))
-    return kSamusVerticalEnv_LavaAcid;
-  return kSamusVerticalEnv_Air;
-}
+#include "samus_env.h"
 
 static void Samus_ResetVerticalMovementState(void) {
   grapple_walljump_timer = 0;
@@ -57,68 +24,57 @@ static void Samus_AddSpeedBoosterJumpMomentum(void) {
   samus_y_speed += samus_x_extra_run_speed >> 1;
 }
 
-void Samus_InitJump(void) {  // 0x9098BC
-  uint16 env = Samus_GetVerticalEnvironmentIndex();
+// Apply an env-indexed { speed[env], subspeed[env] } pair from
+// g_physics_params to Samus's Y speed registers.
+static void Samus_ApplyJumpImpulse(const uint16 speed[3], const uint16 subspeed[3], uint16 env) {
+  samus_y_speed = speed[env];
+  samus_y_subspeed = subspeed[env];
+}
 
-  if ((equipped_items & kEquippedItem_HiJumpBoots) != 0) {
-    if (env == kSamusVerticalEnv_Air) {
-      samus_y_subspeed = g_physics_params.jump_hi_initial_subspeed;
-      samus_y_speed = g_physics_params.jump_hi_initial_speed;
-    } else if (env == kSamusVerticalEnv_Water) {
-      samus_y_subspeed = g_physics_params.jump_hi_underwater_initial_subspeed;
-      samus_y_speed = g_physics_params.jump_hi_underwater_initial_speed;
-    } else {
-      samus_y_subspeed = g_physics_params.jump_hi_lava_acid_initial_subspeed;
-      samus_y_speed = g_physics_params.jump_hi_lava_acid_initial_speed;
-    }
+void Samus_InitJump(void) {  // 0x9098BC
+  uint16 env = Samus_GetVerticalEnv();
+  if (Samus_HasEquip(kSamusEquip_HiJumpBoots)) {
+    Samus_ApplyJumpImpulse(g_physics_params.jump_hi_initial_speed,
+                           g_physics_params.jump_hi_initial_subspeed, env);
   } else {
-    if (env == kSamusVerticalEnv_Air) {
-      samus_y_subspeed = g_physics_params.jump_initial_subspeed;
-      samus_y_speed = g_physics_params.jump_initial_speed;
-    } else if (env == kSamusVerticalEnv_Water) {
-      samus_y_subspeed = g_physics_params.jump_underwater_initial_subspeed;
-      samus_y_speed = g_physics_params.jump_underwater_initial_speed;
-    } else {
-      samus_y_subspeed = g_physics_params.jump_lava_acid_initial_subspeed;
-      samus_y_speed = g_physics_params.jump_lava_acid_initial_speed;
-    }
+    Samus_ApplyJumpImpulse(g_physics_params.jump_initial_speed,
+                           g_physics_params.jump_initial_subspeed, env);
   }
-  if ((equipped_items & kEquippedItem_SpeedBooster) != 0)
+  if (Samus_HasEquip(kSamusEquip_SpeedBooster))
     Samus_AddSpeedBoosterJumpMomentum();
   Samus_ResetVerticalMovementState();
 }
 
 void Samus_InitWallJump(void) {  // 0x909949
-  uint16 env = Samus_GetVerticalEnvironmentIndex();
-
-  if ((equipped_items & kEquippedItem_HiJumpBoots) != 0) {
-    samus_y_subspeed = kSamus_InitWallJump_HiJumpSubspeed[env];
-    samus_y_speed = kSamus_InitWallJump_HiJumpSpeed[env];
+  uint16 env = Samus_GetVerticalEnv();
+  if (Samus_HasEquip(kSamusEquip_HiJumpBoots)) {
+    Samus_ApplyJumpImpulse(g_physics_params.wall_jump_hi_initial_speed,
+                           g_physics_params.wall_jump_hi_initial_subspeed, env);
   } else {
-    samus_y_subspeed = kSamus_InitWallJump_Subspeed[env];
-    samus_y_speed = kSamus_InitWallJump_Speed[env];
+    Samus_ApplyJumpImpulse(g_physics_params.wall_jump_initial_speed,
+                           g_physics_params.wall_jump_initial_subspeed, env);
   }
-  if ((equipped_items & kEquippedItem_SpeedBooster) != 0)
+  if (Samus_HasEquip(kSamusEquip_SpeedBooster))
     Samus_AddSpeedBoosterJumpMomentum();
   Samus_ResetVerticalMovementState();
 }
 
 void Samus_SetSpeedForKnockback_Y(void) {  // 0x9099D6
-  uint16 env = Samus_GetVerticalEnvironmentIndex();
-  samus_y_subspeed = kSamus_SetSpeedForKnockback_Y_Subspeed[env];
-  samus_y_speed = kSamus_SetSpeedForKnockback_Y_Speed[env];
+  Samus_ApplyJumpImpulse(g_physics_params.knockback_y_initial_speed,
+                         g_physics_params.knockback_y_initial_subspeed,
+                         Samus_GetVerticalEnv());
   Samus_ResetVerticalMovementState();
 }
 
 void Samus_InitBombJump(void) {  // 0x909A2C
-  uint16 env = Samus_GetVerticalEnvironmentIndex();
-  samus_y_subspeed = kSamus_InitBombJump_Subspeed[env];
-  samus_y_speed = kSamus_InitBombJump_Speed[env];
+  Samus_ApplyJumpImpulse(g_physics_params.bomb_jump_initial_speed,
+                         g_physics_params.bomb_jump_initial_subspeed,
+                         Samus_GetVerticalEnv());
   Samus_ResetVerticalMovementState();
 }
 
 void Samus_DetermineAccel_Y(void) {
-  switch (Samus_GetVerticalEnvironmentIndex()) {
+  switch (Samus_GetVerticalEnv()) {
   case kSamusVerticalEnv_Water:
     samus_y_subaccel = g_physics_params.gravity_underwater_subaccel;
     samus_y_accel = g_physics_params.gravity_accel;
@@ -181,27 +137,26 @@ void HandleJumpTransition_WallJump(void) {  // 0x91FC08
 }
 
 void HandleJumpTransition_SpringBallInAir(void) {  // 0x91FC18
-  if (samus_pose == kPose_7F_FaceR_Springball_Air) {
-    if (samus_prev_movement_type2 != kMovementType_11_SpringBallOnGround)
-      return;
-LABEL_6:
+  // Fire a fresh jump when Samus leaves the ground as springball —
+  // either facing direction.
+  bool airborne_springball =
+      (samus_pose == kPose_7F_FaceR_Springball_Air
+       || samus_pose == kPose_80_FaceL_Springball_Air)
+      && samus_prev_movement_type2 == kMovementType_11_SpringBallOnGround;
+  if (airborne_springball)
     Samus_InitJump();
-    return;
-  }
-  if (samus_pose == kPose_80_FaceL_Springball_Air && samus_prev_movement_type2 == kMovementType_11_SpringBallOnGround)
-    goto LABEL_6;
 }
 
 void UNUSED_sub_91FC42(void) {  // 0x91FC42
-  if (samus_pose == (kPose_44_FaceL_Turn_Crouch | kPose_01_FaceR_Normal | 0x20)) {
-    if (samus_prev_pose != 100)
-      return;
-LABEL_6:
+  // Dead code in the final ROM — the pose constants combined with the
+  // prev-pose sentinels don't match any real state transition — but
+  // preserved byte-for-byte so the function address table still links.
+  uint16 target_r = kPose_44_FaceL_Turn_Crouch | kPose_01_FaceR_Normal | 0x20;
+  uint16 target_l = kPose_44_FaceL_Turn_Crouch | kPose_02_FaceL_Normal | 0x20;
+  bool match_r = (samus_pose == target_r) && (samus_prev_pose == 100);
+  bool match_l = (samus_pose == target_l) && (samus_prev_pose == 99);
+  if (match_r || match_l)
     Samus_InitJump();
-    return;
-  }
-  if (samus_pose == (kPose_44_FaceL_Turn_Crouch | kPose_02_FaceL_Normal | 0x20) && samus_prev_pose == 99)
-    goto LABEL_6;
 }
 
 void HandleJumpTransition_NormalJump(void) {  // 0x91FC66

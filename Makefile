@@ -1,4 +1,5 @@
 TARGET_EXEC := sm_rev
+MINI_TARGET_EXEC := sm_rev_mini
 
 PYTHON := /usr/bin/env python3
 CFLAGS := $(if $(CFLAGS),$(CFLAGS),-O2 -fno-strict-aliasing -Werror)
@@ -31,8 +32,15 @@ ifeq ($(BUNDLE_ASSETS),1)
   EMBEDDED_OBJS := $(EMBEDDED_SRCS:%.c=%.o)
 endif
 
-SRCS := $(wildcard src/*.c src/snes/*.c) third_party/gl_core/gl_core_3_1.c third_party/cJSON.c src/enemy_config.c $(EMBEDDED_SRCS)
-OBJS := $(SRCS:%.c=%.o)
+FULL_SRCS := $(filter-out src/mini_main.c,$(wildcard src/*.c)) \
+             $(wildcard src/snes/*.c) \
+             third_party/gl_core/gl_core_3_1.c \
+             third_party/cJSON.c \
+             $(EMBEDDED_SRCS)
+OBJS := $(FULL_SRCS:%.c=%.o)
+
+MINI_SRCS := src/mini_main.c
+MINI_OBJS := $(patsubst %.c,build/mini/%.o,$(MINI_SRCS))
 
 ifeq ($(BUNDLE_ASSETS),1)
   # Regenerate embedded files if sources are newer
@@ -55,7 +63,7 @@ else
     SDLFLAGS := $(shell sdl2-config --libs) -lm
 endif
 
-.PHONY: all clean clean_obj run test test-fast
+.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac
 
 all: $(TARGET_EXEC)
 
@@ -65,12 +73,28 @@ $(TARGET_EXEC): $(OBJS)
 %.o: %.c
 	$(CC) -c $(CFLAGS) $< -o $@
 
+mini: $(MINI_TARGET_EXEC)
+
+$(MINI_TARGET_EXEC): $(MINI_OBJS)
+	$(CC) $^ -o $@ $(LDFLAGS) $(SDLFLAGS)
+
+build/mini/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) -c $(CFLAGS) -DCURRENT_BUILD=BUILD_MINI $< -o $@
+
 run: all
 	./$(TARGET_EXEC)
 
+mini-test: mini
+	./$(MINI_TARGET_EXEC) --headless --frames 3
+
+mini-mac: NATIVE_MAC=1
+mini-mac: mini
+
 clean: clean_obj
 clean_obj:
-	@$(RM) $(OBJS) $(TARGET_EXEC) src/embedded/*.o src/embedded/*.c
+	@$(RM) $(OBJS) $(TARGET_EXEC) $(MINI_TARGET_EXEC) $(MINI_OBJS) src/embedded/*.o src/embedded/*.c
+	@rm -rf build/mini
 
 test: all
 	$(PYTHON) tests/run_tests.py -v

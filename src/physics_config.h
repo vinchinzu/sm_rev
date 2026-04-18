@@ -74,20 +74,32 @@
 #define optionsmenu_arr5 ((uint16*)(g_ram+0x1B2D))
 #define optionsmenu_arr11 ((uint16*)(g_ram+0x1B3D))
 
+// Per-environment Samus physics impulses. Index matches
+// kSamusVerticalEnv_* (0=Air, 1=Water, 2=LavaAcid). Breaking the flat
+// jump_/jump_underwater_/jump_lava_acid_ triples into arrays lets
+// samus_jump.c/samus_speed.c index them directly by Samus_GetVerticalEnv().
 typedef struct {
-	uint16 jump_initial_speed;
-	uint16 jump_initial_subspeed;
-	uint16 jump_hi_initial_speed;
-	uint16 jump_hi_initial_subspeed;
-	uint16 jump_underwater_initial_speed;
-	uint16 jump_underwater_initial_subspeed;
-	uint16 jump_hi_underwater_initial_speed;
-	uint16 jump_hi_underwater_initial_subspeed;
-	uint16 jump_lava_acid_initial_speed;
-	uint16 jump_lava_acid_initial_subspeed;
-	uint16 jump_hi_lava_acid_initial_speed;
-	uint16 jump_hi_lava_acid_initial_subspeed;
+	// --- Normal-jump initial Y speeds ---
+	uint16 jump_initial_speed[3];
+	uint16 jump_initial_subspeed[3];
+	uint16 jump_hi_initial_speed[3];
+	uint16 jump_hi_initial_subspeed[3];
 
+	// --- Wall-jump initial Y speeds ---
+	uint16 wall_jump_initial_speed[3];
+	uint16 wall_jump_initial_subspeed[3];
+	uint16 wall_jump_hi_initial_speed[3];
+	uint16 wall_jump_hi_initial_subspeed[3];
+
+	// --- Bomb-jump initial Y speeds ---
+	uint16 bomb_jump_initial_speed[3];
+	uint16 bomb_jump_initial_subspeed[3];
+
+	// --- Knockback Y impulse (applied on damage) ---
+	uint16 knockback_y_initial_speed[3];
+	uint16 knockback_y_initial_subspeed[3];
+
+	// --- Horizontal run accel/decel (environment-independent) ---
 	uint16 run_accel;
 	uint16 run_accel_sub;
 	uint16 run_decel;
@@ -95,6 +107,7 @@ typedef struct {
 	uint16 run_max_speed;
 	uint16 run_max_speed_sub;
 
+	// --- Gravity (one whole-pixel value, three subpixel flavors) ---
 	uint16 gravity_accel;
 	uint16 gravity_subaccel;
 	uint16 gravity_underwater_subaccel;

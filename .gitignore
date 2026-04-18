@@ -2,6 +2,7 @@
 *.smc
 *.sfc
 sm_rev
+sm_rev_mini
 
 # Build artifacts
 *.o

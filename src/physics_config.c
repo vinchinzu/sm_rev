@@ -8,19 +8,41 @@
 #include <time.h>
 #include "sm_rtl.h"
 
+// Env index order for flat JSON names: [0] "" (air / default), [1] "_underwater", [2] "_lava_acid".
+// This string table exists purely so the load/save loops read like a
+// single line per field rather than three near-identical copies.
+static const char *const kEnvSuffix[3] = { "", "_underwater", "_lava_acid" };
+
 PhysicsParams g_physics_params = {
-  .jump_initial_speed = 4, .jump_initial_subspeed = 0xe000, 
-  .jump_hi_initial_speed = 6, .jump_hi_initial_subspeed = 0x0000,
-  .jump_underwater_initial_speed = 1, .jump_underwater_initial_subspeed = 0xc000,
-  .jump_hi_underwater_initial_speed = 2, .jump_hi_underwater_initial_subspeed = 0x8000,
-  .jump_lava_acid_initial_speed = 2, .jump_lava_acid_initial_subspeed = 0xc000,
-  .jump_hi_lava_acid_initial_speed = 3, .jump_hi_lava_acid_initial_subspeed = 0x8000,
+  // --- Normal jumps (air / water / lava-acid) ---
+  .jump_initial_speed         = { 4, 1, 2 },
+  .jump_initial_subspeed      = { 0xe000, 0xc000, 0xc000 },
+  .jump_hi_initial_speed      = { 6, 2, 3 },
+  .jump_hi_initial_subspeed   = { 0x0000, 0x8000, 0x8000 },
+
+  // --- Wall jumps ---
+  .wall_jump_initial_speed    = { 4, 0, 2 },
+  .wall_jump_initial_subspeed = { 0xa000, 0x4000, 0xa000 },
+  .wall_jump_hi_initial_speed    = { 5, 0, 3 },
+  .wall_jump_hi_initial_subspeed = { 0x8000, 0x8000, 0x8000 },
+
+  // --- Bomb jumps ---
+  .bomb_jump_initial_speed    = { 2, 0, 0 },
+  .bomb_jump_initial_subspeed = { 0xc000, 0x1000, 0x1000 },
+
+  // --- Knockback Y ---
+  .knockback_y_initial_speed    = { 5, 2, 2 },
+  .knockback_y_initial_subspeed = { 0, 0, 0 },
+
+  // --- Horizontal run ---
   .run_accel = 0, .run_accel_sub = 0x00a0,
   .run_decel = 0, .run_decel_sub = 0x0000,
   .run_max_speed = 3, .run_max_speed_sub = 0x0000,
+
+  // --- Gravity ---
   .gravity_accel = 0, .gravity_subaccel = 0x1c00,
   .gravity_underwater_subaccel = 0x0800,
-  .gravity_lava_acid_subaccel = 0x0900
+  .gravity_lava_acid_subaccel = 0x0900,
 };
 
 static time_t g_last_physics_config_time;
@@ -41,8 +63,27 @@ static bool parse_json_int(const char *json, const char *key, uint16 *out_val) {
    return false;
 }
 
+// Flat-scalar load/save (for run_* and gravity_* fields).
 #define LOAD_FIELD(ctx, name) parse_json_int((ctx), #name, &p->name)
-#define SAVE_FIELD(f, name, is_last) fprintf((f), "  \"%s\": %u%s\n", #name, p->name, (is_last) ? "" : ",")
+#define SAVE_FIELD(f, name, is_last) \
+    fprintf((f), "  \"%s\": %u%s\n", #name, p->name, (is_last) ? "" : ",")
+
+// Per-env array load/save. JSON key is built as "<name><env_suffix>",
+// e.g. "jump_initial_speed" / "jump_initial_speed_underwater" /
+// "jump_initial_speed_lava_acid". Matches the pre-widening flat naming.
+static void load_env_field(const char *buf, const char *name, uint16 arr[3]) {
+    char key[128];
+    for (int i = 0; i < 3; i++) {
+        snprintf(key, sizeof(key), "%s%s", name, kEnvSuffix[i]);
+        parse_json_int(buf, key, &arr[i]);
+    }
+}
+static void save_env_field(FILE *f, const char *name, const uint16 arr[3]) {
+    for (int i = 0; i < 3; i++)
+        fprintf(f, "  \"%s%s\": %u,\n", name, kEnvSuffix[i], arr[i]);
+}
+#define LOAD_ENV(ctx, name) load_env_field((ctx), #name, p->name)
+#define SAVE_ENV(f, name)   save_env_field((f),   #name, p->name)
 
 void LoadPhysicsConfig(void) {
     FILE *f = fopen("sm_physics.json", "rb");
@@ -60,18 +101,20 @@ void LoadPhysicsConfig(void) {
     fclose(f);
 
     PhysicsParams *p = &g_physics_params;
-    LOAD_FIELD(buf, jump_initial_speed);
-    LOAD_FIELD(buf, jump_initial_subspeed);
-    LOAD_FIELD(buf, jump_hi_initial_speed);
-    LOAD_FIELD(buf, jump_hi_initial_subspeed);
-    LOAD_FIELD(buf, jump_underwater_initial_speed);
-    LOAD_FIELD(buf, jump_underwater_initial_subspeed);
-    LOAD_FIELD(buf, jump_hi_underwater_initial_speed);
-    LOAD_FIELD(buf, jump_hi_underwater_initial_subspeed);
-    LOAD_FIELD(buf, jump_lava_acid_initial_speed);
-    LOAD_FIELD(buf, jump_lava_acid_initial_subspeed);
-    LOAD_FIELD(buf, jump_hi_lava_acid_initial_speed);
-    LOAD_FIELD(buf, jump_hi_lava_acid_initial_subspeed);
+
+    LOAD_ENV(buf, jump_initial_speed);
+    LOAD_ENV(buf, jump_initial_subspeed);
+    LOAD_ENV(buf, jump_hi_initial_speed);
+    LOAD_ENV(buf, jump_hi_initial_subspeed);
+    LOAD_ENV(buf, wall_jump_initial_speed);
+    LOAD_ENV(buf, wall_jump_initial_subspeed);
+    LOAD_ENV(buf, wall_jump_hi_initial_speed);
+    LOAD_ENV(buf, wall_jump_hi_initial_subspeed);
+    LOAD_ENV(buf, bomb_jump_initial_speed);
+    LOAD_ENV(buf, bomb_jump_initial_subspeed);
+    LOAD_ENV(buf, knockback_y_initial_speed);
+    LOAD_ENV(buf, knockback_y_initial_subspeed);
+
     LOAD_FIELD(buf, run_accel);
     LOAD_FIELD(buf, run_accel_sub);
     LOAD_FIELD(buf, run_decel);
@@ -91,18 +134,20 @@ void SavePhysicsConfig(void) {
     if (!f) return;
     PhysicsParams *p = &g_physics_params;
     fprintf(f, "{\n");
-    SAVE_FIELD(f, jump_initial_speed, false);
-    SAVE_FIELD(f, jump_initial_subspeed, false);
-    SAVE_FIELD(f, jump_hi_initial_speed, false);
-    SAVE_FIELD(f, jump_hi_initial_subspeed, false);
-    SAVE_FIELD(f, jump_underwater_initial_speed, false);
-    SAVE_FIELD(f, jump_underwater_initial_subspeed, false);
-    SAVE_FIELD(f, jump_hi_underwater_initial_speed, false);
-    SAVE_FIELD(f, jump_hi_underwater_initial_subspeed, false);
-    SAVE_FIELD(f, jump_lava_acid_initial_speed, false);
-    SAVE_FIELD(f, jump_lava_acid_initial_subspeed, false);
-    SAVE_FIELD(f, jump_hi_lava_acid_initial_speed, false);
-    SAVE_FIELD(f, jump_hi_lava_acid_initial_subspeed, false);
+
+    SAVE_ENV(f, jump_initial_speed);
+    SAVE_ENV(f, jump_initial_subspeed);
+    SAVE_ENV(f, jump_hi_initial_speed);
+    SAVE_ENV(f, jump_hi_initial_subspeed);
+    SAVE_ENV(f, wall_jump_initial_speed);
+    SAVE_ENV(f, wall_jump_initial_subspeed);
+    SAVE_ENV(f, wall_jump_hi_initial_speed);
+    SAVE_ENV(f, wall_jump_hi_initial_subspeed);
+    SAVE_ENV(f, bomb_jump_initial_speed);
+    SAVE_ENV(f, bomb_jump_initial_subspeed);
+    SAVE_ENV(f, knockback_y_initial_speed);
+    SAVE_ENV(f, knockback_y_initial_subspeed);
+
     SAVE_FIELD(f, run_accel, false);
     SAVE_FIELD(f, run_accel_sub, false);
     SAVE_FIELD(f, run_decel, false);
@@ -113,6 +158,7 @@ void SavePhysicsConfig(void) {
     SAVE_FIELD(f, gravity_subaccel, false);
     SAVE_FIELD(f, gravity_underwater_subaccel, false);
     SAVE_FIELD(f, gravity_lava_acid_subaccel, true);
+
     fprintf(f, "}\n");
     fclose(f);
     struct stat st;
