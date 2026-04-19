@@ -9,6 +9,13 @@ typedef struct Snes Snes;
 extern Snes *g_snes;
 extern bool g_fail;
 
+// RunMode selects whether each frame runs the original SNES emulator (THEIRS),
+// the native C port (MINE), or BOTH (default: run both, reconcile to emulator
+// on any divergence). Fun-build mods need RM_MINE — otherwise the per-frame
+// reconcile undoes any modded physics.
+enum RunMode { RM_BOTH, RM_MINE, RM_THEIRS };
+extern uint8 g_runmode;
+
 typedef struct Snes Snes;
 
 Snes *SnesInit(const char *filename);

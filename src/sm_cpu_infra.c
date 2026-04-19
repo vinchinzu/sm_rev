@@ -18,7 +18,6 @@ extern const size_t sm_rom_size;
 
 void RtlRunFrameCompare(uint16 input1, uint16 input2, int run_what);
 
-enum RunMode { RM_BOTH, RM_MINE, RM_THEIRS };
 uint8 g_runmode = RM_BOTH;
 
 extern int g_got_mismatch_count;
@@ -1013,11 +1012,13 @@ void RtlRunFrameCompare(uint16 input1, uint16 input2, int run_what) {
   g_snes->input2->currentState = input2;
 
   if (g_runmode == RM_THEIRS) {
+    g_snes->ppu = g_snes->snes_ppu;
     RunOneFrameOfGame_Emulated();
     DrawFrameToPpu();
 
   } else if (g_runmode == RM_MINE) {
     g_use_my_apu_code = true;
+    g_snes->ppu = g_snes->my_ppu;
 
     g_snes->runningWhichVersion = 0xff;
     RunOneFrameOfGame();

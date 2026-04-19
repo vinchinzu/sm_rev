@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -19,6 +20,7 @@ import pytest
 SM_REV_DIR = Path(__file__).parent.parent
 BINARY = SM_REV_DIR / "sm_rev"
 ROM = SM_REV_DIR / "sm.smc"
+SM_MODS = SM_REV_DIR / "sm_mods.json"
 
 # SDL env vars for headless operation
 HEADLESS_ENV = {
@@ -28,13 +30,18 @@ HEADLESS_ENV = {
 }
 
 
-def headless(frames: int, extra_args: list[str] | None = None, timeout: int = 30) -> subprocess.CompletedProcess:
+def headless(
+    frames: int,
+    extra_args: list[str] | None = None,
+    timeout: int = 30,
+    cwd: Path | None = None,
+) -> subprocess.CompletedProcess:
     """Run sm_rev headlessly for `frames` frames, dumping RAM state to stdout."""
     import os
     env = os.environ.copy()
     env.update(HEADLESS_ENV)
     cmd = [str(BINARY), "--headless", str(frames), "--dump", "-"] + (extra_args or [])
-    return subprocess.run(cmd, cwd=SM_REV_DIR, capture_output=True, text=True, env=env, timeout=timeout)
+    return subprocess.run(cmd, cwd=cwd or SM_REV_DIR, capture_output=True, text=True, env=env, timeout=timeout)
 
 
 def find_saves() -> list[Path]:
@@ -57,6 +64,19 @@ def parse_dump(r: subprocess.CompletedProcess) -> dict:
     if start == -1 or end == 0:
         raise ValueError(f"No JSON object found in stdout:\n{r.stdout!r}")
     return json.loads(r.stdout[start:end])
+
+
+@contextmanager
+def temporary_mods_config(config: dict):
+    original = SM_MODS.read_text() if SM_MODS.exists() else None
+    try:
+        SM_MODS.write_text(json.dumps(config) + "\n")
+        yield
+    finally:
+        if original is None:
+            SM_MODS.unlink(missing_ok=True)
+        else:
+            SM_MODS.write_text(original)
 
 
 @pytest.fixture(autouse=True)
@@ -94,7 +114,7 @@ class TestHeadlessSmoke:
         """RAM dump must contain all expected fields."""
         r = headless(10)
         data = parse_dump(r)
-        for field in ("frames", "game_state", "area_index", "room_ptr", "samus_health", "samus_y_pos"):
+        for field in ("runmode", "frame_source", "frames", "game_state", "area_index", "room_ptr", "samus_health", "samus_y_pos"):
             assert field in data, f"Missing field in dump: {field}"
 
     def test_dump_frame_count_matches(self):
@@ -190,3 +210,76 @@ class TestHeadlessRAMSanity:
         d1 = parse_dump(r1)
         d2 = parse_dump(r2)
         assert d1 == d2, f"Non-deterministic output:\nrun1={d1}\nrun2={d2}"
+
+
+class TestHeadlessRunMode:
+    def test_explicit_mine_mode_uses_c_frame_source(self):
+        """--runmode mine must render and report the native C-port frame."""
+        r = headless(10, extra_args=["--runmode", "mine"])
+        assert r.returncode == 0, f"mine runmode failed:\n{r.stderr}"
+        data = parse_dump(r)
+        assert data["runmode"] == "mine"
+        assert data["frame_source"] == "mine"
+
+    def test_explicit_theirs_mode_uses_emulator_frame_source(self):
+        """--runmode theirs must render and report the emulator frame."""
+        r = headless(10, extra_args=["--runmode", "theirs"])
+        assert r.returncode == 0, f"theirs runmode failed:\n{r.stderr}"
+        data = parse_dump(r)
+        assert data["runmode"] == "theirs"
+        assert data["frame_source"] == "theirs"
+
+    def test_mods_force_mine_when_runmode_unspecified(self):
+        """Non-default physics mods must opt into C-only execution when no runmode is provided."""
+        with temporary_mods_config({
+            "gravity_scale_percent": 50,
+            "run_speed_scale_percent": 155,
+            "jump_scale_percent": 200,
+        }):
+            r = headless(10)
+        assert r.returncode == 0, f"mods-forced mine run failed:\n{r.stderr}"
+        data = parse_dump(r)
+        assert data["runmode"] == "mine"
+        assert data["frame_source"] == "mine"
+        assert "forcing RM_MINE" in r.stdout
+
+    def test_dump_frame_uses_active_frame_source(self, tmp_path: Path):
+        """--dump-frame must write the active display buffer, not always the emulator buffer."""
+        frame_path = tmp_path / "frame.raw"
+        r = headless(10, extra_args=["--runmode", "mine", "--dump-frame", str(frame_path)])
+        assert r.returncode == 0, f"frame dump failed:\n{r.stderr}"
+        assert frame_path.exists(), "frame dump was not created"
+        assert frame_path.stat().st_size == 256 * 4 * 240
+        data = parse_dump(r)
+        assert data["frame_source"] == "mine"
+
+    def test_mine_matches_theirs_without_mods_on_loaded_save(self, tmp_path: Path):
+        """With no sm_mods.json in cwd, mine/theirs should match for a stable loaded-save frame dump."""
+        save = find_saves()[0]
+        mine_frame = tmp_path / "mine.raw"
+        theirs_frame = tmp_path / "theirs.raw"
+
+        mine = headless(
+            5,
+            extra_args=[
+                "--runmode", "mine",
+                "--load-state", str(save.resolve()),
+                "--dump-frame", str(mine_frame),
+                str(ROM.resolve()),
+            ],
+            cwd=tmp_path,
+        )
+        theirs = headless(
+            5,
+            extra_args=[
+                "--runmode", "theirs",
+                "--load-state", str(save.resolve()),
+                "--dump-frame", str(theirs_frame),
+                str(ROM.resolve()),
+            ],
+            cwd=tmp_path,
+        )
+
+        assert mine.returncode == 0, f"mine run failed:\n{mine.stderr}"
+        assert theirs.returncode == 0, f"theirs run failed:\n{theirs.stderr}"
+        assert mine_frame.read_bytes() == theirs_frame.read_bytes()

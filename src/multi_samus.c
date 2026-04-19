@@ -2,6 +2,7 @@
 #include "variables.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define MAX_SAMUS 2
 
@@ -16,7 +17,8 @@ int g_num_samus = 1;
 bool g_initialized = false;
 
 void MultiSamus_Init(void) {
-  g_num_samus = 2; 
+  const char *multi_samus = getenv("SM_MULTI_SAMUS");
+  g_num_samus = (multi_samus && multi_samus[0] == '1' && multi_samus[1] == '\0') ? 2 : 1;
   g_active_samus = 0;
   g_initialized = true;
   
@@ -27,12 +29,14 @@ void MultiSamus_Init(void) {
   memcpy(g_samus_states[0].joypad_block, g_ram + 0x87, 0x20);
   memcpy(g_samus_states[0].samus_block, g_ram + 0x9A2, 0x420);
   
-  // Clone Samus 0 to Samus 1 initially
-  memcpy(&g_samus_states[1], &g_samus_states[0], sizeof(SamusState));
-  
-  // Offset Samus 2 slightly so they don't overlap perfectly
-  uint16 *s2_x = (uint16*)&g_samus_states[1].samus_block[0xAF6 - 0x9A2];
-  *s2_x += 20;
+  if (g_num_samus > 1) {
+    // Clone Samus 0 to Samus 1 initially.
+    memcpy(&g_samus_states[1], &g_samus_states[0], sizeof(SamusState));
+
+    // Offset Samus 2 slightly so they don't overlap perfectly.
+    uint16 *s2_x = (uint16 *)&g_samus_states[1].samus_block[0xAF6 - 0x9A2];
+    *s2_x += 20;
+  }
 }
 
 void MultiSamus_Switch(int index) {

@@ -232,6 +232,15 @@ void LoadPhysicsConfig(void) {
     if (buf) { load_mods_from_buf(buf); free(buf); }
 
     PhysicsConfig_RecomputeEffective();
+
+    if (g_physics_mods.gravity_scale_percent   != 100 ||
+        g_physics_mods.run_speed_scale_percent != 100 ||
+        g_physics_mods.jump_scale_percent      != 100) {
+      printf("[physics] mods active: gravity=%u%% run=%u%% jump=%u%%\n",
+             g_physics_mods.gravity_scale_percent,
+             g_physics_mods.run_speed_scale_percent,
+             g_physics_mods.jump_scale_percent);
+    }
 }
 
 void SavePhysicsConfig(void) {

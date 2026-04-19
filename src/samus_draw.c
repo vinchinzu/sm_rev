@@ -626,11 +626,14 @@ static void DrawPad2Drone(uint16 samus_oam_start, uint16 samus_oam_end) {
 }
 
 void DrawSamusAndProjectiles(void) {  // 0x90EB35
-  for (int i = 0, n = MultiSamus_GetNumSamus(); i < n; i++) {
+  int num_samus = MultiSamus_GetNumSamus();
+  bool draw_pad2_drone = num_samus > 1;
+  for (int i = 0; i < num_samus; i++) {
     MultiSamus_Switch(i);
     uint16 samus_oam_start = oam_next_ptr;
     SamusDrawSprites();
-    DrawPad2Drone(samus_oam_start, oam_next_ptr);
+    if (draw_pad2_drone)
+      DrawPad2Drone(samus_oam_start, oam_next_ptr);
     DrawPlayerExplosions2();
   }
   MultiSamus_Switch(0);

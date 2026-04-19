@@ -44,6 +44,8 @@ static void HandleGamepadInput(int button, bool pressed);
 static void HandleInput(int keyCode, int keyMod, bool pressed);
 static bool HandleInputP2(int keyCode, bool pressed);
 static void HandleCommand(uint32 j, bool pressed);
+static uint8 *GetActiveFramePixels(void);
+static const char *GetActiveFrameSourceName(void);
 void OpenGLRenderer_Create(struct RendererFuncs *funcs);
 
 bool g_debug_flag;
@@ -89,6 +91,39 @@ static struct RendererFuncs g_renderer_funcs;
 static uint32 g_gamepad_modifiers;
 static uint16 g_gamepad_last_cmd[kGamepadBtn_Count];
 extern Snes *g_snes;
+
+static bool PhysicsModsActive(void) {
+  return g_physics_mods.gravity_scale_percent != 100 ||
+         g_physics_mods.run_speed_scale_percent != 100 ||
+         g_physics_mods.jump_scale_percent != 100;
+}
+
+static const char *GetRunModeName(uint8 runmode) {
+  switch (runmode) {
+  case RM_MINE:
+    return "mine";
+  case RM_THEIRS:
+    return "theirs";
+  default:
+    return "both";
+  }
+}
+
+static bool ParseRunMode(const char *value, uint8 *runmode) {
+  if (strcmp(value, "both") == 0) {
+    *runmode = RM_BOTH;
+    return true;
+  }
+  if (strcmp(value, "mine") == 0) {
+    *runmode = RM_MINE;
+    return true;
+  }
+  if (strcmp(value, "theirs") == 0) {
+    *runmode = RM_THEIRS;
+    return true;
+  }
+  return false;
+}
 
 void NORETURN Die(const char *error) {
   SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, kWindowTitle, error, NULL);
@@ -171,7 +206,7 @@ static SDL_HitTestResult HitTestCallback(SDL_Window *win, const SDL_Point *pt, v
 }
 
 void RtlDrawPpuFrame(uint8 *pixel_buffer, size_t pitch, uint32 render_flags) {
-  uint8 *ppu_pixels = g_other_image ? g_my_pixels : g_pixels;
+  uint8 *ppu_pixels = GetActiveFramePixels();
   for (size_t y = 0; y < 240; y++)
     memcpy((uint8_t *)pixel_buffer + y * pitch, ppu_pixels + y * 256 * 4, 256 * 4);
 }
@@ -248,6 +283,18 @@ static void SDLCALL AudioCallback(void *userdata, Uint8 *stream, int len) {
 static SDL_Renderer *g_renderer;
 static SDL_Texture *g_texture;
 static SDL_Rect g_sdl_renderer_rect;
+
+static uint8 *GetActiveFramePixels(void) {
+  if (g_runmode == RM_MINE)
+    return g_my_pixels;
+  if (g_runmode == RM_THEIRS)
+    return g_pixels;
+  return g_other_image ? g_my_pixels : g_pixels;
+}
+
+static const char *GetActiveFrameSourceName(void) {
+  return GetActiveFramePixels() == g_my_pixels ? "mine" : "theirs";
+}
 
 static bool SdlRenderer_Init(SDL_Window *window) {
 
@@ -333,6 +380,7 @@ int main(int argc, char** argv) {
   int g_fixed_inputs = 0;
   uint16 *g_input_list = NULL;
   int g_input_list_size = 0;
+  bool runmode_explicit = false;
 
   bool has_config_arg = false;
   while (argc > 0 && argv[0][0] == '-') {
@@ -357,6 +405,13 @@ int main(int argc, char** argv) {
       argc -= 2, argv += 2;
     } else if (strcmp(argv[0], "--load-state") == 0 && argc >= 2) {
       g_load_state_path = argv[1];
+      argc -= 2, argv += 2;
+    } else if (strcmp(argv[0], "--runmode") == 0 && argc >= 2) {
+      if (!ParseRunMode(argv[1], &g_runmode)) {
+        fprintf(stderr, "Invalid --runmode value: %s (expected both|mine|theirs)\n", argv[1]);
+        return 1;
+      }
+      runmode_explicit = true;
       argc -= 2, argv += 2;
     } else if (strcmp(argv[0], "--inputs") == 0 && argc >= 2) {
       g_fixed_inputs = (int)strtol(argv[1], NULL, 16);
@@ -496,6 +551,14 @@ int main(int argc, char** argv) {
   RtlReadSram();
   LoadPhysicsConfig();
   LoadEnemyConfig();
+
+  // Fun-build mods only take effect when the C port is the source of truth.
+  // Default RM_BOTH runs emulator + port and reconciles to the emulator on
+  // divergence, which silently undoes modded physics every frame.
+  if (!runmode_explicit && PhysicsModsActive()) {
+    g_runmode = RM_MINE;
+    printf("[physics] mods active — forcing RM_MINE (C port only, no emulator reconcile)\n");
+  }
 
   if (g_load_state_path)
     RtlLoadStateFromPath(g_load_state_path);
@@ -646,6 +709,8 @@ int main(int argc, char** argv) {
     if (f) {
       fprintf(f,
         "{\n"
+        "  \"runmode\": \"%s\",\n"
+        "  \"frame_source\": \"%s\",\n"
         "  \"frames\": %u,\n"
         "  \"game_state\": %u,\n"
         "  \"area_index\": %u,\n"
@@ -681,6 +746,8 @@ int main(int argc, char** argv) {
         "  \"bug_fix_counter\": %u,\n"
         "  \"inputs\": %u\n"
         "}\n",
+        GetRunModeName(g_runmode),
+        GetActiveFrameSourceName(),
         frameCtr,
         (unsigned)(*(uint16 *)(g_ram + 0x998)),
         (unsigned)(*(uint16 *)(g_ram + 0x79F)),
@@ -722,7 +789,7 @@ int main(int argc, char** argv) {
   if (g_headless_frame_dump) {
     FILE *f = fopen(g_headless_frame_dump, "wb");
     if (f) {
-      fwrite(g_pixels, 1, sizeof(g_pixels), f);
+      fwrite(GetActiveFramePixels(), 1, sizeof(g_pixels), f);
       fclose(f);
     }
   }
