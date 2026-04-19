@@ -12,6 +12,7 @@ struct StateRecorder;
 
 static void RtlSaveMusicStateToRam_Locked();
 static void RtlRestoreMusicAfterLoad_Locked(bool is_reset);
+static void RtlRefreshRoomAssetsAfterLoad(void);
 
 uint8 g_ram[0x20000];
 uint8 *g_sram;
@@ -83,6 +84,27 @@ static void LoadSnesState(SaveLoadFunc *func, void *ctx) {
 
 static void SaveSnesState(SaveLoadFunc *func, void *ctx) {
   snes_saveload(g_snes, func, ctx);
+}
+
+static void RtlRefreshRoomAssetsAfterLoad(void) {
+  if (game_state != kGameState_8_MainGameplay && game_state != kGameState_9_HitDoorBlock)
+    return;
+  if (!room_ptr)
+    return;
+
+  LoadRoomHeader();
+  LoadStateHeader();
+  LoadCRETilesTilesetTilesAndPalette();
+  LoadLevelScrollAndCre();
+  LoadLibraryBackground();
+  CalculateLayer2Xpos();
+  CalculateLayer2Ypos();
+  bg2_x_scroll = layer2_x_pos;
+  bg2_y_scroll = layer2_y_pos;
+  CalculateBgScrolls();
+  DisplayViewablePartOfRoom();
+  LoadEnemyGfxToVram();
+  LoadColorsForSpritesBeamsAndEnemies();
 }
 
 typedef struct StateRecorder {
@@ -488,8 +510,9 @@ void RtlSaveLoad(int cmd, int slot) {
     }
     RtlApuLock();
     StateRecorder_Load(&state_recorder, f, cmd == kSaveLoad_Replay);
-    ppu_copy(g_snes->my_ppu, g_snes->ppu);
     RtlApuUnlock();
+    RtlRefreshRoomAssetsAfterLoad();
+    ppu_copy(g_snes->my_ppu, g_snes->ppu);
     RtlSynchronizeWholeState();
     fclose(f);
 
@@ -519,8 +542,9 @@ void RtlLoadStateFromPath(const char *path) {
   }
   RtlApuLock();
   StateRecorder_Load(&state_recorder, f, false);
-  ppu_copy(g_snes->my_ppu, g_snes->ppu);
   RtlApuUnlock();
+  RtlRefreshRoomAssetsAfterLoad();
+  ppu_copy(g_snes->my_ppu, g_snes->ppu);
   RtlSynchronizeWholeState();
   fclose(f);
   if (coroutine_state_0 == 4)

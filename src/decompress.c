@@ -142,7 +142,7 @@ void DecompressToVRAM(uint32 src, uint16 dst_addr) {  // 0x80B271
       default:
         do {
           b = DecompNextByte();
-          WriteReg(VMDATAL + (dst_pos++ & 1), b++);
+          WriteReg(VMDATAL + (dst_pos++ & 1), b);
         } while (--len);
         break;
       }
