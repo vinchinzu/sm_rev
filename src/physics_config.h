@@ -113,7 +113,26 @@ typedef struct {
 	uint16 gravity_underwater_subaccel;
 	uint16 gravity_lava_acid_subaccel;
 } PhysicsParams;
+
+// "Fun-build" knobs. All percentages: 100 = vanilla, 50 = half, 200 = double.
+//
+// Rationale: these are *derived* settings applied on top of PhysicsParams at
+// load time, producing the effective g_physics_params that the rest of the
+// engine reads. Keeping them in a separate struct (and a separate JSON file)
+// means consumers never see mod logic — PhysicsParams stays the single source
+// of truth the physics code reads, and we can disable all mods by deleting
+// sm_mods.json or setting every knob back to 100. See physics_config.c for
+// exactly which PhysicsParams fields each knob scales.
+typedef struct {
+	uint16 gravity_scale_percent;     // gravity_accel/subaccel + water/lava flavors
+	uint16 run_speed_scale_percent;   // run_accel(+sub) + run_max_speed(+sub) — decel untouched
+	uint16 jump_scale_percent;        // all jump initial Y impulses (normal/hi/wall/wall-hi/bomb)
+} PhysicsMods;
+
+// g_physics_params is the *effective* vanilla × mods table the engine reads.
+// The unmodified base values live as a private copy in physics_config.c.
 extern PhysicsParams g_physics_params;
+extern PhysicsMods   g_physics_mods;
 
 void LoadPhysicsConfig(void);
 void SavePhysicsConfig(void);
