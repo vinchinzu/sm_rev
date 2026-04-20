@@ -604,15 +604,17 @@ void LoadEnemyGfxToVram(void) {  // 0x82DFD1
       uint16 enemy_def = get_EnemyTileset(v0)->enemy_def;
       if (enemy_def == 0xFFFF)
         break;
-      EnemyDef *ED = get_EnemyDef_A2(enemy_def);
-      uint16 vram_update_dst, vram_dst = get_EnemyTileset(v0)->vram_dst;
+      ED = get_EnemyDef_A2(enemy_def);
+      uint16 vram_update_size, vram_update_dst;
       if ((ED->tile_data_size & 0x8000) != 0) {
-        vram_update_dst = (((vram_dst & 0xF000) >> 4) | 0x6000) << 1;
+        vram_update_size = ED->tile_data_size & 0x7FFF;
+        vram_update_dst = ((uint16)(get_EnemyTileset(i)->vram_dst & 0xF000) >> 4) | 0x6000;
       } else {
-        vram_update_dst = dst << 1;
+        vram_update_size = ED->tile_data_size;
+        vram_update_dst = dst;
         dst += ED->tile_data_size >> 1;
       }
-      DecompressToVRAM(Load24(&ED->tile_data), vram_update_dst);
+      CopyToVramNow(vram_update_dst, Load24(&ED->tile_data), vram_update_size);
       i += 4;
     }
   }

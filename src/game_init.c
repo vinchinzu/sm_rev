@@ -212,9 +212,9 @@ void InitPpuForGameplay(void) {  // 0x8281DD
   WriteReg(SETINI, 0);
   reg_SETINI = 0;
   oam_next_ptr = 0;
-  memset7E((uint16*)&ram3000, 0x1C2F, 0x800);
-  memset7E((uint16 *)&ram4000, 0x1C2F, 0x800);
-  memset7E(ram4000.bg2_tilemap, 0x1C2F, 0x1000);
+  memset7E((uint16*)&ram3000, 0, 0x7FE);
+  memset7E((uint16 *)&ram4000, 0x6F, 0x7FE);
+  memset7E(ram4000.bg2_tilemap, 0x2C0F, 0xFE);
 }
 
 void InitIoForGameplay(void) {  // 0x82819B
