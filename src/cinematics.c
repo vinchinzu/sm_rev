@@ -1,4 +1,4 @@
-// Non gameplay routines
+// Title, intro, ending, and credits cinematics runtime.
 #include "sm_rtl.h"
 #include "ida_types.h"
 #include "funcs.h"

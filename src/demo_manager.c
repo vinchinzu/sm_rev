@@ -2,7 +2,6 @@
 #include "ida_types.h"
 #include "variables.h"
 #include "funcs.h"
-#include "sm_82_data.h"
 
 #define kDemoRoomData ((uint16*)RomFixedPtr(0x82876c))
 

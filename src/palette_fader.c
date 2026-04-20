@@ -2,7 +2,8 @@
 #include "ida_types.h"
 #include "variables.h"
 #include "funcs.h"
-#include "sm_82_data.h"
+#define kInitialPalette ((uint16*)RomFixedPtr(0x9a8000))
+#define kCommonSpritesPalette1 ((uint16*)RomFixedPtr(0x9afc00))
 
 uint16 CalculateNthTransitionColorComponentFromXtoY(uint16 a, uint16 k, uint16 j) {  // 0x82DAA6
   if (!a)

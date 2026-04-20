@@ -231,6 +231,240 @@ void CalculateXrayHdmaTableInner(uint16 k, uint16 j, uint16 r18, uint16 r20, boo
   }
 }
 
+void HdmaobjPreInstr_XrayFunc0_NoBeam(uint16 k) {  // 0x888732
+  if ((button_config_run_b & joypad1_lastkeys) != 0) {
+    CalculateXrayHdmaTable();
+    ++demo_input_pre_instr;
+  } else {
+    demo_input_pre_instr = 3;
+  }
+}
+
+void HdmaobjPreInstr_XrayFunc1_BeamWidening(uint16 k) {  // 0x888754
+  if ((button_config_run_b & joypad1_lastkeys) != 0) {
+    AddToHiLo(&demo_input_instr_timer, &demo_input_instr_ptr, 2048);
+    AddToHiLo(&demo_input, &demo_input_new, __PAIR32__(demo_input_instr_timer, demo_input_instr_ptr));
+    if (!sign16(demo_input - 11)) {
+      demo_input_new = 0;
+      demo_input = 10;
+      ++demo_input_pre_instr;
+    }
+    CalculateXrayHdmaTable();
+  } else {
+    demo_input_pre_instr = 3;
+  }
+}
+
+void HdmaobjPreInstr_XrayFunc2_FullBeam(uint16 k) {  // 0x8887AB
+  if ((button_config_run_b & joypad1_lastkeys) != 0) {
+    HandleMovingXrayUpDown();
+    CalculateXrayHdmaTable();
+  } else {
+    ++demo_input_pre_instr;
+  }
+}
+
+void HandleMovingXrayUpDown(void) {  // 0x8887C5
+  if ((button_config_up & joypad1_lastkeys) != 0) {
+    MoveXrayUp();
+  } else if ((button_config_down & joypad1_lastkeys) != 0) {
+    MoveXrayDown();
+  }
+}
+
+void MoveXrayUp(void) {  // 0x8887E0
+  bool v0; // cf
+  int16 v1;
+
+  if (sign16(xray_angle - 128)) {
+    if (xray_angle != demo_input) {
+      if ((int16)(xray_angle - demo_input) < 0
+          || (v0 = xray_angle != 0, --xray_angle, (int16)(xray_angle - (!v0 + demo_input)) < 0)) {
+        xray_angle = demo_input;
+      }
+    }
+  } else if (demo_input + xray_angle != 256) {
+    if ((int16)(demo_input + xray_angle - 256) >= 0
+        || (v1 = (__PAIR32__(demo_input, xray_angle) + __PAIR32__(xray_angle, 1)) >> 16, ++xray_angle, v1 != 256)
+        && (int16)(v1 - 256) >= 0) {
+      xray_angle = 256 - demo_input;
+    }
+  }
+}
+
+void MoveXrayDown(void) {  // 0x888835
+  int16 v0;
+  bool v1; // cf
+
+  if (sign16(xray_angle - 128)) {
+    if (demo_input + xray_angle != 128) {
+      if ((int16)(demo_input + xray_angle - 128) >= 0
+          || (v0 = (__PAIR32__(demo_input, xray_angle) + __PAIR32__(xray_angle, 1)) >> 16, ++xray_angle, v0 != 128)
+          && (int16)(v0 - 128) >= 0) {
+        xray_angle = 128 - demo_input;
+      }
+    }
+  } else if (xray_angle - demo_input != 128) {
+    if ((int16)(xray_angle - demo_input - 128) < 0
+        || (v1 = xray_angle != 0, --xray_angle, xray_angle - (!v1 + demo_input) != 128)
+        && (int16)(xray_angle - (!v1 + demo_input) - 128) < 0) {
+      xray_angle = demo_input + 128;
+    }
+  }
+}
+
+void CalculateXrayHdmaTable(void) {  // 0x888896
+  int16 v0;
+  if (samus_pose_x_dir == 4)
+    v0 = samus_x_pos - layer1_x_pos - 3;
+  else
+    v0 = samus_x_pos - layer1_x_pos + 3;
+  uint16 v1;
+  if (samus_movement_type == 5)
+    v1 = samus_y_pos - layer1_y_pos - 12;
+  else
+    v1 = samus_y_pos - layer1_y_pos - 16;
+  if (v0 < 0) {
+    if (samus_pose_x_dir != 4) {
+off_screen:
+      CalculateXrayHdmaTableInner(v0, v1, xray_angle, demo_input, true, hdma_table_1);
+      return;
+    }
+  } else {
+    if ((int16)(v0 - 256) < 0) {
+      CalculateXrayHdmaTableInner(v0, v1, xray_angle, demo_input, false, hdma_table_1);
+      return;
+    }
+    if (samus_pose_x_dir != 8)
+      goto off_screen;
+  }
+
+  for (int i = 510; i >= 0; i -= 2)
+    hdma_table_1[i >> 1] = 255;
+}
+
+void HdmaobjPreInstr_XrayFunc3_DeactivateBeam(uint16 k) {  // 0x888934
+  int16 v1;
+  VramWriteEntry *v4;
+
+  mov24(&hdma_ptr_1, 0x980001);
+  *(uint16 *)((uint8 *)&demo_num_input_frames + 1) = 0;
+  demo_input_prev = 0;
+  demo_input_prev_new = 0;
+  demo_backup_prev_controller_input = 0;
+  hdma_table_1[0] = 255;
+  v1 = 4096;
+  if (fx_type != 36) {
+    v1 = 0x2000;
+    if (CanXrayShowBlocks())
+      v1 = 0x4000;
+  }
+  fx_layer_blending_config_c |= v1;
+  palette_buffer[0] = 0;
+  int v2 = hdma_object_index >> 1;
+  reg_BG2HOFS = hdma_object_A[v2];
+  reg_BG2VOFS = hdma_object_B[v2];
+  reg_BG2SC = *((uint8 *)hdma_object_C + hdma_object_index);
+  uint16 v3 = vram_write_queue_tail;
+  if ((int16)(vram_write_queue_tail - 240) < 0) {
+    v4 = gVramWriteEntry(vram_write_queue_tail);
+    v4->size = 2048;
+    v4->src.addr = ADDR16_OF_RAM(ram4000) + 4096;
+    *(uint16 *)&v4->src.bank = 126;
+    v4->vram_dst = (reg_BG2SC & 0xFC) << 8;
+    vram_write_queue_tail = v3 + 7;
+    ++demo_input_pre_instr;
+  }
+}
+
+void HdmaobjPreInstr_XrayFunc4_DeactivateBeam(uint16 k) {  // 0x8889BA
+  int16 v1;
+  VramWriteEntry *v3;
+
+  v1 = 4096;
+  if (fx_type != 36) {
+    v1 = 0x2000;
+    if (CanXrayShowBlocks())
+      v1 = 0x4000;
+  }
+  fx_layer_blending_config_c |= v1;
+  uint16 v2 = vram_write_queue_tail;
+  if ((int16)(vram_write_queue_tail - 240) < 0) {
+    v3 = gVramWriteEntry(vram_write_queue_tail);
+    v3->size = 2048;
+    v3->src.addr = ADDR16_OF_RAM(ram4000) + 6144;
+    *(uint16 *)&v3->src.bank = 126;
+    v3->vram_dst = ((reg_BG2SC & 0xFC) << 8) + 1024;
+    vram_write_queue_tail = v2 + 7;
+    ++demo_input_pre_instr;
+  }
+}
+
+void HdmaobjPreInstr_XrayFunc5_DeactivateBeam(uint16 k) {  // 0x888A08
+  int16 v1;
+  v1 = 4096;
+  if (fx_type != 36) {
+    v1 = 0x2000;
+    if (CanXrayShowBlocks())
+      v1 = 0x4000;
+  }
+  fx_layer_blending_config_c |= v1;
+  if (time_is_frozen_flag) {
+    time_is_frozen_flag = 0;
+    demo_input_pre_instr = 0;
+    demo_input_instr_timer = 0;
+    demo_input_instr_ptr = 0;
+    xray_angle = 0;
+    demo_input = 0;
+    demo_input_new = 0;
+    mov24(&hdma_ptr_1, 0x980001);
+    *(uint16 *)((uint8 *)&demo_num_input_frames + 1) = 0;
+    demo_input_prev = 0;
+    demo_input_prev_new = 0;
+    demo_backup_prev_controller_input = 0;
+    ResponsibleForXrayStandupGlitch();
+    hdma_object_channels_bitmask[hdma_object_index >> 1] = 0;
+    QueueSfx1_Max6(0xA);
+    if ((uint8)fx_type != 36) {
+      reg_COLDATA[2] = 0x80;
+      reg_COLDATA[1] = 64;
+      reg_COLDATA[0] = 32;
+    }
+    for (int i = 510 / 2; i >= 0; i--)
+      hdma_table_1[i] = 0xff;
+    if (samus_auto_cancel_hud_item_index) {
+      hud_item_index = 0;
+      samus_auto_cancel_hud_item_index = 0;
+    }
+  }
+}
+
+static Func_Y_V *const kHdmaobjPreInstr_XrayFuncs[6] = {  // 0x8886EF
+  HdmaobjPreInstr_XrayFunc0_NoBeam,
+  HdmaobjPreInstr_XrayFunc1_BeamWidening,
+  HdmaobjPreInstr_XrayFunc2_FullBeam,
+  HdmaobjPreInstr_XrayFunc3_DeactivateBeam,
+  HdmaobjPreInstr_XrayFunc4_DeactivateBeam,
+  HdmaobjPreInstr_XrayFunc5_DeactivateBeam,
+};
+
+void HdmaobjPreInstr_Xray(uint16 k) {
+  int16 v1;
+
+  v1 = 4096;
+  if (fx_type != 36) {
+    v1 = 0x2000;
+    if (CanXrayShowBlocks()) {
+      v1 = 0x4000;
+      *(uint16 *)&reg_COLDATA[0] = 0x27;
+      *(uint16 *)&reg_COLDATA[1] = 0x47;
+      *(uint16 *)&reg_COLDATA[2] = 0x87;
+    }
+  }
+  fx_layer_blending_config_c |= v1;
+  kHdmaobjPreInstr_XrayFuncs[demo_input_pre_instr](2 * demo_input_pre_instr);
+}
+
 void XrayRunHandler(void) {  // 0x91CAD6
   if (!time_is_frozen_flag && (button_config_run_b & joypad1_lastkeys) != 0) {
     if (Xray_Initialize() & 1)

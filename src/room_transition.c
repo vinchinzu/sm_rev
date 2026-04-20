@@ -2,7 +2,7 @@
 #include "ida_types.h"
 #include "variables.h"
 #include "funcs.h"
-#include "sm_82_data.h"
+#define kStateHeaderTileSets ((uint16*)RomFixedPtr(0x8fe7a7))
 
 static Func_Y_Y *const kUpdateBackgroundCommands[8] = {
   UpdateBackgroundCommand_0_Finish,
@@ -263,6 +263,7 @@ CoroutineRet DoorTransitionFunction_LoadMoreThings_Async(void) {
   ClearAnimtiles();
   ClearPaletteFXObjects();
   ClearPLMs();
+  CreatePlmsExecuteDoorAsmRoomSetup();
   LoadFXHeader();
   SpawnDoorClosingPLM();
   UpdateBeamTilesAndPalette();

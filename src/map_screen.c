@@ -2,7 +2,11 @@
 #include "ida_types.h"
 #include "variables.h"
 #include "funcs.h"
-#include "sm_82_data.h"
+#include "menu_assets.h"
+
+static const uint16 kMap_Criteria_SavePoints[16] = {
+  0x0168, 0x0108, 0x0148, 0x0188, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+};
 
 void SetupMapScrollingForFileSelectMap(void) {  // 0x829028
   ResetPauseMenuAnimations();

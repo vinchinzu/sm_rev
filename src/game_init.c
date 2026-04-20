@@ -3,7 +3,6 @@
 #include "ida_types.h"
 #include "variables.h"
 #include "funcs.h"
-#include "sm_82_data.h"
 #include "spc_player.h"
 
 #define kInitialPalette ((uint16*)RomFixedPtr(0x9a8000))

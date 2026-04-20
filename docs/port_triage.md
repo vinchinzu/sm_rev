@@ -17,45 +17,40 @@ mini-build value and keeps each session within a 700–1000 LOC refactor budget
 - When cross-file calls need to be visible, add decls to `funcs.h` or a local
   topic header (e.g. `samus_env.h`). Keep helpers `static` when possible.
 
-## Status snapshot (2026-04-18)
+## Status snapshot (2026-04-20)
 
 - ✅ GONE: `sm_80.c` (→ `game_init`/`game_state_extras`/`nmi_transfer`/`palette_fader`/
   `util`/`hud`/`timer`/`irq`), `sm_82.c` (→ split), `sm_84.c` (→ `plm_*`), `sm_89.c`,
   `sm_8f.c`, `sm_90.c` / `sm_91.c` (→ `samus_*`), `sm_92.c`, `sm_93.c`, `sm_b4.c`,
   `sm_85.c` (→ `message_box.c`), `sm_87.c` (→ `anim_tiles.c`), `sm_8d.c` (→ `palette_fx.c`),
   `sm_ad.c` (→ `mother_brain_hdma.c`), `sm_86.c` (→ `eproj_core.c` / `eproj_environment.c` /
-  `eproj_tourian.c` / `eproj_combat.c`).
-- 📁 Remaining bank-shaped files: 17, totalling ~53.6k LOC.
+  `eproj_tourian.c` / `eproj_combat.c`), `sm_81.c` (→ menu/save topical files), `sm_88.c`
+  (→ HDMA topical files), `sm_9b.c` (→ `samus_death.c` / `samus_grapple.c` / projectile
+  helpers), `sm_8b.c` (→ `cinematics.c` topical rename), `sm_a0.c` (→ `enemy_main.c` /
+  `enemy_collision.c` / `enemy_math.c` / `enemy_drops.c`), Bank `$82` shared tables
+  (→ `menu_assets.h` plus local owner-owned constants).
+- 📁 Remaining bank-shaped gameplay files: 11, totalling ~33.6k LOC. All remaining bank-shaped
+  gameplay files are enemy banks.
 
 ---
 
 # Phase 1 — Samus-adjacent bank cleanup (finish the Samus story)
 
-These unblock the mini-build path. `sm_9b.c` is the last bank file still holding
-Samus-core state. Retire it, then trim the oversized `samus_projectile.c`.
+These unblock the mini-build path. The old Bank 9B work is already done, so the
+remaining Samus-adjacent cleanup is topical cleanup inside the existing
+`samus_*` modules rather than another bank extraction.
 
-### Session 1.1 — `sm_9b.c` (1122 LOC) → existing `samus_*` files
-Split cleanly by topic. No new bank-shaped file is created.
-- **Cluster A (≈200 LOC):** Projectile trail (`ProjectileTrail_Func5` etc., L79–L108)
-  → **merge into** `samus_projectile.c` section.
-- **Cluster B (≈200 LOC):** Samus death sequence (`StartSamusDeathAnimation`,
-  `HandleSamusDeathSequence*`, `CopyPalettesForSamusDeath`,
-  `QueueTransferOfSamusDeathSequence`, `GameState_24_SamusNoHealth_Explosion_*`,
-  L109–L224) → **new** `samus_death.c`.
-- **Cluster C (≈700 LOC):** Grapple beam FSM + helpers (`CancelGrappleBeamIfIncompatiblePose`,
-  `GrappleNext_*`, `GrappleBeamFunc_*`, `GrappleBeamHandler`, `PropelSamusFromGrappleSwing`,
-  `HandleConnectingGrapple*`, L225–end) → **extend** `samus_grapple.c` (currently 742 LOC;
-  ends up ~1400 LOC — still cohesive).
-- **Retires:** `sm_9b.c`.
+### Session 1.1 — Bank 9B split ✅
+- Projectile trail now lives with the Samus projectile runtime.
+- Samus death sequence lives in `samus_death.c`.
+- Grapple beam FSM lives in `samus_grapple.c`.
+- `sm_9b.c` is retired.
 
-### Session 1.2 — `samus_projectile.c` split (2727 LOC → 3 files)
-Not a bank file, but oversized and blocks future projectile work.
-- **Target:**
-  - `samus_projectile_core.c` — spawn/move/delete + `CallProjFunc`
-  - `samus_projectile_beam.c` — beam/charge/missile/super types
-  - `samus_projectile_block.c` — projectile-vs-block collision helpers (may merge with existing `projectile_block_collision.c`)
-- Size per file: aim 800–1000 LOC.
-- Header: `samus_projectile.h` with public API so callers in `physics.c` / enemy banks aren't touched beyond include swap.
+### Session 1.2 — Samus projectile split ✅
+- Runtime entry points now route through `samus_projectile_core.c`,
+  `samus_projectile_beam.c`, and `samus_projectile_block.c`.
+- Future work here is internal cleanup of the shared `samus_projectile_impl.h`,
+  not another bank retirement step.
 
 ---
 
@@ -83,87 +78,24 @@ days when you want low-risk forward progress.
 
 ---
 
-# Phase 3 — shared enemy infrastructure (unblocks every enemy bank)
+# Phase 3 — shared enemy infrastructure (complete)
 
-`sm_a0.c` is the highest-leverage enemy bank. Split it **before** touching any
-boss bank — the split seams below become the shared API everything else calls into.
+Bank `$A0` is retired.
 
-### Session 3.1 — `sm_a0.c` part 1 (≈900 LOC) → `enemy_main.c`
-- **Contents:** Enemy lifecycle + per-frame dispatch.
-  - `LoadEnemies`, `ClearEnemyDataAndProcessEnemySet`, `InitializeEnemies`,
-    `LoadEnemyGfxIndexes`, `LoadEnemyTileData`, `TransferEnemyTilesToVramAndInit`,
-    `ProcessEnemyTilesets`, `DetermineWhichEnemiesToProcess`, `CallEnemyAi`,
-    `CallEnemyPreInstr`, `EnemyMain`, `DecrementSamusTimers`, `SpawnEnemy`,
-    `SpawnEnemyDrops`, `DeleteEnemyAndConnectedEnemies`, `RecordEnemySpawnData`,
-    `DrawOneEnemy`, `WriteEnemyOams`, `NormalEnemyFrozenAI`,
-    `ProcessExtendedTilemap`, `QueueEnemyBG2TilemapTransfers`.
-- Covers L75–L2050 (roughly).
-
-### Session 3.2 — `sm_a0.c` part 2 (≈900 LOC) → `enemy_collision.c`
-- **Contents:** All enemy ↔ samus / enemy ↔ projectile / enemy ↔ block collision.
-  - `EnemyCollisionHandler`, `SamusProjectileInteractionHandler`,
-    `EprojSamusCollDetect`/`HandleEprojCollWithSamus`, `EprojProjCollDet`/
-    `HandleEprojCollWithProj`, `CallHitboxTouch`/`CallHitboxShot`,
-    `EnemySamusCollHandler*`, `EprojCollHandler*`, `EnemyBombCollHandler*`,
-    `ProcessEnemyPowerBombInteraction`, `NormalEnemy{Touch,Shot,PowerBomb}Ai*`,
-    `EnemyDeathAnimation`, `RinkasDeathAnimation`, `SuitDamageDivision`,
-    `CreateDudShot`, `EnemyBlockCollReact_*`, `Enemy_MoveRight*`,
-    `Enemy_MoveDown`, `EnemyBlockCollHoriz/VertReact_*`,
-    `CalculateBlockContainingPixelPos`.
-- Covers L2050–L3600.
-
-### Session 3.3 — `sm_a0.c` part 3 (≈900 LOC) → `enemy_math.c` + `enemy_drops.c`
-- **`enemy_math.c` (≈500 LOC):** trig / angle / sign-extend / abs helpers.
-  - `SignExtend8`, `Mult32`, `Abs16`, `SubtractThenAbs16`, `SineMult8bit*`,
-    `CosineMult8bit*`, angle-from-xy tables, `CalculateAngleOfSamusFrom*`,
-    `CalculateAngleFromXY`, `Math_*` helpers, `CompareDistToSamus_*`.
-- **`enemy_drops.c` (≈400 LOC):** Per-boss item-drop routines.
-  - `Enemy_ItemDrop_*` (Kraid, Phantoon, Ridley, Crocomire, Draygon, Botwoon,
-    SporeSpawn, BombTorizo, GoldenTorizo, Metroid, MiniKraid, LowerNorfairSpacePirate),
-    `SwitchEnemyAiToMainAi`, `EnemyGrappleDeath`, `SamusLatchesOnWith*`,
-    `SamusHurtFromGrapple`, `RandomDropRoutine`, `RespawnEnemy`.
-- Retires `sm_a0.c`.
-
-### Session 3.4 — shared header `enemy.h`
-- Collect the public API surface from Sessions 3.1–3.3 into one header.
-- Do this in a separate small session after 3.1–3.3 land, to catch missed callers.
+- `enemy_main.c` now owns shared enemy lifecycle, spawn/load, and frame dispatch.
+- `enemy_collision.c` now owns shared enemy collision work.
+- `enemy_math.c` and `enemy_drops.c` hold the common math/drop helpers that used to
+  block every enemy-bank split.
 
 ---
 
-# Phase 4 — enemy projectiles (the big combat surface)
+# Phase 4 — enemy projectiles (complete)
 
-`sm_86.c` (5294 LOC) — after Phase 3 lands, split by owning boss/room. Function
-name is already the best seam: `EprojInit_*`/`EprojPreInstr_*` cluster by topic.
+Bank `$86` is retired.
 
-### Session 4.1 — eproj core (≈900 LOC) → `eproj_core.c`
-- Lifecycle + movement + block collision:
-  - `Enable/Disable/ClearEprojs`, `SpawnEprojWithGfx/RoomGfx`, `EprojRunAll`,
-    `CallEprojFunc`, `DrawLow/HighPriorityEprojs`, `DrawEprojs`,
-    `GetValuesForScreenShaking`, `EprojColl_873D`,
-    `EprojBlockCollisition_*` family, `Eproj_PreInit_0x8aaf`,
-    `MoveEprojWithVelocity[X|Y]`, `SetAreaDependentEprojProperties*`,
-    `Eproj_DeleteIfYposOutside`, `CallEprojInit`/`CallEprojPreInstr`/`CallEprojInstr`.
-- Covers sm_86 L1–~L1400.
-
-### Session 4.2 — eproj generic / environment (≈900 LOC) → `eproj_environment.c`
-- Spores, Namifune, Lavaman, spike-shooting plant, nuclear waffle, fake walls,
-  lavaquake rocks, eye door, save-station electricity, item pickups,
-  small skree / power-bomb collision, N00b tube, maridia floaters, WS robot laser.
-- Covers most of sm_86 L2200–L4400 (the non-boss region).
-
-### Session 4.3 — eproj bosses/MB (≈1000 LOC) → `eproj_bosses.c`
-- Mother Brain turrets, MB bomb, MB rainbow beam, MB drool, MB glass shards,
-  MB death beam, Tourian statue set, Torizo sonic boom/orbs/egg/super missile/eye beam,
-  Botwoon body/spit, yapping maws, Shaktool, Ki-Hunter acid spit, Kago bugs,
-  Ceres elevator pad/platform, pre-Phantoon, Draygon turret/gunk, Crocomire spikewall/bridge.
-- If >1000 LOC, split Session 4.3 into `eproj_bosses_a.c` (MB + Tourian) vs
-  `eproj_bosses_b.c` (everything else).
-
-### Session 4.4 — eproj cleanup
-- Move eproj math (`Math_MultBySin`/`Cos`/`SinCos`, `Eproj_AngleToSamus`) into
-  `enemy_math.c` (Phase 3) if not already there.
-- Collect public API into `eproj.h`.
-- Retires `sm_86.c`.
+- `eproj_core.c`, `eproj_environment.c`, `eproj_tourian.c`, and `eproj_combat.c`
+  now own the enemy-projectile runtime.
+- Eproj trig helpers that were worth sharing moved into `enemy_math.c`.
 
 ---
 
@@ -184,70 +116,45 @@ name is already the best seam: `EprojInit_*`/`EprojPreInstr_*` cluster by topic.
 
 ---
 
-# Phase 6 — HDMA / presentation (do when blocked on rooms or suit pickup)
+# Phase 6 — HDMA / presentation (complete)
 
-### Session 6.1 — `sm_88.c` part 1 (≈900 LOC) → `hdma_core.c`
-- Layer-blending dispatch + HDMA object lifecycle.
-  - `LayerBlendingHandler`, `LayerBlendFunc_*`, `HdmaObjectHandler`,
-    `HdmaobjInstructionHandler`, `Enable/Disable/ClearHdmaObjects`,
-    `SpawnHdmaObject*`, `WaitUntilEndOfVblankAndClearHdma`,
-    `InitializeSpecialEffectsForNewRoom`, `RaiseOrLowerFx`.
-
-### Session 6.2 — `sm_88.c` part 2 (≈900 LOC) → `hdma_power_bomb.c` + `hdma_crystal_flash.c`
-- Power-bomb explosion HDMA tables, Crystal Flash HDMA setup.
-
-### Session 6.3 — `sm_88.c` part 3 (≈900 LOC) → `hdma_liquid.c`
-- Lava/acid/water rising, tide, BG2/BG3 scrolling, spore/rain/fog/haze FX.
-
-### Session 6.4 — `sm_88.c` part 4 (≈600 LOC) → `hdma_xray.c` (extend existing) + suit pickup
-- Merge remaining xray HDMA handlers into existing `samus_xray.c` or a new
-  `hdma_xray.c`.
-- Suit pickup HDMA (`VariaSuitPickup_*`, `GravitySuitPickup_*`) → extend
-  `samus_palette.c` or new `samus_suit_pickup.c`.
-- Retires `sm_88.c`.
+Bank `$88` is retired into `hdma_core.c`, `hdma_power_bomb.c`, `room_fx_hdma.c`,
+`boss_hdma.c`, and `cinematic_hdma.c`, with the suit/xray-specific leftovers
+living in the Samus topical files.
 
 ---
 
-# Phase 7 — menus / save
+# Phase 7 — menus / save (complete)
 
-`sm_81.c` (2527 LOC) — mostly orthogonal to gameplay; split by screen.
-
-### Session 7.1 — `sm_81.c` part 1 (≈700 LOC) → `save_sram.c`
-- `SaveToSram`, `LoadFromSram`, `PackMapToSave`, `UnpackMapFromSave`,
-  `SoftReset`.
-
-### Session 7.2 — `sm_81.c` part 2 (≈800 LOC) → `spritemap_draw.c`
-- All `DrawSpritemap*` variants (base tile, offscreen, menu, samus, beam, eproj).
-
-### Session 7.3 — `sm_81.c` part 3 (≈1000 LOC) → `file_select_menu.c` + `game_over_menu.c`
-- Game-over screen, file-select (copy/clear/confirm), helmet drawing.
-- Retires `sm_81.c`.
+Bank `$81` is retired into `save_sram.c`, `spritemap_draw.c`, `menu_common.c`,
+`file_select_menu.c`, `file_select_map.c`, and `game_over_menu.c`.
 
 ---
 
-# Phase 8 — cinematics (lowest core-priority, do last before bosses)
+# Phase 8 — cinematics (topical rename complete; optional cleanup only)
 
-`sm_8b.c` (6395 LOC) — the biggest single file. Safely defer.
+`cinematics.c` is the former Bank 8B file under a topical name. That is enough
+for the current mission because cinematics do not help the mini path.
 
-### Session 8.1 — `sm_8b.c` part 1 (≈900 LOC) → `cinematic_ppu.c`
+### Session 8.1 — `cinematics.c` part 1 (≈900 LOC) → `cinematic_ppu.c`
 - PPU setup for title/intro/mode7/mode1 scenes.
 - Mode7 transformation + matrix helpers.
 
-### Session 8.2 — `sm_8b.c` part 2 (≈900 LOC) → `cinematic_bg.c`
+### Session 8.2 — `cinematics.c` part 2 (≈900 LOC) → `cinematic_bg.c`
 - BG tilemap drivers, text-tile drawing, Japanese text transfer.
 
-### Session 8.3 — `sm_8b.c` part 3 (≈900 LOC) → `cinematic_sprite.c`
+### Session 8.3 — `cinematics.c` part 3 (≈900 LOC) → `cinematic_sprite.c`
 - Cinematic sprite objects + instr list, Mode7 objects.
 
-### Session 8.4 — `sm_8b.c` part 4 (≈900 LOC) → `cinematic_palette.c`
+### Session 8.4 — `cinematics.c` part 4 (≈900 LOC) → `cinematic_palette.c`
 - Fade in/out, palette compose/decompose.
 
-### Session 8.5 — `sm_8b.c` part 5 (≈900 LOC) → `cinematic_intro.c`
+### Session 8.5 — `cinematics.c` part 5 (≈900 LOC) → `cinematic_intro.c`
 - Intro-specific handlers, Samus during intro, text glow.
 
-### Session 8.6 — `sm_8b.c` part 6 (≈900 LOC) → `cinematic_ending.c` + `credits.c`
+### Session 8.6 — `cinematics.c` part 6 (≈900 LOC) → `cinematic_ending.c` + `credits.c`
 - Credits object, ending sprites.
-- Retires `sm_8b.c`.
+- Optional only; `cinematics.c` already replaced the bank-shaped filename.
 
 ---
 
@@ -271,11 +178,8 @@ Each boss bank is a self-contained chunk. Size them to one session each:
 # Quick picker — "what should I do next?"
 
 1. Phase 0 housekeeping not done? → do it.
-2. `sm_9b.c` still present? → Session 1.1.
-3. Any Phase 2 small module? → easy single-session target.
-4. `sm_a0.c` still present? → Session 3.1 (then 3.2, 3.3).
-5. `sm_86.c` still present **and** `sm_a0.c` gone? → Session 4.x.
-6. Blocked on a specific feature? → jump to the matching session in Phase 5–8.
-7. Otherwise → pick a small module from Phase 2 or a progression boss from Phase 5.
-
-Bosses (Phase 9) are **never** the next thing.
+2. Samus-adjacent cleanup needed? → review the completed notes in Phase 1, then stay in topical files.
+3. Cheapest active bank target? → `sm_b2.c` or `sm_aa.c`.
+4. Need progression/pathing coverage? → `sm_a3.c`.
+5. Need a major enemy bank? → `sm_a7.c`, then `sm_a6.c` or `sm_a9.c`.
+6. Blocked on a specific subsystem? → stay in the topical file that now owns it; don’t recreate bank-shaped plans.

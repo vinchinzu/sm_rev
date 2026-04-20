@@ -93,20 +93,17 @@ static void RtlRefreshRoomAssetsAfterLoad(void) {
   if (getenv("SM_REV_NO_REFRESH")) return;  // diagnostic toggle
   if (game_state != kGameState_8_MainGameplay && game_state != kGameState_9_HitDoorBlock)
     return;
-  if (!room_ptr)
+  if (!room_ptr || !roomdefroomstate_ptr)
     return;
 
-  LoadRoomHeader();
-  LoadStateHeader();
+  // A gameplay savestate already contains the live room state, including
+  // scroll gates and mutated level/PLM data. Re-running the room loaders here
+  // reinitializes that state from headers and can break post-load camera/room
+  // behavior such as vertical screen unlocks.
   LoadCRETilesTilesetTilesAndPalette();
-  LoadLevelScrollAndCre();
   LoadLibraryBackground();
-  CalculateLayer2Xpos();
-  CalculateLayer2Ypos();
-  bg2_x_scroll = layer2_x_pos;
-  bg2_y_scroll = layer2_y_pos;
-  CalculateBgScrolls();
   DisplayViewablePartOfRoom();
+  LoadRoomPlmGfx();
   RefreshFxVisualsAfterLoad();
   LoadEnemyGfxToVram();
   LoadColorsForSpritesBeamsAndEnemies();

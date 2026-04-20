@@ -2,7 +2,7 @@
 #include "ida_types.h"
 #include "variables.h"
 #include "funcs.h"
-#include "sm_82_data.h"
+#include "menu_assets.h"
 #include "variables_extra.h"
 
 static Func_V *const kGameOptionsMenuFuncs[13] = {  // 0x82EB9F
@@ -34,6 +34,19 @@ static Func_V *const kGameOptionsMenuSpecialSettings[3] = {  // 0x82F024
   GameOptionsMenuSpecialSettings_0,
   GameOptionsMenuSpecialSettings_2,
 };
+
+static const Buttons kOptionsMenuButtonMasks[9] = {
+  0x0080, 0x0040, 0x0020, 0x0010, 0x0100, 0x0200, 0x0400, 0x0800, 0x1000,
+};
+static const uint16 kOptionsMenuPairLeftOffsets[4] = { 0x0001, 0x0002, 0x0004, 0x0008 };
+static const uint16 kOptionsMenuPairRightOffsets[4] = { 0x0010, 0x0020, 0x0040, 0x0080 };
+static const uint16 kDebugInvincibilityButtonMasks[16] = {
+  0x0001, 0x0002, 0x0004, 0x0008, 0x0010, 0x0020, 0x0040, 0x0080,
+  0x0100, 0x0200, 0x0400, 0x0800, 0x1000, 0x2000, 0x4000, 0x8000,
+};
+static const uint16 kOptionsMenuDigitGlyphs[6] = { 0, 1, 2, 3, 4, 5 };
+static const uint16 kMenuSelectionMissileEnableMasks[4] = { 0x0080, 0x0100, 0x0200, 0x0400 };
+static const uint16 kMenuSelectionMissileSpritemaps[4] = { 0x0001, 0x0002, 0x0003, 0x0004 };
 
 
 
@@ -337,15 +350,15 @@ void GameOptionsMenuSpecialSettings_2(void) {  // 0x82F0B2
 void OptionsMenuFunc7(void) {
   uint16 v0 = 4 * menu_option_index;
   if (*(uint16 *)RomPtr_RAM(kOptionsMenuSpecialPtrs[menu_option_index])) {
-    OptionsMenuFunc5(0, g_word_82F149[(uint16)(4 * menu_option_index) >> 1], 0xC);
-    OptionsMenuFunc5(0, g_word_82F149[(v0 >> 1) + 1], 0xC);
-    OptionsMenuFunc5(0x400, g_word_82F151[v0 >> 1], 0xC);
-    OptionsMenuFunc5(0x400, g_word_82F151[(v0 >> 1) + 1], 0xC);
+    OptionsMenuFunc5(0, kOptionsMenuPairLeftOffsets[(uint16)(4 * menu_option_index) >> 1], 0xC);
+    OptionsMenuFunc5(0, kOptionsMenuPairLeftOffsets[(v0 >> 1) + 1], 0xC);
+    OptionsMenuFunc5(0x400, kOptionsMenuPairRightOffsets[v0 >> 1], 0xC);
+    OptionsMenuFunc5(0x400, kOptionsMenuPairRightOffsets[(v0 >> 1) + 1], 0xC);
   } else {
-    OptionsMenuFunc5(0x400, g_word_82F149[(uint16)(4 * menu_option_index) >> 1], 0xC);
-    OptionsMenuFunc5(0x400, g_word_82F149[(v0 >> 1) + 1], 0xC);
-    OptionsMenuFunc5(0, g_word_82F151[v0 >> 1], 0xC);
-    OptionsMenuFunc5(0, g_word_82F151[(v0 >> 1) + 1], 0xC);
+    OptionsMenuFunc5(0x400, kOptionsMenuPairLeftOffsets[(uint16)(4 * menu_option_index) >> 1], 0xC);
+    OptionsMenuFunc5(0x400, kOptionsMenuPairLeftOffsets[(v0 >> 1) + 1], 0xC);
+    OptionsMenuFunc5(0, kOptionsMenuPairRightOffsets[v0 >> 1], 0xC);
+    OptionsMenuFunc5(0, kOptionsMenuPairRightOffsets[(v0 >> 1) + 1], 0xC);
   }
 }
 
@@ -384,7 +397,7 @@ void GameOptionsMenu_7_ControllerSettings(void) {
     };
     kOptionsMenuControllerFuncs[menu_option_index]();
   } else if (joypad2_new_keys && menu_option_index == 8 && sign16(debug_invincibility - 16)) {
-    if ((word_82F204[debug_invincibility] & joypad2_new_keys) == word_82F204[debug_invincibility])
+    if ((kDebugInvincibilityButtonMasks[debug_invincibility] & joypad2_new_keys) == kDebugInvincibilityButtonMasks[debug_invincibility])
       ++debug_invincibility;
     else
       debug_invincibility = 0;
@@ -556,7 +569,7 @@ uint8 OptionsMenuFunc8(void) {
   int v0 = 0, v2;
   do {
     v2 = v0;
-    *(uint16 *)&g_ram[off_82F54A[v0 >> 1]] = word_82F575[eproj_F[(v0 >> 1) + 13]];
+    *(uint16 *)&g_ram[off_82F54A[v0 >> 1]] = kOptionsMenuButtonMasks[eproj_F[(v0 >> 1) + 13]];
     v0 += 2;
   } while (v2 < 12);
   return 0;
@@ -578,22 +591,22 @@ void OptionsMenuFunc6(void) {
     v0 = v4 + 2;
   } while ((int16)(v4 - 12) < 0);
   if (eproj_instr_list_ptr[0] != 5 && eproj_instr_list_ptr[0] != 6) {
-    *(uint32 *)&ram3000.menu.backup_of_io_registers_in_gameover[46] = *(uint32 *)g_word_82F6AD;
-    ram3000.pause_menu_map_tilemap[665] = g_word_82F6AD[2];
-    *(uint32 *)&ram3000.menu.field_536[56] = *(uint32 *)&g_word_82F6AD[3];
-    ram3000.pause_menu_map_tilemap[697] = g_word_82F6AD[5];
+    *(uint32 *)&ram3000.menu.backup_of_io_registers_in_gameover[46] = *(uint32 *)kOptionsMenuDigitGlyphs;
+    ram3000.pause_menu_map_tilemap[665] = kOptionsMenuDigitGlyphs[2];
+    *(uint32 *)&ram3000.menu.field_536[56] = *(uint32 *)&kOptionsMenuDigitGlyphs[3];
+    ram3000.pause_menu_map_tilemap[697] = kOptionsMenuDigitGlyphs[5];
   }
   if (eproj_instr_list_ptr[1] != 5 && eproj_instr_list_ptr[1] != 6) {
-    *(uint32 *)&ram3000.menu.field_536[184] = *(uint32 *)g_word_82F6AD;
-    ram3000.pause_menu_map_tilemap[761] = g_word_82F6AD[2];
-    *(uint32 *)&ram3000.menu.menu_tilemap[46] = *(uint32 *)&g_word_82F6AD[3];
-    ram3000.pause_menu_map_tilemap[793] = g_word_82F6AD[5];
+    *(uint32 *)&ram3000.menu.field_536[184] = *(uint32 *)kOptionsMenuDigitGlyphs;
+    ram3000.pause_menu_map_tilemap[761] = kOptionsMenuDigitGlyphs[2];
+    *(uint32 *)&ram3000.menu.menu_tilemap[46] = *(uint32 *)&kOptionsMenuDigitGlyphs[3];
+    ram3000.pause_menu_map_tilemap[793] = kOptionsMenuDigitGlyphs[5];
   }
 }
 
 void OptionsMenuControllerFunc_0(void) {  // 0x82F6B9
   uint16 v0 = 12;
-  while ((word_82F575[v0 >> 1] & joypad1_newkeys) == 0) {
+  while ((kOptionsMenuButtonMasks[v0 >> 1] & joypad1_newkeys) == 0) {
     v0 -= 2;
     if ((v0 & 0x8000) != 0) return;
   }
@@ -629,10 +642,10 @@ void DrawMenuSelectionMissile(void) {  // 0x82BA6E
   if (eproj_enable_flag) {
     if (!--eproj_enable_flag) {
       eproj_id[0] = (LOBYTE(eproj_id[0]) + 1) & 3;
-      eproj_enable_flag = kDrawMenuSelectionMissile_Enable[eproj_id[0]];
+      eproj_enable_flag = kMenuSelectionMissileEnableMasks[eproj_id[0]];
     }
   }
-  DrawMenuSpritemap(kDrawMenuSelectionMissile_SpriteMap[eproj_id[0]],
+  DrawMenuSpritemap(kMenuSelectionMissileSpritemaps[eproj_id[0]],
       eproj_id[5], eproj_id[10], 3584);
 }
 

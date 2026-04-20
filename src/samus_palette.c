@@ -20,6 +20,7 @@
 #define kSamusPal_Shinespark ((uint16*)RomFixedPtr(0x91db75))
 #define stru_91DC00 ((SamusCrystalFlashPalTable*)RomFixedPtr(0x91dc00))
 #define off_91DC28 ((uint16*)RomFixedPtr(0x91dc28))
+#define kSuitPickupBeamOffsets ((uint8*)RomFixedPtr(0x88e3c9))
 
 static void ApplyPad2PalettePrototype(void);
 static void ApplyPad2VisorFlare(uint16 pad2);
@@ -132,6 +133,275 @@ void InitializeSuitPickupHdma(void) {  // 0x91D692
   mov24(&hdma_ptr_2, 0x98C8E4);
   mov24(&hdma_ptr_3, 0x999098);
   hdma_var_1 = 0;
+}
+
+static const uint16 kSuitPickupLightBeamWindow = 0x7878;
+
+static Func_U8 *const kVariaSuitPickupFuncs[7] = {  // 0x88E026
+  VariaSuitPickup_0_LightBeamAppears,
+  VariaSuitPickup_1,
+  VariaSuitPickup_2_LightBeamWidens,
+  VariaSuitPickup_3,
+  VariaSuitPickup_4_LightBeamShrinks,
+  VariaSuitPickup_5_LightBeamDissipates,
+  VariaSuitPickup_6,
+};
+
+void HdmaobjPreInstr_VariaSuitPickup(uint16 k) {
+  if (kVariaSuitPickupFuncs[substate]() & 1) {
+    reg_COLDATA[0] = suit_pickup_color_math_R;
+    reg_COLDATA[1] = suit_pickup_color_math_G;
+    reg_COLDATA[2] = suit_pickup_color_math_B;
+    fx_layer_blending_config_c = 18;
+  }
+}
+
+static Func_U8 *const kGravitySuitPickupFuncs[7] = {  // 0x88E05C
+  VariaSuitPickup_0_LightBeamAppears,
+  VariaSuitPickup_1,
+  VariaSuitPickup_2_LightBeamWidens,
+  GravitySuitPickup_3,
+  VariaSuitPickup_4_LightBeamShrinks,
+  VariaSuitPickup_5_LightBeamDissipates,
+  GravitySuitPickup_6,
+};
+
+void HdmaobjPreInstr_GravitySuitPickup(uint16 k) {
+  if (kGravitySuitPickupFuncs[substate]() & 1) {
+    reg_COLDATA[0] = suit_pickup_color_math_R;
+    reg_COLDATA[1] = suit_pickup_color_math_G;
+    reg_COLDATA[2] = suit_pickup_color_math_B;
+    fx_layer_blending_config_c = 18;
+  }
+}
+
+uint8 VariaSuitPickup_0_LightBeamAppears(void) {  // 0x88E092
+  int16 v0;
+  int16 v3;
+
+  suit_pickup_light_beam_pos += 8;
+  v0 = suit_pickup_light_beam_pos;
+  uint16 v1 = 0;
+  do {
+    hdma_table_1[v1 >> 1] = kSuitPickupLightBeamWindow;
+    v1 += 2;
+    --v0;
+  } while (v0 > 0);
+  uint16 v2 = 510;
+  v3 = suit_pickup_light_beam_pos;
+  do {
+    hdma_table_1[v2 >> 1] = kSuitPickupLightBeamWindow;
+    v2 -= 2;
+    --v3;
+  } while (v3 > 0);
+  if (!sign16(suit_pickup_light_beam_pos - 128)) {
+    ++substate;
+    suit_pickup_light_beam_pos = 30840;
+  }
+  return 1;
+}
+
+uint8 VariaSuitPickup_1(void) {  // 0x88E0D7
+  LOBYTE(suit_pickup_light_beam_pos) = suit_pickup_light_beam_pos - HIBYTE(suit_pickup_light_beam_widening_speed);
+  HIBYTE(suit_pickup_light_beam_pos) += HIBYTE(suit_pickup_light_beam_widening_speed);
+  for (int i = 510; i >= 0; i -= 2)
+    hdma_table_1[i >> 1] = suit_pickup_light_beam_pos;
+  if (sign16((uint8)suit_pickup_light_beam_pos - 97)) {
+    ++substate;
+    suit_pickup_light_beam_pos = 0x846C;
+  }
+  return 1;
+}
+
+uint8 VariaSuitPickup_2_LightBeamWidens(void) {  // 0x88E113
+  int8 v1;
+  int16 v2;
+  int8 v4;
+  int8 v6;
+  int8 v8;
+  int8 v10;
+
+  AdvanceSuitPickupColorMathSubscreenToWhite();
+  bool v0 = (int8)(suit_pickup_light_beam_pos - HIBYTE(suit_pickup_light_beam_widening_speed)) < 0;
+  LOBYTE(suit_pickup_light_beam_pos) = suit_pickup_light_beam_pos - HIBYTE(suit_pickup_light_beam_widening_speed);
+  if (!(uint8)suit_pickup_light_beam_pos || v0) {
+    suit_pickup_light_beam_pos = -256;
+  } else {
+    v1 = HIBYTE(suit_pickup_light_beam_widening_speed) + HIBYTE(suit_pickup_light_beam_pos);
+    if (__CFADD__uint8(HIBYTE(suit_pickup_light_beam_widening_speed), HIBYTE(suit_pickup_light_beam_pos)))
+      v1 = -1;
+    HIBYTE(suit_pickup_light_beam_pos) = v1;
+  }
+  v2 = 0;
+  uint16 v3 = 0;
+  do {
+    v4 = suit_pickup_light_beam_pos - kSuitPickupBeamOffsets[v3];
+    if (v4 < 0)
+      v4 = 0;
+    *((uint8 *)hdma_table_1 + (uint16)v2) = v4;
+    uint16 v5 = v2 + 1;
+    v6 = kSuitPickupBeamOffsets[v3] + HIBYTE(suit_pickup_light_beam_pos);
+    if (__CFADD__uint8(kSuitPickupBeamOffsets[v3], HIBYTE(suit_pickup_light_beam_pos)))
+      v6 = -1;
+    *((uint8 *)hdma_table_1 + v5) = v6;
+    v2 = v5 + 1;
+    ++v3;
+  } while (v2 < 0x100);
+  uint16 v7 = v3 - 1;
+  do {
+    v8 = suit_pickup_light_beam_pos - kSuitPickupBeamOffsets[v7];
+    if (v8 < 0)
+      v8 = 0;
+    *((uint8 *)hdma_table_1 + (uint16)v2) = v8;
+    uint16 v9 = v2 + 1;
+    v10 = kSuitPickupBeamOffsets[v7] + HIBYTE(suit_pickup_light_beam_pos);
+    if (__CFADD__uint8(kSuitPickupBeamOffsets[v7], HIBYTE(suit_pickup_light_beam_pos)))
+      v10 = -1;
+    *((uint8 *)hdma_table_1 + v9) = v10;
+    v2 = v9 + 1;
+    --v7;
+  } while (v2 < 0x200);
+  suit_pickup_light_beam_widening_speed += 96;
+  if (suit_pickup_light_beam_pos == 0xFF00) {
+    ++substate;
+    suit_pickup_light_beam_widening_speed >>= 1;
+    suit_pickup_light_beam_pos = 0;
+  }
+  return 1;
+}
+
+uint8 VariaSuitPickup_4_LightBeamShrinks(void) {  // 0x88E1BA
+  if (suit_pickup_palette_transition_color)
+    AdvanceSuitPickupColorMathToBlue();
+  else
+    AdvanceSuitPickupColorMathToOrange();
+  suit_pickup_light_beam_pos += (suit_pickup_light_beam_widening_speed & 0xFF00) >> 8;
+  int16 v0 = suit_pickup_light_beam_pos;
+  uint16 v1 = 0;
+  do {
+    hdma_table_1[v1 >> 1] = 255;
+    v1 += 2;
+    --v0;
+  } while (v0 > 0);
+  uint16 v2 = 510;
+  int16 v3 = suit_pickup_light_beam_pos - 1;
+  do {
+    hdma_table_1[v2 >> 1] = 255;
+    v2 -= 2;
+    --v3;
+  } while (v3 > 0);
+  suit_pickup_light_beam_widening_speed -= 32;
+  if (sign16(suit_pickup_light_beam_widening_speed - 256))
+    suit_pickup_light_beam_widening_speed = 256;
+  if (!sign16(suit_pickup_light_beam_pos - 128)) {
+    ++substate;
+    suit_pickup_light_beam_pos = -1793;
+  }
+  return 1;
+}
+
+uint8 VariaSuitPickup_5_LightBeamDissipates(void) {  // 0x88E22B
+  LOBYTE(suit_pickup_light_beam_pos) = suit_pickup_light_beam_pos + 8;
+  HIBYTE(suit_pickup_light_beam_pos) -= 8;
+  hdma_table_1[128] = suit_pickup_light_beam_pos;
+  if (!sign16((uint8)suit_pickup_light_beam_pos - 112))
+    ++substate;
+  return 1;
+}
+
+uint8 VariaSuitPickup_6(void) {  // 0x88E258
+  QueueMusic_Delayed8(3);
+  return GravitySuitPickup_6();
+}
+
+uint8 GravitySuitPickup_6(void) {  // 0x88E25F
+  reg_COLDATA[2] = 0x80;
+  reg_COLDATA[1] = 64;
+  reg_COLDATA[0] = 32;
+  mov24(&hdma_ptr_1, 0x980001);
+  *(uint16 *)((uint8 *)&demo_num_input_frames + 1) = 0;
+  demo_input_prev = 0;
+  demo_input_prev_new = 0;
+  demo_backup_prev_controller_input = 0;
+  hdma_table_1[0] = 255;
+  substate = 0;
+  suit_pickup_light_beam_pos = 0;
+  *(uint16 *)&suit_pickup_color_math_R = 0;
+  *(uint16 *)&suit_pickup_color_math_B = 0;
+  int v0 = hdma_object_index >> 1;
+  hdma_object_instruction_list_pointers[v0] += 2;
+  hdma_object_instruction_timers[v0] = 1;
+  CallSomeSamusCode(0xB);
+  return 0;
+}
+
+uint8 AdvanceSuitPickupColorMathSubscreenToWhite(void) {  // 0x88E2B4
+  if (suit_pickup_color_math_R != 63) {
+    suit_pickup_color_math_R += 2;
+    if (!sign8(suit_pickup_color_math_R - 64))
+      suit_pickup_color_math_R = 63;
+  }
+  if (suit_pickup_color_math_G != 95) {
+    suit_pickup_color_math_G += 2;
+    if (!sign8(suit_pickup_color_math_G - 96))
+      suit_pickup_color_math_G = 95;
+  }
+  if (suit_pickup_color_math_B != 0x9F) {
+    suit_pickup_color_math_B += 2;
+    if (!sign8(suit_pickup_color_math_B + 96))
+      suit_pickup_color_math_B = -97;
+  }
+  return 1;
+}
+
+uint8 AdvanceSuitPickupColorMathToOrange(void) {  // 0x88E2F9
+  if (suit_pickup_color_math_R != 63)
+    --suit_pickup_color_math_R;
+  if (suit_pickup_color_math_G != 77)
+    --suit_pickup_color_math_G;
+  if (suit_pickup_color_math_B != 0x83)
+    --suit_pickup_color_math_B;
+  return 1;
+}
+
+uint8 VariaSuitPickup_3(void) {  // 0x88E320
+  equipped_items |= 1;
+  collected_items |= 1;
+  samus_pose = kPose_9B_FaceF_VariaGravitySuit;
+  SamusFunc_F433();
+  Samus_SetAnimationFrameIfPoseChanged();
+  samus_last_different_pose = samus_prev_pose;
+  *(uint16 *)&samus_last_different_pose_x_dir = *(uint16 *)&samus_prev_pose_x_dir;
+  samus_prev_pose = samus_pose;
+  *(uint16 *)&samus_prev_pose_x_dir = *(uint16 *)&samus_pose_x_dir;
+  Samus_LoadSuitPalette();
+  ++substate;
+  return 1;
+}
+
+uint8 GravitySuitPickup_3(void) {  // 0x88E361
+  equipped_items |= 0x20;
+  collected_items |= 0x20;
+  samus_pose = kPose_9B_FaceF_VariaGravitySuit;
+  SamusFunc_F433();
+  Samus_SetAnimationFrameIfPoseChanged();
+  samus_last_different_pose = samus_prev_pose;
+  *(uint16 *)&samus_last_different_pose_x_dir = *(uint16 *)&samus_prev_pose_x_dir;
+  samus_prev_pose = samus_pose;
+  *(uint16 *)&samus_prev_pose_x_dir = *(uint16 *)&samus_pose_x_dir;
+  Samus_LoadSuitPalette();
+  ++substate;
+  return 1;
+}
+
+uint8 AdvanceSuitPickupColorMathToBlue(void) {  // 0x88E3A2
+  if (suit_pickup_color_math_R != 48)
+    --suit_pickup_color_math_R;
+  if (suit_pickup_color_math_G != 73)
+    --suit_pickup_color_math_G;
+  if (suit_pickup_color_math_B != 0x90)
+    --suit_pickup_color_math_B;
+  return 1;
 }
 
 static Func_U8 *const off_91D72D[11] = {  // 0x91D6F7

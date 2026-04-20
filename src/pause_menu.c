@@ -2,7 +2,7 @@
 #include "ida_types.h"
 #include "variables.h"
 #include "funcs.h"
-#include "sm_82_data.h"
+#include "menu_assets.h"
 
 static Func_V *const kPauseMenuFuncs[8] = {
   PauseMenu_0_MapScreen,

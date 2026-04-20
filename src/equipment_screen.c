@@ -2,7 +2,7 @@
 #include "ida_types.h"
 #include "variables.h"
 #include "funcs.h"
-#include "sm_82_data.h"
+#include "menu_assets.h"
 
 static Func_V *const kEquipmentScreenCategories[4] = {  // 0x82AC4F
   EquipmentScreenCategory_Tanks,
@@ -29,6 +29,13 @@ static const uint16 kEquipmentScreenTilemap_AUTO[4] = { 0x3d56, 0x3d57, 0x3d58, 
 static const uint16 kEquipmentScreenReserveTank_X[6] = { 0x18, 0x20, 0x28, 0x30, 0x38, 0x40 };
 static const uint16 kEquipmentScreenReserveTank_Y = 0x60;
 static const uint16 kPartialReserveTankSpritemapIds[16] = { 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27 };
+static const uint16 kEquipmentScreenWireframeCmp[3] = { 0x0101, 0x0001, 0x0000 };
+static const uint16 kEquipmentScreenWireframePtrs[3] = { 0xb251, 0xb231, 0xb211 };
+
+static void ChangePaletteValues(uint16 *tilemap, uint16 palette_mask, uint16 count) {
+  for (int i = 0; i < count; ++i)
+    tilemap[i] = (tilemap[i] & ~0x1C00) | palette_mask;
+}
 
 void PauseMenu_1_EquipmentScreen(void) {  // 0x829142
   reg_BG1HOFS = 0;

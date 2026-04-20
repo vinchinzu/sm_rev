@@ -23,6 +23,7 @@
 #include "util.h"
 #include "spc_player.h"
 #include "funcs.h"
+#include "variables.h"
 #include "physics_config.h"
 #include "multi_samus.h"
 #include "sm_dispatcher.h"
@@ -715,6 +716,47 @@ int main(int argc, char** argv) {
   if (g_headless_dump) {
     FILE *f = strcmp(g_headless_dump, "-") == 0 ? stdout : fopen(g_headless_dump, "w");
     if (f) {
+      uint16 camera_scroll_index = Mult8x8((uint16)(layer1_y_pos + 128) >> 8, room_width_in_scrolls)
+          + ((uint16)(layer1_x_pos + 128) >> 8);
+      uint16 room_scroll_count = room_width_in_scrolls * room_height_in_scrolls;
+      uint16 scroll_current = camera_scroll_index < room_scroll_count ? scrolls[camera_scroll_index] : 0xffff;
+      uint16 scroll_right = camera_scroll_index + 1 < room_scroll_count ? scrolls[camera_scroll_index + 1] : 0xffff;
+      uint16 scroll_below = camera_scroll_index + room_width_in_scrolls < room_scroll_count
+          ? scrolls[camera_scroll_index + room_width_in_scrolls] : 0xffff;
+      uint16 scroll_below_right = camera_scroll_index + room_width_in_scrolls + 1 < room_scroll_count
+          ? scrolls[camera_scroll_index + room_width_in_scrolls + 1] : 0xffff;
+      uint16 scroll_6 = room_scroll_count > 6 ? scrolls[6] : 0xffff;
+      uint16 active_plm_count = 0;
+      char plm_debug[1024];
+      size_t plm_debug_len = 0;
+      plm_debug[0] = 0;
+      for (int i = 0; i < 40; i++) {
+        if (!plm_header_ptr[i])
+          continue;
+        active_plm_count++;
+        uint16 header = plm_header_ptr[i];
+        if (header != 0xb6ff && header != 0xb703 && header != 0xb707)
+          continue;
+        int wrote = snprintf(
+            plm_debug + plm_debug_len,
+            sizeof(plm_debug) - plm_debug_len,
+            "%s%d:%04x@%u,arg=%04x,var=%04x,ip=%04x,pit=%u,pre=%04x,t=%u",
+            plm_debug_len ? ";" : "",
+            i,
+            header,
+            plm_block_indices[i],
+            plm_room_arguments[i],
+            plm_variable[i],
+            plm_instr_list_ptrs[i],
+            plm_instruction_timer[i],
+            plm_pre_instrs[i],
+            plm_timers[i]);
+        if (wrote < 0 || (size_t)wrote >= sizeof(plm_debug) - plm_debug_len) {
+          plm_debug_len = sizeof(plm_debug) - 1;
+          break;
+        }
+        plm_debug_len += wrote;
+      }
       fprintf(f,
         "{\n"
         "  \"runmode\": \"%s\",\n"
@@ -746,6 +788,27 @@ int main(int argc, char** argv) {
         "  \"samus_health\": %u,\n"
         "  \"samus_x_pos\": %u,\n"
         "  \"samus_y_pos\": %u,\n"
+        "  \"layer1_x_pos\": %u,\n"
+        "  \"layer1_y_pos\": %u,\n"
+        "  \"bg1_x_offset\": %u,\n"
+        "  \"bg1_y_offset\": %u,\n"
+        "  \"reg_BG1HOFS\": %u,\n"
+        "  \"reg_BG1VOFS\": %u,\n"
+        "  \"ideal_layer1_xpos\": %u,\n"
+        "  \"ideal_layer1_ypos\": %u,\n"
+        "  \"up_scroller\": %u,\n"
+        "  \"down_scroller\": %u,\n"
+        "  \"room_width_in_scrolls\": %u,\n"
+        "  \"room_height_in_scrolls\": %u,\n"
+        "  \"camera_distance_index\": %u,\n"
+        "  \"camera_scroll_index\": %u,\n"
+        "  \"scroll_current\": %u,\n"
+        "  \"scroll_right\": %u,\n"
+        "  \"scroll_below\": %u,\n"
+        "  \"scroll_below_right\": %u,\n"
+        "  \"scroll_6\": %u,\n"
+        "  \"active_plm_count\": %u,\n"
+        "  \"plm_debug\": \"%s\",\n"
         "  \"samus_y_speed\": %d,\n"
         "  \"samus_pose\": %u,\n"
         "  \"samus_x_speed\": %d,\n"
@@ -783,6 +846,27 @@ int main(int argc, char** argv) {
         (unsigned)(*(uint16 *)(g_ram + 0x9C2)),
         (unsigned)(*(uint16 *)(g_ram + 0xAF6)),
         (unsigned)(*(uint16 *)(g_ram + 0xAFA)),
+        (unsigned)layer1_x_pos,
+        (unsigned)layer1_y_pos,
+        (unsigned)bg1_x_offset,
+        (unsigned)bg1_y_offset,
+        (unsigned)reg_BG1HOFS,
+        (unsigned)reg_BG1VOFS,
+        (unsigned)ideal_layer1_xpos,
+        (unsigned)ideal_layer1_ypos,
+        (unsigned)up_scroller,
+        (unsigned)down_scroller,
+        (unsigned)room_width_in_scrolls,
+        (unsigned)room_height_in_scrolls,
+        (unsigned)camera_distance_index,
+        (unsigned)camera_scroll_index,
+        (unsigned)scroll_current,
+        (unsigned)scroll_right,
+        (unsigned)scroll_below,
+        (unsigned)scroll_below_right,
+        (unsigned)scroll_6,
+        (unsigned)active_plm_count,
+        plm_debug,
         (int)(*(int16_t *)(g_ram + 0xB2E)),
         (unsigned)(*(uint16 *)(g_ram + 0xA1C)),
         (int)(*(int16_t *)(g_ram + 0xDBC)),

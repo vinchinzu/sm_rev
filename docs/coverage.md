@@ -4,7 +4,7 @@ Function coverage is complete (5,156 fns, 0 missing). This file is now a **struc
 audit: which bank-shaped files still exist, how big they are, and what they contain.
 The actionable porting plan lives in [port_triage.md](port_triage.md).
 
-Last refreshed: 2026-04-18.
+Last refreshed: 2026-04-20.
 
 ## Extracted topical modules
 
@@ -16,6 +16,7 @@ into them, don't recreate bank-shaped files.
 | `samus_anim_fx.c` | 581 | Per-pose animation/FX driver |
 | `samus_camera_map.c` | 335 | Camera tracking + minimap updates |
 | `samus_collision.c` | 1271 | Block/slope/enemy collision, pose-change collision |
+| `samus_death.c` | 146 | Samus death animation + explosion palette choreography |
 | `samus_demo.c` | 342 | Attract-mode demo playback |
 | `samus_draw.c` | 761 | Samus OAM + sprite-map draw |
 | `samus_enemy_collision.c` | 146 | Samus ↔ enemy hitbox dispatch |
@@ -25,13 +26,18 @@ into them, don't recreate bank-shaped files.
 | `samus_motion.c` | 406 | MoveX/Y primitives |
 | `samus_palette.c` | 591 | Beam/suit/speed-boost palette cycles |
 | `samus_pose.c` | 547 | Pose-change gate + movement-type dispatcher |
-| `samus_projectile.c` | 2727 | Projectile spawn/move/collide — **oversized; split candidate** |
+| `samus_projectile_core.c` / `samus_projectile_beam.c` / `samus_projectile_block.c` | split + shared impl | Samus projectile runtime, with shared implementation in `samus_projectile_impl.h` |
 | `samus_resource.c` | 63 | Health/missile/super/PB add-sub helpers |
 | `samus_runtime.c` | 1156 | Per-frame Samus handler entry + misc |
 | `samus_special_move.c` | 913 | Shinespark, crystal flash, MB scripted states |
 | `samus_speed.c` | 363 | Speed-booster acceleration & extra-run-speed |
 | `samus_transition.c` | 947 | New-pose transition state machine |
 | `samus_xray.c` | 749 | X-ray HDMA + activation |
+| `cinematics.c` | 6395 | Title/intro/ending/credits cinematic runtime and Mode 7 scene flow |
+| `hdma_core.c` / `hdma_power_bomb.c` / `room_fx_hdma.c` / `boss_hdma.c` / `cinematic_hdma.c` | ~2400 total | Bank `$88` HDMA split by runtime family |
+| `enemy_main.c` | 1321 | Shared enemy lifecycle, draw path, and frame dispatch from Bank `$A0` |
+| `enemy_collision.c` | 920 | Shared enemy/Samus/projectile/block collision layer from Bank `$A0` |
+| `enemy_drops.c` | 467 | Enemy drops, grapple-death hooks, and respawn helpers from Bank `$A0` |
 | `physics.c` | 492 | Movement-type dispatch table |
 | `physics_config.c` | 181 | `PhysicsParams` + `sm_physics.json` hot-reload |
 | `plm_core.c` | 1212 | PLM core + instruction byte-code handlers |
@@ -49,7 +55,7 @@ into them, don't recreate bank-shaped files.
 | `game_state_extras.c` | 407 | Peripheral game-state handlers |
 | `palette_fader.c` | 154 | Screen fade helpers |
 | `util.c` | 183 | Shared util |
-| `sm_82_data.c` + `sm_82_data.h` | 30 | Tables formerly in Bank $82 |
+| `menu_assets.h` | header | Shared pause/map/options/equipment ROM tables and constants formerly grouped under Bank `$82` |
 
 ## Infrastructure (do not reshape)
 
@@ -71,13 +77,8 @@ These `src/sm_XX.c` files are what the triage targets. Core priority rubric:
 
 ### System / engine banks
 
-| File | Bank | System | LOC | LOE | Core priority | Triage note |
-|------|------|--------|-----|-----|---------------|-------------|
-| `sm_81.c` | $81 | SRAM, spritemaps, save/file-select/map menus | 2527 | L | P2 | Menu/UI mass; low gameplay leverage. Clear split: save vs. menus vs. spritemap helpers. |
-| `eproj_core.c` / `eproj_environment.c` / `eproj_tourian.c` / `eproj_combat.c` | $86 | Enemy projectiles (eprojs) | split | XL | P1 | Bank `$86` is retired; remaining work is topical cleanup inside the split eproj modules rather than another bank extraction. |
-| `sm_88.c` | $88 | HDMA — layer blending, power bomb, liquid FX, suit pickup | 3342 | L | P2 | Large presentation bank; splits cleanly by HDMA effect. |
-| `sm_8b.c` | $8B | Cinematics (intro, credits, Mode7, text) | 6395 | XL | P2 | Biggest file remaining. Safely last. |
-| `sm_9b.c` | $9B | Samus death seq, grapple (partial), projectile trail | 1122 | M | P1 | Small but touches Samus death + grapple — split into existing `samus_*` files. |
+No system/engine bank files remain. The old `$80`-series engine work and the `$86`
+enemy-projectile bank are now topical modules.
 
 ### Enemy banks
 
@@ -88,7 +89,6 @@ Core priority uses a separate rubric here:
 
 | File | Bank | System | LOC | LOE | Priority | Split angle |
 |------|------|--------|-----|-----|----------|-------------|
-| `sm_a0.c` | $A0 | Common enemy AI, collision, math, drops | 3656 | L | **P0** | Splits ≥4 ways: enemy_main / enemy_collision / enemy_math / enemy_drops. Unlocks everything below. |
 | `sm_a2.c` | $A2 | Enemy AI — gunship, shutters | 4132 | XL | P2 | Room-scripted behaviors; defer |
 | `sm_a3.c` | $A3 | Enemy AI — elevator, Metroid | 3111 | L | P1 | Isolate Metroid from elevator scripting |
 | `sm_a4.c` | $A4 | Enemy AI — Crocomire | 1646 | M | P2 | Boss-only; self-contained |
@@ -101,23 +101,21 @@ Core priority uses a separate rubric here:
 | `sm_b2.c` | $B2 | Enemy AI — Space Pirates | 775 | S | P1 | Cheap common-enemy win |
 | `sm_b3.c` | $B3 | Enemy AI — Botwoon | 1403 | M | P2 | Boss-only |
 
-**Bank-shaped total remaining:** 58,935 raw lines across 18 files.
+**Bank-shaped total remaining:** 33,645 raw lines across 11 files.
 
 ## What's driving priority
 
 See [port_triage.md](port_triage.md) for the chunked plan. Short form:
 
-1. Samus / SNES / mini-build unblockers first (`sm_9b`, leftover `sm_80` migration).
-2. Shared enemy infrastructure (`sm_a0`) before any individual enemy bank.
-3. Enemy projectiles (`sm_86`) after common enemy infra exists.
-4. Small enemies & progression-gate bosses (`sm_b2`, `sm_aa`).
-5. Large HDMA / menu banks (`sm_88`, `sm_81`) when blocked by them.
-6. Cinematics (`sm_8b`) and full-boss banks (`sm_a9`, `sm_a6`, etc.) last.
+1. Small enemies & progression-gate banks first (`sm_b2`, `sm_aa`, `sm_a3`).
+2. Large boss banks next (`sm_a7`, `sm_a6`, `sm_a9`) once you want enemy-specific work.
+3. Topical cleanup inside already-split modules stays secondary to retiring the remaining enemy banks.
 
 ## Non-coverage scope still open
 
-1. **`samus_projectile.c` oversized (2727 LOC)** — candidate for projectile_core /
-   projectile_special_move / projectile_block_collision split.
+1. **`cinematics.c` is still monolithic (6395 LOC)** — acceptable for now because it is
+   presentation-only and not part of the mini path; only split it when someone wants to work
+   on cinematics directly.
 2. **`PhysicsParams`** — partially populated in `variables_extra.h`; not all Samus
    motion variables are exposed yet (beads `sm_rev-w93.6/7`).
 3. **Headless test coverage** — tests use cold-boot RAM (title screen). No save-state
