@@ -1097,6 +1097,7 @@ void sub_88E987(uint16 k);
 // Bank 89
 void LoadFXHeader(void);
 void LoadFxEntry(uint16 a);
+void RefreshFxVisualsAfterLoad(void);
 void RoomCode_CeresElevatorShaft(void);
 
 // Bank 8B

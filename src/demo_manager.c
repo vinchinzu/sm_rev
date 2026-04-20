@@ -27,9 +27,7 @@ void LoadDemoRoomData(void) {  // 0x828679
   room_ptr = drd->room_ptr_;
   door_def_ptr = drd->door_ptr;
   layer1_x_pos = drd->screen_x_pos;
-  bg1_x_offset = layer1_x_pos;
   layer1_y_pos = drd->screen_y_pos;
-  bg1_y_offset = layer1_y_pos;
   samus_y_pos = layer1_y_pos + drd->samus_x_offs;
   samus_prev_y_pos = samus_y_pos;
   samus_x_pos = drd->samus_y_offs + layer1_x_pos + 128;
@@ -38,6 +36,8 @@ void LoadDemoRoomData(void) {  // 0x828679
   LOBYTE(area_index) = get_RoomDefHeader(room_ptr)->area_index_;
   reg_BG1HOFS = 0;
   reg_BG1VOFS = 0;
+  bg1_x_offset = reg_BG1HOFS - layer1_x_pos;
+  bg1_y_offset = reg_BG1VOFS - layer1_y_pos;
   ++demo_scene;
   uint16 v1 = 0;
   do {

@@ -117,6 +117,14 @@ void LoadFXHeader(void) {
     SpawnAreaAnimtiles(fx->animtiles_bitset);
 }
 
+void RefreshFxVisualsAfterLoad(void) {
+  // Gameplay savestates preserve the live FX state in RAM, but the room asset
+  // refresh path must still rebuild the derived BG3 FX tilemap in VRAM.
+  ClearFxTilemap();
+  if (fx_tilemap_ptr)
+    CopyToVramNow(0x5BE0, 0x8a0000 | fx_tilemap_ptr, 2112);
+}
+
 void ConfigureMode7RotationMatrix(void) {  // 0x80B0C2
   if (irq_enable_mode7) {
     if ((nmi_frame_counter_word & 7) == 0) {

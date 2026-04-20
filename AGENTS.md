@@ -71,6 +71,13 @@ Use the constants in `ida_types.h`.
     - `make mini-test` for mini shell smoke
     - `tests/test_headless.py` or `python3 tests/run_tests.py -v` when full runtime behavior may have changed
 
+## 4B. Baseline and Regression Discipline
+
+- The sibling `../sm/` tree is the **pre-refactor bank-shaped baseline**. Use it when a refactored module regresses and you need the original function layout or control flow.
+- Do not treat extracted files as authoritative just because they build. When behavior changes unexpectedly, compare against the original implementation in `../sm/src/sm_80.c`, `sm_82.c`, `sm_8f.c`, `sm_90.c`, etc., before “fixing” the refactor.
+- Regressions in this branch have repeatedly come from **refactoring without enough testing**. For any non-trivial move or cleanup, run the smallest relevant check before and after if practical, not only after.
+- If you move functions out of a monolithic bank file, update the bank-origin lookup doc in [docs/bank_origin_map.md](/home/v/01_projects/11_games/speedrun/retro_rl/super_metroid_rl/sm_rev/docs/bank_origin_map.md) so future debugging can jump back to the original source quickly.
+
 ## 4A. Mini Build Plan
 
 The current repo plan for `make mini` is:

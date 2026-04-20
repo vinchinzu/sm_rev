@@ -178,14 +178,16 @@ void LoadFromLoadStation(void) {  // 0x80C437
   room_ptr = L->room_ptr_;
   door_def_ptr = L->door_ptr;
 //  door_bts = v0[2];
-  bg1_x_offset = layer1_x_pos = L->screen_x_pos;
-  bg1_y_offset = layer1_y_pos = L->screen_y_pos;
+  layer1_x_pos = L->screen_x_pos;
+  layer1_y_pos = L->screen_y_pos;
   samus_y_pos = layer1_y_pos + L->samus_y_offset;
   samus_prev_y_pos = samus_y_pos;
   samus_x_pos = layer1_x_pos + 128 + L->samus_x_offset;
   samus_prev_x_pos = samus_x_pos;
   reg_BG1HOFS = 0;
   reg_BG1VOFS = 0;
+  bg1_x_offset = reg_BG1HOFS - layer1_x_pos;
+  bg1_y_offset = reg_BG1VOFS - layer1_y_pos;
   LOBYTE(area_index) = get_RoomDefHeader(room_ptr)->area_index_;
   LOBYTE(debug_disable_minimap) = 0;
 }

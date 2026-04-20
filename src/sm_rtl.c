@@ -107,6 +107,7 @@ static void RtlRefreshRoomAssetsAfterLoad(void) {
   bg2_y_scroll = layer2_y_pos;
   CalculateBgScrolls();
   DisplayViewablePartOfRoom();
+  RefreshFxVisualsAfterLoad();
   LoadEnemyGfxToVram();
   LoadColorsForSpritesBeamsAndEnemies();
 }
