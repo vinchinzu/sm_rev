@@ -37,6 +37,14 @@ answer: "where did this logic live before we split it?"
 | `src/samus_collision.c` | `../sm/src/sm_90.c`, `../sm/src/sm_91.c`, Bank `$94` code paths | Mixed-origin collision work; confirm the function comment/header before editing |
 | `src/samus_grapple.c` | `../sm/src/sm_9b.c` and `../sm/src/sm_90.c` | Grapple logic was split across Samus banks before extraction |
 
+## Enemy / Combat Helpers
+
+| Current file | Original bank file in `../sm/` | Notes |
+| --- | --- | --- |
+| `src/eproj_core.c` | `../sm/src/sm_86.c` | Enemy-projectile lifecycle, generic instruction handlers, shared block-collision/movement helpers, draw path, and screen-shake helpers |
+| `src/eproj_environment.c` | `../sm/src/sm_86.c` | Environment/facility enemy-projectile families; currently owns the Norfair lavaquake rocks cluster (`EprojInit_NorfairLavaquakeRocks` through `EprojPreInstr_NorfairLavaquakeRocks_Inner2`) |
+| `src/enemy_math.c` | Mostly `../sm/src/sm_a0.c`; enemy-projectile trig helpers also from `../sm/src/sm_86.c` | Shared math layer now owns `Math_MultBySin`, `Math_MultByCos`, `Math_MultBySinCos`, and `Eproj_AngleToSamus` after phase-4 cleanup |
+
 ## Quick lookup workflow
 
 1. Find the current topical file and function.

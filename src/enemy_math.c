@@ -198,6 +198,33 @@ Point32 ConvertAngleToXy(uint16 angle, uint16 magnitude) {  // 0xA0B643
   return (Point32){x, y};
 }
 
+uint16 Math_MultBySin(uint16 a, uint16 r18) {  // 0x86C26C
+  return Math_MultBySinCos(a, r18);
+}
+
+uint16 Math_MultByCos(uint16 a, uint16 r18) {  // 0x86C272
+  return Math_MultBySinCos(a, r18 + 64);
+}
+
+uint16 Math_MultBySinCos(uint16 r38, uint16 a) {  // 0x86C27A
+  uint16 r46 = kSinCosTable8bit_Sext[(a & 0xff) + 64];
+  uint16 prod = (uint32)r38 * abs16(r46) >> 8;
+  return sign16(r46) ? -prod : prod;
+}
+
+void Eproj_AngleToSamus(uint16 j, uint16 r18, uint16 r20) {  // 0x86E7AB
+  int v1 = j >> 1;
+  eproj_x_pos[v1] = r18;
+  eproj_y_pos[v1] = r20;
+  uint16 v2 = (uint8)(64 - CalculateAngleFromXY(samus_x_pos - eproj_x_pos[v1], samus_y_pos - eproj_y_pos[v1]));
+  g_word_7E97DC[v1] = v2;
+  Point32 pt = ConvertAngleToXy(v2, eproj_init_param_1);
+  eproj_x_vel[v1] = pt.x >> 16;
+  eproj_E[v1] = pt.x;
+  eproj_y_vel[v1] = pt.y >> 16;
+  eproj_F[v1] = pt.y;
+}
+
 void EnemyFunc_B691(uint16 angle, Point32 pt) {  // 0xA0B691
   EnemyData *E = gEnemyData(cur_enemy_index);
   if (((angle + 64) & 0x80) != 0)
