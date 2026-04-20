@@ -38,7 +38,7 @@ def main() -> int:
         # Only run build tests — no ROM, no SDL needed
         cmd += ["-k", "TestBuild"]
     else:
-        cmd += ["-k", "TestBuild or TestHeadless"]
+        cmd += ["-k", "TestBuild or TestHeadless or TestMine or TestDivergence"]
 
     if verbose:
         cmd += ["-v"]

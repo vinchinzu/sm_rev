@@ -560,9 +560,17 @@ int main(int argc, char** argv) {
     printf("[physics] mods active — forcing RM_MINE (C port only, no emulator reconcile)\n");
   }
 
-  if (g_load_state_path)
-    RtlLoadStateFromPath(g_load_state_path);
-  else if (g_config.skip_intro)
+  if (g_load_state_path) {
+    // Allow comma-separated list to repro slot-cycling bugs in headless mode.
+    char *paths = strdup(g_load_state_path);
+    char *p = strtok(paths, ",");
+    while (p) {
+      printf("[--load-state] %s\n", p);
+      RtlLoadStateFromPath(p);
+      p = strtok(NULL, ",");
+    }
+    free(paths);
+  } else if (g_config.skip_intro)
     RtlSkipIntro();
 
   const char *force_music = getenv("SM_FORCE_MUSIC");

@@ -547,8 +547,132 @@ bool HookedFunctionRts(int is_long) {
   return false;
 }
 
+// Diagnostic oracle for RM_BOTH mode: compares MINE vs THEIRS snapshots and
+// prints divergences. NOT a correctness gate — RM_MINE remains the production
+// path. Restored from ../sm/src/sm_cpu_infra.c (this port had stripped it to
+// `return;`, hiding every MINE-only bug since the branch was created).
+//
+// The mask-out memcpys before the diff suppress fields where MINE legitimately
+// diverges from THEIRS (xray HDMA bug, MINE-only data structures, etc.). These
+// are the historical "known-OK" zones inherited from ../sm; do not extend them
+// to silence new divergences without first understanding the underlying bug.
 static void VerifySnapshotsEq(Snapshot *b, Snapshot *a, Snapshot *prev) {
-  return;
+  memcpy(&b->ram[0x0], &a->ram[0x0], 0x51);  // r18, r20, R22 etc
+  memcpy(&b->ram[0x1f5b], &a->ram[0x1f5b], 0x100 - 0x5b);  // stack
+  memcpy(&b->ram[0xad], &a->ram[0xad], 4);  // ptr_to_retaddr_parameters etc
+  memcpy(&b->ram[0x5e7], &a->ram[0x5e7], 14);  // bitmask, mult_tmp, mult_product_lo etc
+
+  memcpy(&b->ram[0x5BC], &a->ram[0x5BC], 9);  // door_transition_vram_update etc
+  memcpy(&a->ram[0x60B], &b->ram[0x60B], 6);  // eproj_init_param_2, remaining_enemy_hitbox_entries, REMOVED_num_projectiles_to_check_enemy_coll
+  memcpy(&a->ram[0x611], &b->ram[0x611], 6);  // coroutine_state (copy from mine to theirs)
+  memcpy(&b->ram[0x641], &a->ram[0x641], 2);  // apu_attempts_countdown
+  memcpy(&a->ram[0x77e], &b->ram[0x77e], 5);  // my counter
+  memcpy(&a->ram[0x78F], &b->ram[0x78F], 2);  // door_bts
+
+  memcpy(&a->ram[0x7b7], &b->ram[0x7b7], 2);  // event_pointer
+  memcpy(&a->ram[0x933], &b->ram[0x933], 10);  // var933 etc
+  memcpy(&b->ram[0xA82], &a->ram[0xA82], 2);  // xray_angle
+  memcpy(&b->ram[0xB24], &a->ram[0xB24], 4);  // xray_angle
+  memcpy(&a->ram[0xd1e], &b->ram[0xd1e], 2);  // grapple_beam_unkD1E
+  memcpy(&a->ram[0xd82], &b->ram[0xd82], 8);  // grapple_beam_tmpD82
+
+  memcpy(&a->ram[0xd9c], &b->ram[0xd9c], 2);  // grapple_beam_tmpD82
+  memcpy(&a->ram[0xdd2], &b->ram[0xdd2], 6);  // temp_collision_DD2 etc
+  memcpy(&a->ram[0xd8a], &b->ram[0xd8a], 6);  // grapple_beam_tmpD8A
+  memcpy(&a->ram[0xe20], &b->ram[0xe20], 0xe46 - 0xe20);  // temp vars
+  memcpy(&a->ram[0xe54], &b->ram[0xe54], 2);  // cur_enemy_index
+
+  memcpy(&a->ram[0xe02], &b->ram[0xe02], 2);  // samus_bottom_boundary_position
+  memcpy(&a->ram[0xe4a], &b->ram[0xe4a], 2);  // new_enemy_index
+  memcpy(&a->ram[0xe56], &b->ram[0xe56], 4);  // REMOVED_cur_enemy_index_backup etc
+
+  memcpy(&a->ram[0x1784], &b->ram[0x1784], 8);  // enemy_ai_pointer etc
+  memcpy(&a->ram[0x1790], &b->ram[0x1790], 4);  // set_to_rtl_when_loading_enemies_unused etc
+  memcpy(&a->ram[0x17a8], &b->ram[0x17a8], 4);  // interactive_enemy_indexes_index
+
+  memcpy(&a->ram[0x1834], &b->ram[0x1834], 8);  // distance_to_enemy_colliding_dirs
+  memcpy(&a->ram[0x184A], &b->ram[0x184A], 18);  // samus_x_pos_colliding_solid etc
+  memcpy(&a->ram[0x186E], &b->ram[0x186E], 16+8);  // REMOVED_enemy_spritemap_entry_pointer etc
+  memcpy(&a->ram[0x18A6], &b->ram[0x18A6], 2);  // collision_detection_index
+  memcpy(&a->ram[0x189A], &b->ram[0x189A], 12);  // samus_target_x_pos etc
+
+  memcpy(&b->ram[0x1966], &a->ram[0x1966], 6);  // current_fx_entry_offset etc
+  memcpy(&b->ram[0x1993], &a->ram[0x1993], 2);  // eproj_init_param
+  memcpy(&b->ram[0x19b3], &a->ram[0x19b3], 2);  // mode7_spawn_param
+  memcpy(&b->ram[0x1a93], &a->ram[0x1a93], 2);  // cinematic_spawn_param
+  memcpy(&b->ram[0x1B9D], &a->ram[0x1B9D], 2);  // cinematic_spawn_param
+  memcpy(&a->ram[0x1E77], &b->ram[0x1E77], 2);  // current_slope_bts
+
+  memcpy(&a->ram[0x9100], &b->ram[0x9100], 0x1cc + 2);  // XrayHdmaFunc has some bug that i couldn't fix in asm
+  memcpy(&a->ram[0x9800], &b->ram[0x9800], 0x1cc + 2);  // XrayHdmaFunc has some bug that i couldn't fix in asm
+  memcpy(&a->ram[0x99cc], &b->ram[0x99cc], 2);  // XrayHdmaFunc_BeamAimedL writes outside
+  memcpy(&a->ram[0xEF74], &b->ram[0xEF74], 4);  // next_enemy_tiles_index
+  memcpy(&a->ram[0xF37A], &b->ram[0xF37A], 6);  // word_7EF37A etc
+
+  if (memcmp(b->ram, a->ram, 0x20000)) {
+    fprintf(stderr, "@%d: Memory compare failed (mine != theirs, prev):\n", snes_frame_counter);
+    int j = 0;
+    for (size_t i = 0; i < 0x20000; i++) {
+      if (a->ram[i] != b->ram[i]) {
+        if (++j < 256) {
+          if (((i & 1) == 0 || i < 0x10000) && a->ram[i + 1] != b->ram[i + 1]) {
+            fprintf(stderr, "0x%.6X: %.4X != %.4X (%.4X)\n", (int)i,
+                    WORD(b->ram[i]), WORD(a->ram[i]), WORD(prev->ram[i]));
+            i++, j++;
+          } else {
+            fprintf(stderr, "0x%.6X: %.2X != %.2X (%.2X)\n", (int)i, b->ram[i], a->ram[i], prev->ram[i]);
+          }
+        }
+      }
+    }
+    if (j)
+      g_fail = true;
+    fprintf(stderr, "  total of %d failed bytes\n", (int)j);
+  }
+
+  if (memcmp(b->sram, a->sram, 0x2000)) {
+    fprintf(stderr, "@%d: SRAM compare failed (mine != theirs, prev):\n", snes_frame_counter);
+    int j = 0;
+    for (size_t i = 0; i < 0x2000; i++) {
+      if (a->sram[i] != b->sram[i]) {
+        if (++j < 128) {
+          if ((i & 1) == 0 && a->sram[i + 1] != b->sram[i + 1]) {
+            fprintf(stderr, "0x%.6X: %.4X != %.4X (%.4X)\n", (int)i,
+                    WORD(b->sram[i]), WORD(a->sram[i]), WORD(prev->sram[i]));
+            i++, j++;
+          } else {
+            fprintf(stderr, "0x%.6X: %.2X != %.2X (%.2X)\n", (int)i, b->sram[i], a->sram[i], prev->sram[i]);
+          }
+        }
+      }
+    }
+    if (j)
+      g_fail = true;
+    fprintf(stderr, "  total of %d failed bytes\n", (int)j);
+  }
+
+  if (memcmp(b->vram, a->vram, sizeof(uint16) * 0x8000)) {
+    fprintf(stderr, "@%d: VRAM compare failed (mine != theirs, prev):\n", snes_frame_counter);
+    for (size_t i = 0, j = 0; i < 0x8000; i++) {
+      if (a->vram[i] != b->vram[i]) {
+        fprintf(stderr, "0x%.6X: %.4X != %.4X (%.4X)\n", (int)i, b->vram[i], a->vram[i], prev->vram[i]);
+        g_fail = true;
+        if (++j >= 32)
+          break;
+      }
+    }
+  }
+  if (memcmp(b->oam, a->oam, sizeof(uint16) * 0x120)) {
+    fprintf(stderr, "@%d: VRAM OAM compare failed (mine != theirs, prev):\n", snes_frame_counter);
+    for (size_t i = 0, j = 0; i < 0x120; i++) {
+      if (a->oam[i] != b->oam[i]) {
+        fprintf(stderr, "0x%.6X: %.4X != %.4X (%.4X)\n", (int)i, b->oam[i], a->oam[i], prev->oam[i]);
+        g_fail = true;
+        if (++j >= 16)
+          break;
+      }
+    }
+  }
 }
 
 static void MakeSnapshot(Snapshot *s) {

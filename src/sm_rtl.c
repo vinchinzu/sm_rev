@@ -7,6 +7,9 @@
 #include "spc_player.h"
 #include "util.h"
 #include "physics_config.h"
+#ifdef __GLIBC__
+#include <execinfo.h>
+#endif
 
 struct StateRecorder;
 
@@ -87,6 +90,7 @@ static void SaveSnesState(SaveLoadFunc *func, void *ctx) {
 }
 
 static void RtlRefreshRoomAssetsAfterLoad(void) {
+  if (getenv("SM_REV_NO_REFRESH")) return;  // diagnostic toggle
   if (game_state != kGameState_8_MainGameplay && game_state != kGameState_9_HitDoorBlock)
     return;
   if (!room_ptr)
@@ -573,6 +577,14 @@ uint32 Load24(const LongPtr *src) {
 
 bool Unreachable(void) {
   printf("Unreachable!\n");
+#ifdef __GLIBC__
+  {
+    void *bt[32];
+    int n = backtrace(bt, 32);
+    fprintf(stderr, "[Unreachable] backtrace (%d frames):\n", n);
+    backtrace_symbols_fd(bt, n, 2);
+  }
+#endif
   assert(0);
   g_ram[0x1ffff] = 1;
   return false;

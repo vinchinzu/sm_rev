@@ -13,7 +13,7 @@ static uint8 DecompNextByte() {
   return b;
 }
 
-void DecompressToMem(uint32 src, uint8 *decompress_dst) {  // 0x80B119
+uint16 DecompressToMem(uint32 src, uint8 *decompress_dst) {  // 0x80B119
   decompress_src = src;
 
   int src_pos, dst_pos = 0;
@@ -76,6 +76,7 @@ void DecompressToMem(uint32 src, uint8 *decompress_dst) {  // 0x80B119
       }
     }
   }
+  return dst_pos;
 }
 
 static uint8 ReadPpuByte(uint16 addr) {

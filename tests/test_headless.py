@@ -35,12 +35,20 @@ def headless(
     extra_args: list[str] | None = None,
     timeout: int = 30,
     cwd: Path | None = None,
+    runmode: str | None = "mine",
 ) -> subprocess.CompletedProcess:
-    """Run sm_rev headlessly for `frames` frames, dumping RAM state to stdout."""
+    """Run sm_rev headlessly for `frames` frames in RM_MINE by default.
+
+    Pass runmode=None to omit --runmode entirely (lets the binary's own
+    auto-escalation logic decide, e.g. for mods-force-mine tests).
+    """
     import os
     env = os.environ.copy()
     env.update(HEADLESS_ENV)
-    cmd = [str(BINARY), "--headless", str(frames), "--dump", "-"] + (extra_args or [])
+    cmd = [str(BINARY), "--headless", str(frames)]
+    if runmode is not None:
+        cmd += ["--runmode", runmode]
+    cmd += ["--dump", "-"] + (extra_args or [])
     return subprocess.run(cmd, cwd=cwd or SM_REV_DIR, capture_output=True, text=True, env=env, timeout=timeout)
 
 
@@ -215,7 +223,7 @@ class TestHeadlessRAMSanity:
 class TestHeadlessRunMode:
     def test_explicit_mine_mode_uses_c_frame_source(self):
         """--runmode mine must render and report the native C-port frame."""
-        r = headless(10, extra_args=["--runmode", "mine"])
+        r = headless(10, runmode="mine")
         assert r.returncode == 0, f"mine runmode failed:\n{r.stderr}"
         data = parse_dump(r)
         assert data["runmode"] == "mine"
@@ -223,20 +231,24 @@ class TestHeadlessRunMode:
 
     def test_explicit_theirs_mode_uses_emulator_frame_source(self):
         """--runmode theirs must render and report the emulator frame."""
-        r = headless(10, extra_args=["--runmode", "theirs"])
+        r = headless(10, runmode="theirs")
         assert r.returncode == 0, f"theirs runmode failed:\n{r.stderr}"
         data = parse_dump(r)
         assert data["runmode"] == "theirs"
         assert data["frame_source"] == "theirs"
 
     def test_mods_force_mine_when_runmode_unspecified(self):
-        """Non-default physics mods must opt into C-only execution when no runmode is provided."""
+        """Non-default physics mods must opt into C-only execution when no runmode is provided.
+
+        We pass runmode="both" here to let the binary's own logic decide the mode
+        (not override it) — this tests the auto-escalation from RM_BOTH to RM_MINE.
+        """
         with temporary_mods_config({
             "gravity_scale_percent": 50,
             "run_speed_scale_percent": 155,
             "jump_scale_percent": 200,
         }):
-            r = headless(10)
+            r = headless(10, runmode=None)  # no --runmode flag: tests auto-escalation logic
         assert r.returncode == 0, f"mods-forced mine run failed:\n{r.stderr}"
         data = parse_dump(r)
         assert data["runmode"] == "mine"
@@ -246,7 +258,7 @@ class TestHeadlessRunMode:
     def test_dump_frame_uses_active_frame_source(self, tmp_path: Path):
         """--dump-frame must write the active display buffer, not always the emulator buffer."""
         frame_path = tmp_path / "frame.raw"
-        r = headless(10, extra_args=["--runmode", "mine", "--dump-frame", str(frame_path)])
+        r = headless(10, extra_args=["--dump-frame", str(frame_path)])
         assert r.returncode == 0, f"frame dump failed:\n{r.stderr}"
         assert frame_path.exists(), "frame dump was not created"
         assert frame_path.stat().st_size == 256 * 4 * 240
@@ -261,8 +273,8 @@ class TestHeadlessRunMode:
 
         mine = headless(
             5,
+            runmode="mine",
             extra_args=[
-                "--runmode", "mine",
                 "--load-state", str(save.resolve()),
                 "--dump-frame", str(mine_frame),
                 str(ROM.resolve()),
@@ -271,8 +283,8 @@ class TestHeadlessRunMode:
         )
         theirs = headless(
             5,
+            runmode="theirs",
             extra_args=[
-                "--runmode", "theirs",
                 "--load-state", str(save.resolve()),
                 "--dump-frame", str(theirs_frame),
                 str(ROM.resolve()),

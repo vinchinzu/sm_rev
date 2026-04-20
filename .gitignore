@@ -54,6 +54,9 @@ scratch.patch
 recovered/
 recovered_matched/
 
+# sm_orig: local reference checkout of the upstream project (not part of sm_rev)
+sm_orig/
+
 # Keep local save files available
 !saves/
 !saves/**
