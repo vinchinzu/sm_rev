@@ -23,8 +23,9 @@ mini-build value and keeps each session within a 700–1000 LOC refactor budget
   `util`/`hud`/`timer`/`irq`), `sm_82.c` (→ split), `sm_84.c` (→ `plm_*`), `sm_89.c`,
   `sm_8f.c`, `sm_90.c` / `sm_91.c` (→ `samus_*`), `sm_92.c`, `sm_93.c`, `sm_b4.c`,
   `sm_85.c` (→ `message_box.c`), `sm_87.c` (→ `anim_tiles.c`), `sm_8d.c` (→ `palette_fx.c`),
-  `sm_ad.c` (→ `mother_brain_hdma.c`).
-- 📁 Remaining bank-shaped files: 18, totalling ~58.9k LOC.
+  `sm_ad.c` (→ `mother_brain_hdma.c`), `sm_86.c` (→ `eproj_core.c` / `eproj_environment.c` /
+  `eproj_tourian.c` / `eproj_combat.c`).
+- 📁 Remaining bank-shaped files: 17, totalling ~53.6k LOC.
 
 ---
 

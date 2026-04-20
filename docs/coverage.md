@@ -74,7 +74,7 @@ These `src/sm_XX.c` files are what the triage targets. Core priority rubric:
 | File | Bank | System | LOC | LOE | Core priority | Triage note |
 |------|------|--------|-----|-----|---------------|-------------|
 | `sm_81.c` | $81 | SRAM, spritemaps, save/file-select/map menus | 2527 | L | P2 | Menu/UI mass; low gameplay leverage. Clear split: save vs. menus vs. spritemap helpers. |
-| `sm_86.c` | $86 | Enemy projectiles (eprojs) | 5294 | XL | P1 | Biggest remaining combat surface. Factors cleanly by owning boss/room. |
+| `eproj_core.c` / `eproj_environment.c` / `eproj_tourian.c` / `eproj_combat.c` | $86 | Enemy projectiles (eprojs) | split | XL | P1 | Bank `$86` is retired; remaining work is topical cleanup inside the split eproj modules rather than another bank extraction. |
 | `sm_88.c` | $88 | HDMA — layer blending, power bomb, liquid FX, suit pickup | 3342 | L | P2 | Large presentation bank; splits cleanly by HDMA effect. |
 | `sm_8b.c` | $8B | Cinematics (intro, credits, Mode7, text) | 6395 | XL | P2 | Biggest file remaining. Safely last. |
 | `sm_9b.c` | $9B | Samus death seq, grapple (partial), projectile trail | 1122 | M | P1 | Small but touches Samus death + grapple — split into existing `samus_*` files. |
