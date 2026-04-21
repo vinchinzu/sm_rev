@@ -2,10 +2,15 @@
 
 This repo now has a first-pass `mini` build target intended for subtractive refactoring work.
 
+For the gameplay-kernel roadmap that reframes mini around moddable Samus movement,
+collision, and authored map/nav rules, see [mini_modability_plan.md](mini_modability_plan.md).
+
 Current scope:
 - `make mini` builds `sm_rev_mini`.
-- `sm_rev_mini` is a shell binary, not a gameplay-complete Samus sandbox yet.
-- The build is compiled with `CURRENT_BUILD=BUILD_MINI`, which activates negative feature flags in [src/features.h](/home/v/01_projects/11_games/speedrun/retro_rl/super_metroid_rl/sm_rev/src/features.h).
+- `sm_rev_mini` now runs Samus inside a small authored room backed by the same
+  mini collision tilemap used for movement bring-up.
+- It is still not a gameplay-complete Samus sandbox yet.
+- The build is compiled with `CURRENT_BUILD=BUILD_MINI`, which activates negative feature flags in [src/features.h](../src/features.h).
 - The shell supports `--headless --frames N` for smoke testing and a small SDL window for manual inspection.
 
 Linux:
@@ -27,11 +32,13 @@ The initial setup uses exclusion-friendly build flags:
 - `NO_GAME_SYSTEMS`
 - `NO_SOUND`
 
-Right now those flags are only used by the mini shell, but they define the contract for the next steps: pull Samus/physics code into the mini target while keeping full-game systems excluded by default.
+In mini, `NO_ROOMS` now means "no full room-loading / room-transition systems", not
+"no room geometry at all". The mini runtime owns a small authored room so Samus can
+move inside visible bounds without booting the full game room pipeline.
 
 ## Forward Plan
 
-1. Split startup concerns out of [src/main.c](/home/v/01_projects/11_games/speedrun/retro_rl/super_metroid_rl/sm_rev/src/main.c) so the mini target can reuse input, render, and timing code without dragging full game boot.
+1. Split startup concerns out of [src/main.c](../src/main.c)
 2. Introduce `stubs_mini.c` for cross-system calls that Samus/physics code still reaches into.
 3. Move the first runtime slice into mini: `physics.c`, `physics_config.c`, `samus_input.c`, `samus_motion.c`, `samus_jump.c`, and `samus_collision.c`.
 4. Add the second Samus slice after link stability: `samus_pose.c`, `samus_runtime.c`, `samus_draw.c`, `samus_speed.c`, and `samus_transition.c`.

@@ -51,5 +51,5 @@ Use the smallest test that matches the change:
 
 ## Docs
 
-- Mini build notes: [docs/mini_build.md](/home/v/01_projects/11_games/speedrun/retro_rl/super_metroid_rl/sm_rev/docs/mini_build.md)
-- Refactor guide and standing instructions: [AGENTS.md](/home/v/01_projects/11_games/speedrun/retro_rl/super_metroid_rl/sm_rev/AGENTS.md)
+- Mini build notes: [docs/mini_build.md](docs/mini_build.md)
+- Refactor guide and standing instructions: [AGENTS.md](AGENTS.md)

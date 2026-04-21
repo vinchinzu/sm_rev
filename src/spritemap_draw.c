@@ -4,9 +4,9 @@
 #include "ida_types.h"
 #include "variables.h"
 #include "funcs.h"
+#include "samus_asset_bridge.h"
 
 #define g_off_82C569 ((uint16*)RomFixedPtr(0x82c569))
-#define kSamusSpritemapTable ((uint16*)RomFixedPtr(0x92808d))
 #define g_off_93A1A1 ((uint16*)RomFixedPtr(0x93a1a1))
 
 static void DrawGrappleOrProjectileSpritemap(const uint8 *pp, uint16 x_r20, uint16 y_r18) {  // 0x818A5F
@@ -87,9 +87,15 @@ void DrawMenuSpritemap(uint16 a, uint16 k, uint16 j, uint16 chr_r3) {  // 0x8189
 }
 
 void DrawSamusSpritemap(uint16 a, uint16 x_pos, uint16 y_pos) {  // 0x8189AE
-  if (kSamusSpritemapTable[a] == 0)
+  const uint8 *spritemap_table = SamusAssetBridge_GetBank92(0x808d);
+  if (spritemap_table == NULL)
     return;
-  const uint8 *pp = RomPtr_92(kSamusSpritemapTable[a]);
+  uint16 spritemap_ptr = GET_WORD(spritemap_table + a * 2);
+  if (spritemap_ptr == 0)
+    return;
+  const uint8 *pp = SamusAssetBridge_GetBank92(spritemap_ptr);
+  if (pp == NULL)
+    return;
   int idx = oam_next_ptr;
   int n = GET_WORD(pp);
   pp += 2;

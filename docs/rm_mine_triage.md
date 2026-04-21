@@ -7,7 +7,7 @@ THEIRS and RM_BOTH are now used **only** as diagnostic oracles, never as the cor
 Baseline note:
 - The sibling `../sm/` tree is the pre-refactor, bank-shaped baseline to consult when a split topical file regresses.
 - A recurring cause of regressions in this branch has been refactoring without running the smallest relevant build/runtime checks before and after the change.
-- See [bank_origin_map.md](/home/v/01_projects/11_games/speedrun/retro_rl/super_metroid_rl/sm_rev/docs/bank_origin_map.md) for the current file-to-bank lookup.
+- See [bank_origin_map.md](bank_origin_map.md).
 
 ## Known regressions (user-reported 2026-04-19)
 

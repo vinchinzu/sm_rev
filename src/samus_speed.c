@@ -30,8 +30,31 @@ static const uint16 kSamus_ExtraRunCap_NormalSpeed[3] = { 2, 1, 0 };
 // shifted enum so comparisons read as the state machine they really are.
 enum {
   kSpeedBoostPhase_Charged = 4,
+  kSamusSpeedTableEntrySize = 12,
+  kSamusMovementTypeCount = 28,
 };
 #define SPEED_BOOST_PHASE(ctr) (((ctr) & 0xFF00) >> 8)
+
+static void Samus_GetScaledRunPair(uint16 base_speed, uint16 base_subspeed,
+                                   uint16 *scaled_speed, uint16 *scaled_subspeed) {
+  uint64 full = ((uint64)base_speed << 16) | base_subspeed;
+  full = (full * g_physics_mods.run_speed_scale_percent) / 100;
+  *scaled_speed = (uint16)(full >> 16);
+  *scaled_subspeed = (uint16)full;
+}
+
+static bool Samus_IsMovementSpeedTableEntry(uint16 table_entry, uint16 table_base) {
+  int delta = (int)table_entry - (int)table_base;
+  return delta >= 0
+      && delta < kSamusSpeedTableEntrySize * kSamusMovementTypeCount
+      && (delta % kSamusSpeedTableEntrySize) == 0;
+}
+
+static bool Samus_UsesPhysicsRunOverride(uint16 table_entry) {
+  return Samus_IsMovementSpeedTableEntry(table_entry, addr_kSamusSpeedTable_Normal_X)
+      || Samus_IsMovementSpeedTableEntry(table_entry, addr_kSamusSpeedTable_Water_X)
+      || Samus_IsMovementSpeedTableEntry(table_entry, addr_kSamusSpeedTable_LavaAcid_X);
+}
 
 static void Samus_ClearExtraRunSpeedIfNoMomentum(void) {
   if (!samus_has_momentum_flag) {
@@ -47,37 +70,43 @@ static bool Samus_IsRunningOnGround(void) {
 }
 
 static void Samus_TickExtraRunSpeed_Boosted(void) {
+  uint16 cap_speed, cap_subspeed;
+  uint16 accel_speed, accel_subspeed;
+  Samus_GetScaledRunPair(kSamus_ExtraRunCap_SpeedBoostSpeed[0], 0, &cap_speed, &cap_subspeed);
+  Samus_GetScaledRunPair(0, kSamus_ExtraRunAccel_Subspeed[0], &accel_speed, &accel_subspeed);
   if (!samus_has_momentum_flag) {
     samus_has_momentum_flag = 1;
     special_samus_palette_timer = 1;
     special_samus_palette_frame = 0;
     speed_boost_counter = kSpeedBoostToCtr[0];
   }
-  uint16 cap_speed = kSamus_ExtraRunCap_SpeedBoostSpeed[0];
-  if ((int16)(samus_x_extra_run_speed - cap_speed) >= 0
-      && (int16)samus_x_extra_run_subspeed >= 0) {
+  if (IsGreaterThanQuirked(samus_x_extra_run_speed, samus_x_extra_run_subspeed, cap_speed, cap_subspeed)
+      || (samus_x_extra_run_speed == cap_speed && samus_x_extra_run_subspeed == cap_subspeed)) {
     samus_x_extra_run_speed = cap_speed;
-    samus_x_extra_run_subspeed = 0;
+    samus_x_extra_run_subspeed = cap_subspeed;
     return;
   }
   AddToHiLo(&samus_x_extra_run_speed, &samus_x_extra_run_subspeed,
-      __PAIR32__(0, kSamus_ExtraRunAccel_Subspeed[0]));
+      __PAIR32__(accel_speed, accel_subspeed));
 }
 
 static void Samus_TickExtraRunSpeed_Normal(void) {
+  uint16 cap_speed, cap_subspeed;
+  uint16 accel_speed, accel_subspeed;
+  Samus_GetScaledRunPair(kSamus_ExtraRunCap_NormalSpeed[0], 0, &cap_speed, &cap_subspeed);
+  Samus_GetScaledRunPair(0, kSamus_ExtraRunAccel_Subspeed[0], &accel_speed, &accel_subspeed);
   if (!samus_has_momentum_flag) {
     samus_has_momentum_flag = 1;
     speed_boost_counter = 0;
   }
-  uint16 cap_speed = kSamus_ExtraRunCap_NormalSpeed[0];
-  if ((int16)(samus_x_extra_run_speed - cap_speed) >= 0
-      && (int16)samus_x_extra_run_subspeed >= 0) {
+  if (IsGreaterThanQuirked(samus_x_extra_run_speed, samus_x_extra_run_subspeed, cap_speed, cap_subspeed)
+      || (samus_x_extra_run_speed == cap_speed && samus_x_extra_run_subspeed == cap_subspeed)) {
     samus_x_extra_run_speed = cap_speed;
-    samus_x_extra_run_subspeed = 0;
+    samus_x_extra_run_subspeed = cap_subspeed;
     return;
   }
   AddToHiLo(&samus_x_extra_run_speed, &samus_x_extra_run_subspeed,
-      __PAIR32__(0, kSamus_ExtraRunAccel_Subspeed[0]));
+      __PAIR32__(accel_speed, accel_subspeed));
 }
 
 void Samus_HandleExtraRunspeedX(void) {  // 0x90973E
@@ -101,7 +130,7 @@ int32 Samus_CalcBaseSpeed_X(uint16 k) {  // 0x909A7E
   uint16 decel = sste->decel, decel_sub = sste->decel_sub;
   uint16 max_speed = sste->max_speed, max_speed_sub = sste->max_speed_sub;
 
-  if (k == addr_kSamusSpeedTable_Normal_X) {
+  if (Samus_UsesPhysicsRunOverride(k)) {
     accel = g_physics_params.run_accel;
     accel_sub = g_physics_params.run_accel_sub;
     decel = g_physics_params.run_decel;
@@ -136,7 +165,7 @@ Pair_Bool_Amt Samus_CalcBaseSpeed_NoDecel_X(uint16 k) {  // 0x909B1F
   uint16 decel = sste->decel, decel_sub = sste->decel_sub;
   uint16 max_speed = sste->max_speed, max_speed_sub = sste->max_speed_sub;
 
-  if (k == addr_kSamusSpeedTable_Normal_X) {
+  if (Samus_UsesPhysicsRunOverride(k)) {
     accel = g_physics_params.run_accel;
     accel_sub = g_physics_params.run_accel_sub;
     decel = g_physics_params.run_decel;

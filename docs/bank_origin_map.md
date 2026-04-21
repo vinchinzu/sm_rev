@@ -19,7 +19,8 @@ answer: "where did this logic live before we split it?"
 | Current file | Responsibility now | Original bank file in `../sm/` | Key entry points / anchors |
 | --- | --- | --- | --- |
 | `src/room_scrolling.c` | Room scrolling, background streaming, door-transition scrolling | `../sm/src/sm_80.c` | `DisplayViewablePartOfRoom` `0x80A176`, `HandleAutoscrolling_X` `0x80A528`, `HandleAutoscrolling_Y` `0x80A731`, `HandleScrollingWhenTriggeringScrollDown` `0x80A893`, `DoorTransitionScrollingSetup` `0x80AD36` |
-| `src/room_transition.c` | Door transition pipeline, room header/state load, background load, room asset load | `../sm/src/sm_82.c` | `GameState_9_HitDoorBlock` `0x82E169`, `DoorTransitionFunction_SetupScrolling` `0x82E38E`, `LoadRoomHeader` `0x82DE6F`, `LoadStateHeader` `0x82DEF2`, `LoadLevelScrollAndCre` `0x82EA73`, `LoadLibraryBackground` |
+| `src/room_header.c` | Shared room header/state metadata load helpers extracted from the door-transition path | `../sm/src/sm_82.c` | `LoadRoomHeader` `0x82DE6F`, `LoadStateHeader` `0x82DEF2` |
+| `src/room_transition.c` | Door transition pipeline, background load, room asset load | `../sm/src/sm_82.c` | `GameState_9_HitDoorBlock` `0x82E169`, `DoorTransitionFunction_SetupScrolling` `0x82E38E`, `LoadLevelScrollAndCre` `0x82EA73`, `LoadLibraryBackground` |
 | `src/room_setup.c` | Room setup callbacks and load-station setup | Mostly `../sm/src/sm_8f.c`; `LoadFromLoadStation` comes from Bank `$80` | `RunRoomSetupCode` `0x8FE88F`, `LoadFromLoadStation` `0x80C437` |
 | `src/room_fx.c` | FX header load helpers and FX visual rebuild | `../sm/src/sm_89.c` | `LoadFXHeader`, `FxTypeFunc_*`, `RefreshFxVisualsAfterLoad` |
 | `src/hdma_core.c` | Layer blending, HDMA object lifecycle, and generic HDMA dispatch | `../sm/src/sm_88.c` | `LayerBlendingHandler` `0x888000`, `EnableHdmaObjects` `0x888288`, `InitializeSpecialEffectsForNewRoom` `0x8882C1`, `SpawnHdmaObject` `0x888435`, `HdmaObjectHandler` `0x8884B9` |
@@ -40,7 +41,10 @@ answer: "where did this logic live before we split it?"
 | `src/samus_speed.c` | `../sm/src/sm_90.c` | Horizontal speed tables and speed booster helpers |
 | `src/samus_jump.c` | `../sm/src/sm_90.c` | Jump/gravity selection |
 | `src/samus_palette.c` | `../sm/src/sm_91.c` and `../sm/src/sm_88.c` | Samus palette runtime plus suit-pickup setup and HDMA state machine |
-| `src/samus_collision.c` | `../sm/src/sm_90.c`, `../sm/src/sm_91.c`, Bank `$94` code paths | Mixed-origin collision work; confirm the function comment/header before editing |
+| `src/samus_collision.c` | `../sm/src/sm_90.c`, `../sm/src/sm_91.c`, Bank `$94` code paths | Movement-facing collision basics: displacement helpers, no-coll moves, slope align, wall-jump gates |
+| `src/samus_collision_block.c` | `../sm/src/sm_90.c`, `../sm/src/sm_91.c`, Bank `$94` code paths | Block-type dispatch, slope/solid reactions, block traversal, and movement-facing block collision handlers peeled out of `samus_collision_advanced.c` on 2026-04-21 |
+| `src/samus_collision_map.c` | `../sm/src/sm_90.c`, `../sm/src/sm_91.c`, Bank `$94` code paths | Shared block-index probe (`CalculateBlockAt`) peeled out of `samus_collision_advanced.c` on 2026-04-21 so mini and full build can share the same map lookup |
+| `src/samus_collision_advanced.c` | `../sm/src/sm_90.c`, `../sm/src/sm_91.c`, Bank `$94` code paths | Pose-change collision reconciliation and inside-block detection; block traversal/dispatch peeled further into `samus_collision_block.c` on 2026-04-21 |
 | `src/samus_grapple.c` | `../sm/src/sm_9b.c` and `../sm/src/sm_90.c` | Grapple logic was split across Samus banks before extraction |
 | `src/samus_xray.c` | `../sm/src/sm_91.c` and `../sm/src/sm_88.c` | X-Ray scope state machine, block scan, setup stages, and HDMA runtime |
 
@@ -49,6 +53,8 @@ answer: "where did this logic live before we split it?"
 | Current file | Original bank file in `../sm/` | Notes |
 | --- | --- | --- |
 | `src/enemy_main.c` | `../sm/src/sm_a0.c` | Shared enemy lifecycle, spawn/load path, frame dispatch, and draw/runtime plumbing after the Bank `$A0` split |
+| `src/enemy_tiles.c` | `../sm/src/sm_a0.c` | Shared enemy tileset selection, palette staging, RAM tile assembly, and enemy-VRAM transfer helpers extracted from Bank `$A0` |
+| `src/enemy_gunship.c` | `../sm/src/sm_a2.c` | Gunship-only enemy runtime: landing-site idle/save interaction, event-driven departure, and takeoff choreography |
 | `src/enemy_collision.c` | `../sm/src/sm_a0.c` | Shared enemy-vs-Samus, enemy-vs-projectile, and block-collision helpers extracted from Bank `$A0` |
 | `src/enemy_drops.c` | `../sm/src/sm_a0.c` | Enemy drops, grapple-death hooks, and respawn/item-drop helpers extracted from Bank `$A0` |
 | `src/eproj_core.c` | `../sm/src/sm_86.c` | Enemy-projectile lifecycle, generic instruction handlers, shared block-collision/movement helpers, draw path, and screen-shake helpers |

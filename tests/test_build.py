@@ -14,6 +14,7 @@ from pathlib import Path
 SM_REV_DIR = Path(__file__).parent.parent
 BINARY = SM_REV_DIR / "sm_rev"
 MINI_BINARY = SM_REV_DIR / "sm_rev_mini"
+EDITOR_LANDING_SITE_EXPORT = SM_REV_DIR.parent / "super_metroid_editor" / "export" / "sm_nav" / "rooms" / "room_91F8.json"
 
 
 def run(cmd: list[str], **kw) -> subprocess.CompletedProcess:
@@ -69,3 +70,21 @@ class TestBuildMini:
         assert r.returncode == 0, f"mini headless smoke failed:\n{r.stderr}\n{r.stdout}"
         assert '"build":"mini"' in r.stdout
         assert '"frames":3' in r.stdout
+        assert '"no_rooms":false' in r.stdout
+
+    def test_mini_editor_export_bridge_smoke(self):
+        """Mini should accept an explicit editor-exported Landing Site room file."""
+        if not EDITOR_LANDING_SITE_EXPORT.exists():
+            return
+        r = run([
+            str(MINI_BINARY),
+            "--headless",
+            "--frames",
+            "1",
+            "--room-export",
+            str(EDITOR_LANDING_SITE_EXPORT),
+        ])
+        assert r.returncode == 0, f"mini editor-export smoke failed:\n{r.stderr}\n{r.stdout}"
+        assert '"room_source":"editor_export"' in r.stdout
+        assert '"room_handle":"landingSite"' in r.stdout
+        assert '"rom_room":false' in r.stdout

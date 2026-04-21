@@ -27,10 +27,10 @@ What was verified:
 
 Repairs applied:
 
-1. Fixed an inherited direct-to-VRAM decompression bug in [`src/decompress.c`](/home/v/01_projects/11_games/speedrun/retro_rl/super_metroid_rl/sm_rev/src/decompress.c:130).
+1. Fixed an inherited direct-to-VRAM decompression bug in [`src/decompress.c`](../src/decompress.c)
    The literal-copy path in `DecompressToVRAM` was incrementing each byte before writing it.
    The same bug exists in the older `../sm` baseline, so this is not new to `sm_rev`.
-2. Added a post-load room asset rebuild in [`src/sm_rtl.c`](/home/v/01_projects/11_games/speedrun/retro_rl/super_metroid_rl/sm_rev/src/sm_rtl.c:89) for gameplay savestates.
+2. Added a post-load room asset rebuild in [`src/sm_rtl.c`](../src/sm_rtl.c)
    After state load, the code now rebuilds room headers/state-derived graphics and then copies the refreshed PPU state into both render paths.
 
 Status after those repairs:

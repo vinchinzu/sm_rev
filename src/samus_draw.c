@@ -8,12 +8,15 @@
 #include "funcs.h"
 #include "multi_samus.h"
 #include "physics_config.h"
+#include "samus_asset_bridge.h"
 
 static uint8 GetPackedOamExtBits(uint16 idx);
 static void SetPackedOamExtBits(uint16 idx, uint8 bits);
 static void DrawPad2DronePing(const OamEnt *src, uint8 src_ext_bits, int x, int y);
 static void DrawPad2Drone(uint16 samus_oam_start, uint16 samus_oam_end);
 static void CallSamusDrawHandler(uint32 ea);
+static uint16 SamusPoseBaseSpritemapIndexTop(uint16 pose);
+static uint16 SamusPoseBaseSpritemapIndexBottom(uint16 pose);
 
 static Func_Y_To_PairU16 *const kSamus_CalcSpritemapPos[28] = {  // 0x908C1F
   &Samus_CalcSpritemapPos_Standing,
@@ -179,13 +182,13 @@ void Samus_Draw(void) {
   if (samus_knockback_timer || !samus_invincibility_timer || samus_shine_timer || (nmi_frame_counter_word & 1) == 0) {
     uint16 v2 = 2 * samus_pose;
     samus_top_half_spritemap_index = samus_anim_frame
-      + kSamusPoseToBaseSpritemapIndexTop[samus_pose];
+      + SamusPoseBaseSpritemapIndexTop(samus_pose);
     uint16 a = samus_top_half_spritemap_index;
     v0 = Samus_CalcSpritemapPos(2 * samus_pose);
     DrawSamusSpritemap(a, v0.k, v0.j);
     uint16 R36 = v2;
     if (kSamusIsBottomDrawnFuncs[samus_movement_type]() & 1) {
-      samus_bottom_half_spritemap_index = samus_anim_frame + kSamusPoseToBaseSpritemapIndexBottom[R36 >> 1];
+      samus_bottom_half_spritemap_index = samus_anim_frame + SamusPoseBaseSpritemapIndexBottom(R36 >> 1);
       DrawSamusSpritemap(samus_bottom_half_spritemap_index, samus_spritemap_x_pos, samus_spritemap_y_pos);
     }
   }
@@ -351,12 +354,12 @@ void Samus_DrawEcho(uint16 j) {  // 0x908855
 
 void Samus_DrawShinesparkCrashEchoes(uint16 k) {  // 0x9088BA
   if ((nmi_frame_counter_word & 1) != 0) {
-    uint16 a = samus_anim_frame + kSamusPoseToBaseSpritemapIndexTop[samus_pose];
+    uint16 a = samus_anim_frame + SamusPoseBaseSpritemapIndexTop(samus_pose);
     int16 v2 = speed_echo_ypos[k >> 1] - kPoseParams[samus_pose].y_offset_to_gfx - layer1_y_pos;
     if (v2 >= 0 && sign16(v2 - 248)) {
       DrawSamusSpritemap(a, speed_echo_xpos[k >> 1] - layer1_x_pos, v2);
       if (kSamusIsBottomDrawnFuncs[samus_movement_type]() & 1) {
-        uint16 v5 = samus_anim_frame + kSamusPoseToBaseSpritemapIndexBottom[samus_pose];
+        uint16 v5 = samus_anim_frame + SamusPoseBaseSpritemapIndexBottom(samus_pose);
         DrawSamusSpritemap(v5, speed_echo_xpos[k >> 1] - layer1_x_pos, v2);
       }
     }
@@ -383,13 +386,13 @@ void Samus_DrawStartingDeathAnim(void) {  // 0x908976
 
 void Samus_DrawDuringDeathAnim(void) {  // 0x908998
   uint16 v1 = 2 * samus_pose;
-  uint16 a = samus_anim_frame + kSamusPoseToBaseSpritemapIndexTop[samus_pose];
+  uint16 a = samus_anim_frame + SamusPoseBaseSpritemapIndexTop(samus_pose);
   Samus_CalcSpritemapPos(2 * samus_pose);
   DrawSamusSpritemap(a, layer1_x_pos + samus_spritemap_x_pos, layer1_y_pos + samus_spritemap_y_pos);
   uint16 R36 = v1;
   if (kSamusIsBottomDrawnFuncs[samus_movement_type]() & 1)
     DrawSamusSpritemap(
-      samus_anim_frame + kSamusPoseToBaseSpritemapIndexBottom[R36 >> 1],
+      samus_anim_frame + SamusPoseBaseSpritemapIndexBottom(R36 >> 1),
       layer1_x_pos + samus_spritemap_x_pos,
       layer1_y_pos + samus_spritemap_y_pos);
   SetSamusTilesDefsForCurAnim();
@@ -399,13 +402,13 @@ void Samus_DrawWhenNotAnimatingOrDying(void) {  // 0x908A00
   PairU16 v0;
 
   uint16 v2 = 2 * samus_pose;
-  uint16 a = samus_anim_frame + kSamusPoseToBaseSpritemapIndexTop[samus_pose];
+  uint16 a = samus_anim_frame + SamusPoseBaseSpritemapIndexTop(samus_pose);
   v0 = Samus_CalcSpritemapPos(2 * samus_pose);
   DrawSamusSpritemap(a, v0.k, v0.j);
   uint16 R36 = v2;
   if (kSamusIsBottomDrawnFuncs[samus_movement_type]() & 1)
     DrawSamusSpritemap(
-      samus_anim_frame + kSamusPoseToBaseSpritemapIndexBottom[R36 >> 1],
+      samus_anim_frame + SamusPoseBaseSpritemapIndexBottom(R36 >> 1),
       samus_spritemap_x_pos,
       samus_spritemap_y_pos);
   SetSamusTilesDefsForCurAnim();
@@ -736,17 +739,29 @@ void SamusDisplayHandler_SamusReceivedFatal(void) {  // 0x90EC1D
 
 // Extracted from sm_92.c: Samus animation tile definitions
 
-#define kSamus_AnimationDefinitionPtrs ((uint16*)RomFixedPtr(0x92d94e))
-#define kSamus_TileDefs_TopHalf ((uint16*)RomFixedPtr(0x92d91e))
-#define kSamus_TileDefs_BottomHalf ((uint16*)RomFixedPtr(0x92d938))
+static uint16 SamusReadWord92(uint16 addr) {
+  const uint8 *p = SamusAssetBridge_GetBank92(addr);
+  return p != NULL ? GET_WORD(p) : 0;
+}
+
+static uint16 SamusPoseBaseSpritemapIndexTop(uint16 pose) {
+  return SamusReadWord92(0x9263 + pose * 2);
+}
+
+static uint16 SamusPoseBaseSpritemapIndexBottom(uint16 pose) {
+  return SamusReadWord92(0x945D + pose * 2);
+}
 
 void SetSamusTilesDefsForCurAnim(void) {  // 0x928000
-  uint16 v0 = 4 * samus_anim_frame + kSamus_AnimationDefinitionPtrs[samus_pose];
-  SamusTileAnimationDefs *AD = get_SamusTileAnimationDefs(v0);
-  nmi_copy_samus_top_half_src = 7 * AD->top_half_pos + kSamus_TileDefs_TopHalf[AD->top_half_idx];
+  uint16 anim_def_base = SamusReadWord92(0xD94E + samus_pose * 2);
+  uint16 v0 = 4 * samus_anim_frame + anim_def_base;
+  SamusTileAnimationDefs *AD = (SamusTileAnimationDefs *)SamusAssetBridge_GetBank92(v0);
+  if (AD == NULL)
+    return;
+  nmi_copy_samus_top_half_src = 7 * AD->top_half_pos + SamusReadWord92(0xD91E + AD->top_half_idx * 2);
   LOBYTE(nmi_copy_samus_halves) = 1;
   if (AD->bottom_half_idx != 255) {
-    nmi_copy_samus_bottom_half_src = 7 * AD->bottom_half_pos + kSamus_TileDefs_BottomHalf[AD->bottom_half_idx];
+    nmi_copy_samus_bottom_half_src = 7 * AD->bottom_half_pos + SamusReadWord92(0xD938 + AD->bottom_half_idx * 2);
     HIBYTE(nmi_copy_samus_halves) = 1;
   }
 }

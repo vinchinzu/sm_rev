@@ -32,15 +32,20 @@ ifeq ($(BUNDLE_ASSETS),1)
   EMBEDDED_OBJS := $(EMBEDDED_SRCS:%.c=%.o)
 endif
 
-FULL_SRCS := $(filter-out src/mini_main.c,$(wildcard src/*.c)) \
+FULL_SRCS := $(filter-out $(wildcard src/mini_*.c) src/stubs_mini.c,$(wildcard src/*.c)) \
              $(wildcard src/snes/*.c) \
              third_party/gl_core/gl_core_3_1.c \
              third_party/cJSON.c \
              $(EMBEDDED_SRCS)
 OBJS := $(FULL_SRCS:%.c=%.o)
 
-MINI_SRCS := src/mini_main.c
-MINI_OBJS := $(patsubst %.c,build/mini/%.o,$(MINI_SRCS))
+MINI_RUNTIME_SRCS := $(wildcard src/mini_*.c)
+MINI_SUPPORT_SRCS := src/stubs_mini.c \
+                     $(filter-out src/main.c src/opengl.c src/glsl_shader.c src/sm_cpu_infra.c src/sm_rtl.c $(wildcard src/mini_*.c) src/stubs_mini.c,$(wildcard src/*.c))
+MINI_EXTRA_SRCS := third_party/cJSON.c
+MINI_SRCS := $(MINI_RUNTIME_SRCS) $(MINI_SUPPORT_SRCS) $(MINI_EXTRA_SRCS)
+MINI_CFLAGS = $(CFLAGS) -DCURRENT_BUILD=BUILD_MINI -ffunction-sections -fdata-sections
+MINI_LDFLAGS = $(LDFLAGS) $(SDLFLAGS) -Wl,--gc-sections
 
 ifeq ($(BUNDLE_ASSETS),1)
   # Regenerate embedded files if sources are newer
@@ -75,12 +80,8 @@ $(TARGET_EXEC): $(OBJS)
 
 mini: $(MINI_TARGET_EXEC)
 
-$(MINI_TARGET_EXEC): $(MINI_OBJS)
-	$(CC) $^ -o $@ $(LDFLAGS) $(SDLFLAGS)
-
-build/mini/%.o: %.c
-	@mkdir -p $(dir $@)
-	$(CC) -c $(CFLAGS) -DCURRENT_BUILD=BUILD_MINI $< -o $@
+$(MINI_TARGET_EXEC): $(MINI_SRCS)
+	$(CC) $(MINI_CFLAGS) $^ -o $@ $(MINI_LDFLAGS)
 
 run: all
 	./$(TARGET_EXEC)
@@ -93,8 +94,7 @@ mini-mac: mini
 
 clean: clean_obj
 clean_obj:
-	@$(RM) $(OBJS) $(TARGET_EXEC) $(MINI_TARGET_EXEC) $(MINI_OBJS) src/embedded/*.o src/embedded/*.c
-	@rm -rf build/mini
+	@$(RM) $(OBJS) $(TARGET_EXEC) $(MINI_TARGET_EXEC) src/embedded/*.o src/embedded/*.c
 
 test: all
 	$(PYTHON) tests/run_tests.py -v

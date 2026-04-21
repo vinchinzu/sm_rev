@@ -54,6 +54,10 @@ scratch.patch
 recovered/
 recovered_matched/
 
+# Generated local mini bridge assets
+assets/local_mini/
+assets/
+
 # sm_orig: local reference checkout of the upstream project (not part of sm_rev)
 sm_orig/
 
