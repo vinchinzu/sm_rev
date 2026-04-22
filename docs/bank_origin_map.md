@@ -37,6 +37,7 @@ answer: "where did this logic live before we split it?"
 | Current file | Original bank file in `../sm/` | Notes |
 | --- | --- | --- |
 | `src/samus_runtime.c` | `../sm/src/sm_90.c` | Main Samus frame handler and state dispatcher |
+| `src/samus_air.c` | `../sm/src/sm_90.c` | Air-state movement handlers peeled out of `physics.c`; currently owns `Samus_Movement_03_SpinJumping` `0x90A436` |
 | `src/samus_draw.c` | `../sm/src/sm_90.c` | Samus draw/spritemap composition |
 | `src/samus_speed.c` | `../sm/src/sm_90.c` | Horizontal speed tables and speed booster helpers |
 | `src/samus_jump.c` | `../sm/src/sm_90.c` | Jump/gravity selection |

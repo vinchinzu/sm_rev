@@ -6,8 +6,6 @@
 
 typedef void HandlerFunc(void);
 
-#define kSamusFramesForUnderwaterSfx ((uint8*)RomFixedPtr(0x90a514))
-
 
 
 static HandlerFunc *const kSamusMovementHandlers[28] = {
@@ -132,51 +130,6 @@ void Samus_Movement_01_Running(void) {
 
 void Samus_Movement_02_NormalJumping(void) {
   Samus_JumpingMovement();
-}
-
-void Samus_Movement_03_SpinJumping(void) {
-  static const uint16 kSamusPhys_JumpMinYVelAir = 0x280;
-  static const uint16 kSamusPhys_JumpMaxYVelAir = 0x500;
-  static const uint16 kSamusPhys_JumpMinYVelWater = 0x80;
-  static const uint16 kSamusPhys_JumpMaxYVelWater = 0x500;
-  uint16 r18 = 0;
-  if ((samus_suit_palette_index & 4) == 0) {
-    uint16 r20 = Samus_GetTop_R20();
-    if ((fx_y_pos & 0x8000) != 0) {
-      if ((lava_acid_y_pos & 0x8000) == 0 && sign16(lava_acid_y_pos - r20))
-        r18 = 1;
-    } else if (sign16(fx_y_pos - r20) && (fx_liquid_options & 4) == 0) {
-      r18 = 1;
-    }
-  }
-  if (!r18) {
-    if ((equipped_items & 0x200) != 0) {
-      if (samus_y_dir != 2)
-        goto done;
-      if (liquid_physics_type) {
-        if ((int16)(*(uint16 *)((uint8 *)&samus_y_subspeed + 1) - kSamusPhys_JumpMinYVelWater) < 0
-            || (int16)(*(uint16 *)((uint8 *)&samus_y_subspeed + 1) - kSamusPhys_JumpMaxYVelWater) >= 0) {
-          goto done;
-        }
-      } else if ((int16)(*(uint16 *)((uint8 *)&samus_y_subspeed + 1) - kSamusPhys_JumpMinYVelAir) < 0
-          || (int16)(*(uint16 *)((uint8 *)&samus_y_subspeed + 1) - kSamusPhys_JumpMaxYVelAir) >= 0) {
-        goto done;
-      }
-      UNUSED_word_7E0DFA = UNUSED_word_7E0DFA & 0xFF00 | 1;
-      if ((button_config_jump_a & joypad1_newkeys) != 0)
-        Samus_InitJump();
-    }
-done:
-    if (samus_pose == kPose_81_FaceR_Screwattack || samus_pose == kPose_82_FaceL_Screwattack) {
-      samus_contact_damage_index = 3;
-    } else if (!sign16(flare_counter - 60)) {
-      samus_contact_damage_index = 4;
-    }
-  } else {
-    if (samus_anim_frame_timer == 1 && kSamusFramesForUnderwaterSfx[samus_anim_frame])
-      QueueSfx1_Max6(0x2F);
-  }
-  Samus_SpinJumpMovement();
 }
 
 void Samus_Movement_04_MorphBallOnGround(void) {

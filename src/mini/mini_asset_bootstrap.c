@@ -3,12 +3,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "enemy_types.h"
 #include "funcs.h"
 #include "ida_types.h"
 #include "mini_ppu_stub.h"
 #include "samus_asset_bridge.h"
+#include "sm_rtl.h"
 #include "variables.h"
+#include "enemy_types.h"
 
 enum {
   kMiniLandingSiteRoom = 0x91F8,
