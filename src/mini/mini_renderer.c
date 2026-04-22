@@ -1,34 +1,15 @@
-#include <stdio.h>
-#include <limits.h>
-#include <stdint.h>
-#include <stdlib.h>
+#include "mini_renderer.h"
+
 #include <string.h>
-#include <ctype.h>
 
 #include <SDL.h>
 
-#include "ida_types.h"
-#include "features.h"
 #include "funcs.h"
-#include "mini_game.h"
-#include "mini_runtime.h"
+#include "ida_types.h"
+#include "mini_defs.h"
+#include "mini_ppu_stub.h"
 #include "samus_asset_bridge.h"
-#include "stubs_mini.h"
 #include "variables.h"
-
-#if CURRENT_BUILD != BUILD_MINI
-#error "mini_runtime.c must be compiled with CURRENT_BUILD=BUILD_MINI"
-#endif
-
-typedef struct MiniScriptFrame {
-  uint16 buttons;
-  bool quit_requested;
-} MiniScriptFrame;
-
-typedef struct MiniInputScript {
-  MiniScriptFrame *frames;
-  int count;
-} MiniInputScript;
 
 enum {
   kMiniEditorAirMetatile = 0xFF,
@@ -38,116 +19,6 @@ static int MiniBgTileBase(int layer) {
   uint16 word_addr = layer == 1 ? (reg_BG12NBA & 0xF) << 12
                                 : (reg_BG12NBA & 0xF0) << 8;
   return word_addr >> 4;
-}
-
-static void MiniFreeInputScript(MiniInputScript *script) {
-  free(script->frames);
-  script->frames = NULL;
-  script->count = 0;
-}
-
-static void MiniUppercase(char *text) {
-  for (; *text; text++)
-    *text = (char)toupper((unsigned char)*text);
-}
-
-static bool MiniParseInputToken(const char *token, MiniScriptFrame *frame) {
-  if (!strcmp(token, ".") || !strcmp(token, "WAIT") || !strcmp(token, "NONE"))
-    return true;
-  if (!strcmp(token, "L") || !strcmp(token, "LEFT")) {
-    frame->buttons |= kButton_Left;
-  } else if (!strcmp(token, "R") || !strcmp(token, "RIGHT")) {
-    frame->buttons |= kButton_Right;
-  } else if (!strcmp(token, "U") || !strcmp(token, "UP")) {
-    frame->buttons |= kButton_Up;
-  } else if (!strcmp(token, "D") || !strcmp(token, "DOWN")) {
-    frame->buttons |= kButton_Down;
-  } else if (!strcmp(token, "J") || !strcmp(token, "JUMP")) {
-    frame->buttons |= kButton_A;
-  } else if (!strcmp(token, "RUN") || !strcmp(token, "B")) {
-    frame->buttons |= kButton_B;
-  } else if (!strcmp(token, "SHOOT") || !strcmp(token, "X")) {
-    frame->buttons |= kButton_X;
-  } else if (!strcmp(token, "ITEM") || !strcmp(token, "Y")) {
-    frame->buttons |= kButton_Y;
-  } else if (!strcmp(token, "AIMUP") || !strcmp(token, "RU") || !strcmp(token, "RSHOULDER")) {
-    frame->buttons |= kButton_R;
-  } else if (!strcmp(token, "AIMDOWN") || !strcmp(token, "LU") || !strcmp(token, "LSHOULDER")) {
-    frame->buttons |= kButton_L;
-  } else if (!strcmp(token, "QUIT")) {
-    frame->quit_requested = true;
-  } else {
-    return false;
-  }
-  return true;
-}
-
-static bool MiniLoadInputScript(const char *path, MiniInputScript *script) {
-  FILE *f = fopen(path, "r");
-  if (f == NULL) {
-    fprintf(stderr, "mini: could not open input script %s\n", path);
-    return false;
-  }
-
-  script->frames = NULL;
-  script->count = 0;
-  int capacity = 0;
-  char line[512];
-  while (fgets(line, sizeof(line), f) != NULL) {
-    char *comment = strchr(line, '#');
-    if (comment != NULL)
-      *comment = '\0';
-
-    MiniScriptFrame frame = {0};
-    char *saveptr = NULL;
-    for (char *token = strtok_r(line, " ,+\t\r\n", &saveptr);
-         token != NULL;
-         token = strtok_r(NULL, " ,+\t\r\n", &saveptr)) {
-      MiniUppercase(token);
-      if (!MiniParseInputToken(token, &frame)) {
-        fprintf(stderr, "mini: unknown input token '%s' in %s\n", token, path);
-        fclose(f);
-        MiniFreeInputScript(script);
-        return false;
-      }
-    }
-
-    if (script->count == capacity) {
-      capacity = capacity ? capacity * 2 : 64;
-      MiniScriptFrame *frames = realloc(script->frames, (size_t)capacity * sizeof(*frames));
-      if (frames == NULL) {
-        fclose(f);
-        MiniFreeInputScript(script);
-        return false;
-      }
-      script->frames = frames;
-    }
-    script->frames[script->count++] = frame;
-  }
-
-  fclose(f);
-  return true;
-}
-
-static void PrintResult(const MiniOptions *options, const MiniGameState *state) {
-  printf("{\"build\":\"mini\",\"headless\":%s,\"frames\":%d,"
-         "\"no_enemies\":true,\"no_bosses\":true,\"no_rooms\":%s,"
-         "\"room_ptr\":%u,\"room_width\":%d,\"room_height\":%d,"
-         "\"room_source\":\"%s\",\"room_visuals\":\"%s\",\"room_handle\":\"%s\","
-         "\"samus_suit\":\"%s\","
-         "\"rom_room\":%s,"
-         "\"samus_x\":%d,\"samus_y\":%d}\n",
-         options->headless ? "true" : "false", state->frame,
-         state->has_room ? "false" : "true",
-         state->room_id,
-         state->room_width_blocks * kMiniBlockSize,
-         state->room_height_blocks * kMiniBlockSize,
-         MiniStubs_RoomSourceName(state->room_source),
-         state->uses_rom_room ? "rom" : (state->has_editor_room_visuals ? "editor_tileset" : "placeholder"),
-         state->room_handle,
-         MiniStubs_SamusSuitName(state->samus_suit),
-         state->uses_rom_room ? "true" : "false",
-         state->samus_x, state->samus_y);
 }
 
 static uint32_t MiniConvertBgr555(uint16 color) {
@@ -303,11 +174,6 @@ static void MiniRenderEditorBg2(uint32_t *pixels, int pitch_pixels, const MiniGa
                                 const MiniEditorTilesetView *tileset_view) {
   MiniEditorBg2View bg2_view;
   MiniStubs_GetEditorBg2View(&bg2_view);
-  if (bg2_view.uses_rom_vram) {
-    MiniRenderBgLayer(pixels, pitch_pixels, MiniStubs_GetVram(), reg_BG2SC, MiniBgTileBase(2),
-                      reg_BG2HOFS, reg_BG2VOFS);
-    return;
-  }
   if (!bg2_view.loaded || bg2_view.tilemap_words == NULL || !tileset_view->loaded)
     return;
   (void)state;
@@ -477,7 +343,7 @@ static void MiniRenderRoom(uint32_t *pixels, int pitch_pixels, const MiniGameSta
   }
 
   (void)state;
-  const uint8 *vram = MiniStubs_GetVram();
+  const uint8 *vram = MiniPpu_GetVram();
   uint32_t clear = MiniConvertBgr555(target_palettes[0]);
   for (int y = 0; y < kMiniGameHeight; y++) {
     for (int x = 0; x < kMiniGameWidth; x++)
@@ -495,7 +361,7 @@ static void MiniTransferSamusHalfToObjTiles(uint16 tile_src, uint16 top_vram_add
   const uint8 *src = SamusAssetBridge_GetData(src_addr, td->part1_size + td->part2_size);
   if (src == NULL)
     return;
-  uint8 *vram = MiniStubs_GetVram();
+  uint8 *vram = MiniPpu_GetVram();
   memcpy(vram + ((size_t)top_vram_addr << 1), src, td->part1_size);
   if (td->part2_size != 0)
     memcpy(vram + ((size_t)bottom_vram_addr << 1), src + td->part1_size, td->part2_size);
@@ -558,7 +424,7 @@ static void MiniRenderObjTile(uint32_t *pixels, int pitch_pixels, const uint8 *t
 }
 
 static void MiniRenderSamus(uint32_t *pixels, int pitch_pixels) {
-  const uint8 *vram = MiniStubs_GetVram();
+  const uint8 *vram = MiniPpu_GetVram();
   memset(oam_ext, 0, sizeof(uint16) * 16);
   oam_next_ptr = 0;
   nmi_copy_samus_halves = 0;
@@ -621,7 +487,7 @@ static void MiniRenderRoomSprites(uint32_t *pixels, int pitch_pixels) {
                               sprite->vram_tiles_index);
   }
 
-  const uint8 *vram = MiniStubs_GetVram();
+  const uint8 *vram = MiniPpu_GetVram();
   int large_size = MiniObjSpriteSizePixels();
   int small_size = large_size / 2;
   for (int idx = 0; idx < oam_next_ptr; idx += 4) {
@@ -655,7 +521,7 @@ static void MiniRenderRoomSprites(uint32_t *pixels, int pitch_pixels) {
   }
 }
 
-static void MiniRenderFrameToPixels(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
+void MiniRenderFrameToPixels(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
   MiniRenderRoom(pixels, pitch_pixels, state);
   if (state->uses_rom_room)
     MiniRenderRoomSprites(pixels, pitch_pixels);
@@ -664,7 +530,7 @@ static void MiniRenderFrameToPixels(uint32_t *pixels, int pitch_pixels, const Mi
   MiniRenderSamus(pixels, pitch_pixels);
 }
 
-static bool MiniSaveScreenshot(const char *path, const MiniGameState *state) {
+bool MiniSaveScreenshot(const char *path, const MiniGameState *state) {
   uint32_t pixels[kMiniGameWidth * kMiniGameHeight];
   MiniRenderFrameToPixels(pixels, kMiniGameWidth, state);
   SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormatFrom(
@@ -679,187 +545,4 @@ static bool MiniSaveScreenshot(const char *path, const MiniGameState *state) {
     fprintf(stderr, "SDL_SaveBMP failed: %s\n", SDL_GetError());
   SDL_FreeSurface(surface);
   return ok;
-}
-
-static void RenderFrame(SDL_Renderer *renderer, SDL_Texture *frame_texture, const MiniGameState *state) {
-  void *pixels_void = NULL;
-  int pitch_bytes = 0;
-  if (SDL_LockTexture(frame_texture, NULL, &pixels_void, &pitch_bytes) != 0)
-    return;
-  uint32_t *pixels = (uint32_t *)pixels_void;
-  int pitch_pixels = pitch_bytes / (int)sizeof(uint32_t);
-  MiniRenderFrameToPixels(pixels, pitch_pixels, state);
-  SDL_UnlockTexture(frame_texture);
-
-  SDL_RenderClear(renderer);
-  SDL_RenderCopy(renderer, frame_texture, NULL, NULL);
-  SDL_RenderPresent(renderer);
-}
-
-static void RunFrames(MiniGameState *state, const MiniOptions *options, SDL_Renderer *renderer,
-                      SDL_Texture *frame_texture, SDL_GameController *controller) {
-  MiniInputScript script = {0};
-  if (options->input_script_path != NULL && !MiniLoadInputScript(options->input_script_path, &script))
-    return;
-
-  int frame_limit = (options->headless || options->frames_explicit) ? options->frames : INT_MAX;
-  for (int i = 0; i < frame_limit && !state->quit_requested; i++) {
-    MiniInputState input = {0};
-
-    if (i < script.count) {
-      input.buttons = script.frames[i].buttons;
-      input.quit_requested = script.frames[i].quit_requested;
-    }
-
-    if (renderer != NULL && options->input_script_path == NULL) {
-      SDL_Event event;
-      while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_QUIT)
-          input.quit_requested = true;
-      }
-      SDL_PumpEvents();
-      const Uint8 *keys = SDL_GetKeyboardState(NULL);
-      if (keys[SDL_SCANCODE_UP])
-        input.buttons |= kButton_Up;
-      if (keys[SDL_SCANCODE_DOWN])
-        input.buttons |= kButton_Down;
-      if (keys[SDL_SCANCODE_LEFT])
-        input.buttons |= kButton_Left;
-      if (keys[SDL_SCANCODE_RIGHT])
-        input.buttons |= kButton_Right;
-      if (keys[SDL_SCANCODE_SPACE] || keys[SDL_SCANCODE_Z])
-        input.buttons |= kButton_A;
-      if (keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT] || keys[SDL_SCANCODE_C])
-        input.buttons |= kButton_B;
-      if (keys[SDL_SCANCODE_X])
-        input.buttons |= kButton_X;
-      if (keys[SDL_SCANCODE_A])
-        input.buttons |= kButton_Y;
-      if (keys[SDL_SCANCODE_S])
-        input.buttons |= kButton_L;
-      if (keys[SDL_SCANCODE_D])
-        input.buttons |= kButton_R;
-      if (controller != NULL && SDL_GameControllerGetAttached(controller)) {
-        Sint16 axis = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX);
-        Sint16 axis_y = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY);
-        if (axis_y <= -16000 || SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_UP))
-          input.buttons |= kButton_Up;
-        if (axis_y >= 16000 || SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN))
-          input.buttons |= kButton_Down;
-        if (axis <= -16000 || SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT))
-          input.buttons |= kButton_Left;
-        if (axis >= 16000 || SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT))
-          input.buttons |= kButton_Right;
-        if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_A))
-          input.buttons |= kButton_A;
-        if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_B))
-          input.buttons |= kButton_B;
-        if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_X))
-          input.buttons |= kButton_X;
-        if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_Y))
-          input.buttons |= kButton_Y;
-        if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER))
-          input.buttons |= kButton_L;
-        if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER))
-          input.buttons |= kButton_R;
-      }
-    }
-
-    MiniUpdate(state, &input);
-
-    if (renderer != NULL && frame_texture != NULL) {
-      RenderFrame(renderer, frame_texture, state);
-      SDL_Delay(kMiniFrameDelayMs);
-    }
-  }
-
-  MiniFreeInputScript(&script);
-}
-
-static int RunHeadless(const MiniOptions *options) {
-  MiniGameState state;
-  MiniStubs_SetRoomExportPath(options->room_export_path);
-  MiniGameState_Init(&state, kMiniGameWidth, kMiniGameHeight);
-  RunFrames(&state, options, NULL, NULL, NULL);
-  if (options->screenshot_path != NULL && !MiniSaveScreenshot(options->screenshot_path, &state))
-    return 1;
-  PrintResult(options, &state);
-  return 0;
-}
-
-static int RunWindowed(const MiniOptions *options) {
-  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0) {
-    fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
-    return 1;
-  }
-
-  SDL_Window *window = SDL_CreateWindow("sm_rev mini shell",
-                                        SDL_WINDOWPOS_CENTERED,
-                                        SDL_WINDOWPOS_CENTERED,
-                                        kMiniWindowWidth,
-                                        kMiniWindowHeight,
-                                        SDL_WINDOW_SHOWN);
-  if (window == NULL) {
-    fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
-    SDL_Quit();
-    return 1;
-  }
-
-  SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-  if (renderer == NULL) {
-    fprintf(stderr, "SDL_CreateRenderer failed: %s\n", SDL_GetError());
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-    return 1;
-  }
-  SDL_RenderSetLogicalSize(renderer, kMiniGameWidth, kMiniGameHeight);
-  SDL_Texture *frame_texture = SDL_CreateTexture(renderer,
-                                                 SDL_PIXELFORMAT_ARGB8888,
-                                                 SDL_TEXTUREACCESS_STREAMING,
-                                                 kMiniGameWidth,
-                                                 kMiniGameHeight);
-  if (frame_texture == NULL) {
-    fprintf(stderr, "SDL_CreateTexture failed: %s\n", SDL_GetError());
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-    return 1;
-  }
-
-  SDL_GameController *controller = NULL;
-  for (int i = 0; i < SDL_NumJoysticks(); i++) {
-    if (SDL_IsGameController(i)) {
-      controller = SDL_GameControllerOpen(i);
-      if (controller != NULL)
-        break;
-    }
-  }
-
-  MiniGameState state;
-  MiniStubs_SetRoomExportPath(options->room_export_path);
-  MiniGameState_Init(&state, kMiniGameWidth, kMiniGameHeight);
-  RunFrames(&state, options, renderer, frame_texture, controller);
-  if (options->screenshot_path != NULL && !MiniSaveScreenshot(options->screenshot_path, &state)) {
-    if (controller != NULL)
-      SDL_GameControllerClose(controller);
-    SDL_DestroyTexture(frame_texture);
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-    return 1;
-  }
-
-  if (controller != NULL)
-    SDL_GameControllerClose(controller);
-  SDL_DestroyTexture(frame_texture);
-  SDL_DestroyRenderer(renderer);
-  SDL_DestroyWindow(window);
-  SDL_Quit();
-
-  PrintResult(options, &state);
-  return 0;
-}
-
-int MiniRun(const MiniOptions *options) {
-  return options->headless ? RunHeadless(options) : RunWindowed(options);
 }

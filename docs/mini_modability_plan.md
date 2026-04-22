@@ -12,7 +12,7 @@ It is **not** a plan to clean the largest `*_core.c` files first. In this repo,
 
 Current baseline on 2026-04-20:
 - `make mini-test` passes.
-- `sm_rev_mini` is still a shell binary in [src/mini_main.c]
+- `sm_rev_mini` is still a shell binary in [src/mini/mini_main.c](../src/mini/mini_main.c)
 - Physics tuning already has a data seam in [src/physics_config.c]
 
 ## Target Shape
@@ -31,6 +31,13 @@ The long-term target is a split architecture:
 
 The full game should continue to build around this. The mini path should become the
 clean place where new mechanics, experiments, and mods are introduced first.
+
+Important project rule:
+
+- keep the full build moving toward cleaner topic-based modules too
+- do that in small parity-preserving steps, not broad rewrites
+- run the smallest relevant test around each extraction when practical
+- check regressions against the sibling `../sm/` baseline before assuming the new split is correct
 
 ## Non-Goals
 
@@ -63,6 +70,8 @@ Excluded from early mini core:
 Practical rule:
 - If a file mixes core movement with heavy full-game dependencies, split the movement
   cluster out before trying to link it into mini.
+- When making that split, prefer the smallest behavior-preserving extraction that
+  improves both mini reuse and the readability of the full build.
 
 ## Phase 2: Replace Magic Hex With Domain Names In The Mini Slice
 
@@ -173,8 +182,8 @@ That keeps experimentation separate from the current shell while preserving the 
 
 ## Recommended Execution Order
 
-1. Extract startup/shared app code out of `mini_main.c` so mini can host a real runtime loop.
-2. Add `stubs_mini.c` for non-core calls that still leak into the Samus slice.
+1. Extract startup/shared app code out of `src/mini/mini_main.c` so mini can host a real runtime loop.
+2. Add `src/mini/stubs_mini.c` for non-core calls that still leak into the Samus slice.
 3. Link first movement slice:
    - `physics.c`
    - `physics_config.c`
@@ -199,11 +208,11 @@ That keeps experimentation separate from the current shell while preserving the 
 If starting immediately, do these in order:
 
 1. **Create the mini runtime seam**
-   - split reusable loop/input/timing code out of `mini_main.c`
+   - split reusable loop/input/timing code out of `src/mini/mini_main.c`
    - add a tiny `MiniGameState` and `MiniUpdate()` entry point
 
 2. **Link movement without room systems**
-   - introduce `stubs_mini.c`
+   - introduce `src/mini/stubs_mini.c`
    - get `physics.c`, `physics_config.c`, `samus_motion.c`, `samus_jump.c`, and the smallest safe part of `samus_collision.c` building under mini
    - split `samus_collision.c` when needed so the movement-facing layer stays separable from room/block collision substrate
 

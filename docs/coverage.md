@@ -121,4 +121,4 @@ See [port_triage.md](port_triage.md) for the chunked plan. Short form:
 3. **Headless test coverage** — tests use cold-boot RAM (title screen). No save-state
    loading, so physics/enemy regressions can't be caught yet (bead `sm_rev-w93.3`).
 4. **Mini build link-up** — `samus_*.c` / `physics.c` / `physics_config.c` still not
-   linked into `sm_rev_mini`. Needs `stubs_mini.c` scaffolding first.
+   linked into `sm_rev_mini`. Needs `src/mini/stubs_mini.c` scaffolding first.

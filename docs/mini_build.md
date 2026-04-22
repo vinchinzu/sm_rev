@@ -4,6 +4,9 @@ This repo now has a first-pass `mini` build target intended for subtractive refa
 
 For the gameplay-kernel roadmap that reframes mini around moddable Samus movement,
 collision, and authored map/nav rules, see [mini_modability_plan.md](mini_modability_plan.md).
+For the staged path from the current mini shell to a deterministic multiplayer-ready
+kernel, including the next `physics.c` extraction target, see
+[mini_multiplayer_roadmap.md](mini_multiplayer_roadmap.md).
 
 Current scope:
 - `make mini` builds `sm_rev_mini`.
@@ -12,6 +15,21 @@ Current scope:
 - It is still not a gameplay-complete Samus sandbox yet.
 - The build is compiled with `CURRENT_BUILD=BUILD_MINI`, which activates negative feature flags in [src/features.h](../src/features.h).
 - The shell supports `--headless --frames N` for smoke testing and a small SDL window for manual inspection.
+
+## Current Mini Layers
+
+The mini target is now split into clearer responsibilities under [`src/mini/`](../src/mini):
+- [mini_main.c](../src/mini/mini_main.c): CLI parsing only
+- [mini_runtime.c](../src/mini/mini_runtime.c): SDL/headless host loop and process orchestration
+- [mini_input_script.c](../src/mini/mini_input_script.c): deterministic replay-script parsing
+- [mini_renderer.c](../src/mini/mini_renderer.c): software frame rendering and screenshot output
+- [mini_ppu_stub.c](../src/mini/mini_ppu_stub.c): mini-owned VRAM/CGRAM/DMA register emulation for rendering and asset uploads
+- [mini_game.c](../src/mini/mini_game.c): gameplay-state setup and per-frame update
+- [stubs_mini.c](../src/mini/stubs_mini.c): parity adapter layer for room/bootstrap, ROM-backed assets, and remaining legacy globals
+
+That split is intentional for future portability work. A Rust or other-language port
+can replace the host loop and renderer independently before touching the gameplay
+update path.
 
 Linux:
 - `make mini`
@@ -38,9 +56,9 @@ move inside visible bounds without booting the full game room pipeline.
 
 ## Forward Plan
 
-1. Split startup concerns out of [src/main.c](../src/main.c)
-2. Introduce `stubs_mini.c` for cross-system calls that Samus/physics code still reaches into.
-3. Move the first runtime slice into mini: `physics.c`, `physics_config.c`, `samus_input.c`, `samus_motion.c`, `samus_jump.c`, and `samus_collision.c`.
+1. Keep the host layer thin: `src/mini/mini_main.c` and `src/mini/mini_runtime.c` should stay free of gameplay rules.
+2. Shrink `src/mini/stubs_mini.c` by peeling room bootstrap and asset loading into narrower mini-owned modules.
+3. Continue moving the gameplay kernel into mini-first files: `physics.c`, `physics_config.c`, `samus_input.c`, `samus_motion.c`, `samus_jump.c`, and `samus_collision.c`.
 4. Add the second Samus slice after link stability: `samus_pose.c`, `samus_runtime.c`, `samus_draw.c`, `samus_speed.c`, and `samus_transition.c`.
 5. Keep `sm_*.c`, room logic, demo flow, enemies, bosses, and audio out of mini until each dependency is either stubbed or split cleanly.
 6. Extend tests from shell smoke to deterministic headless mini-state checks once Samus runtime is actually linked in.

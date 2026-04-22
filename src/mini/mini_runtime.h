@@ -1,16 +1,8 @@
 #ifndef SM_MINI_RUNTIME_H_
 #define SM_MINI_RUNTIME_H_
 
+#include "mini_defs.h"
 #include "types.h"
-
-enum {
-  kMiniDefaultFrames = 180,
-  kMiniGameWidth = 256,
-  kMiniGameHeight = 224,
-  kMiniWindowWidth = 960,
-  kMiniWindowHeight = 540,
-  kMiniFrameDelayMs = 16,
-};
 
 typedef struct MiniOptions {
   bool headless;

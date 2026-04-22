@@ -11,9 +11,9 @@ NATIVE_MAC ?= 0
 ifeq ($(NATIVE_MAC),1)
   CFLAGS += -F/Library/Frameworks -I/Library/Frameworks/SDL2.framework/Headers \
             -F$(HOME)/Library/Frameworks -I$(HOME)/Library/Frameworks/SDL2.framework/Headers \
-            -DSYSTEM_VOLUME_MIXER_AVAILABLE=0 -I.
+            -DSYSTEM_VOLUME_MIXER_AVAILABLE=0 -I. -iquote src
 else
-  CFLAGS += $(shell sdl2-config --cflags) -DSYSTEM_VOLUME_MIXER_AVAILABLE=0 -I.
+  CFLAGS += $(shell sdl2-config --cflags) -DSYSTEM_VOLUME_MIXER_AVAILABLE=0 -I. -iquote src
 endif
 
 # Optional: Bundle ROM and config into binary (make BUNDLE_ASSETS=1)
@@ -32,16 +32,15 @@ ifeq ($(BUNDLE_ASSETS),1)
   EMBEDDED_OBJS := $(EMBEDDED_SRCS:%.c=%.o)
 endif
 
-FULL_SRCS := $(filter-out $(wildcard src/mini_*.c) src/stubs_mini.c,$(wildcard src/*.c)) \
+FULL_SRCS := $(wildcard src/*.c) \
              $(wildcard src/snes/*.c) \
              third_party/gl_core/gl_core_3_1.c \
              third_party/cJSON.c \
              $(EMBEDDED_SRCS)
 OBJS := $(FULL_SRCS:%.c=%.o)
 
-MINI_RUNTIME_SRCS := $(wildcard src/mini_*.c)
-MINI_SUPPORT_SRCS := src/stubs_mini.c \
-                     $(filter-out src/main.c src/opengl.c src/glsl_shader.c src/sm_cpu_infra.c src/sm_rtl.c $(wildcard src/mini_*.c) src/stubs_mini.c,$(wildcard src/*.c))
+MINI_RUNTIME_SRCS := $(wildcard src/mini/*.c)
+MINI_SUPPORT_SRCS := $(filter-out src/main.c src/opengl.c src/glsl_shader.c src/sm_cpu_infra.c src/sm_rtl.c,$(wildcard src/*.c))
 MINI_EXTRA_SRCS := third_party/cJSON.c
 MINI_SRCS := $(MINI_RUNTIME_SRCS) $(MINI_SUPPORT_SRCS) $(MINI_EXTRA_SRCS)
 MINI_CFLAGS = $(CFLAGS) -DCURRENT_BUILD=BUILD_MINI -ffunction-sections -fdata-sections

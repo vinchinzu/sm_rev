@@ -20,13 +20,13 @@ Long term:
 ## Current Bridge Shape
 
 First implemented slice:
-- `src/mini_editor_bridge.c` reads a room export JSON file
+- `src/mini/mini_editor_bridge.c` reads a room export JSON file
 - default search path includes
   `../super_metroid_editor/export/sm_nav/rooms/room_91F8.json`
-- `src/stubs_mini.c` now tries editor JSON before ROM save/demo boot
+- `src/mini/stubs_mini.c` now tries editor JSON before ROM save/demo boot
 - exported collision/BTS grids are translated into `level_data` and `BTS`
 - non-ROM rooms render through a local software block renderer in
-  `src/mini_runtime.c`
+  `src/mini/mini_runtime.c`
 - headless output reports `room_source` so tests can verify which path booted
 
 This reduces room-system ROM imports first, without breaking the old path.

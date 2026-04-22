@@ -4,7 +4,6 @@
 
 #include "funcs.h"
 #include "ida_types.h"
-#include "mini_runtime.h"
 #include "physics_config.h"
 #include "stubs_mini.h"
 #include "variables.h"

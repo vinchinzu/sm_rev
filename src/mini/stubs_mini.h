@@ -65,7 +65,6 @@ typedef struct MiniEditorTilesetView {
 
 typedef struct MiniEditorBg2View {
   bool loaded;
-  bool uses_rom_vram;
   const uint16 *tilemap_words;
   uint8 scroll_x;
   uint8 scroll_y;
@@ -105,8 +104,6 @@ void MiniStubs_GetEditorBg2View(MiniEditorBg2View *view);
 int MiniStubs_GetEditorRoomSpriteViews(const MiniEditorRoomSpriteView **sprites);
 uint16 MiniStubs_GetLevelBlock(int block_x, int block_y);
 uint8 MiniStubs_GetBts(int block_x, int block_y);
-uint16 MiniStubs_GetBg2Tile(int tile_x, int tile_y);
-uint8 *MiniStubs_GetVram(void);
 int MiniStubs_GetFloorY(void);
 const char *MiniStubs_RoomSourceName(MiniRoomSource source);
 const char *MiniStubs_SamusSuitName(MiniSamusSuit suit);
