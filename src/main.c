@@ -650,17 +650,22 @@ int main(int argc, char** argv) {
       continue;
     }
 
-    // Clear gamepad inputs when joypad directional inputs to avoid wonkiness
+    // Mask analog directions for this frame when digital directions are also
+    // active, but keep the cached stick state intact. Clearing the global
+    // latch here makes some controllers "start moving on release" because the
+    // stick direction is lost until SDL sends another axis-motion event.
     int inputs;
     if (g_input_list && (int)frameCtr < g_input_list_size)
       inputs = g_input_list[frameCtr];
     else
       inputs = g_input_list ? g_input_list[g_input_list_size - 1] : (g_fixed_inputs ? g_fixed_inputs : g_input1_state);
     
-    if (!g_input_list && (g_input1_state & 0xf0))
-      g_gamepad_buttons = 0;
-    if (!g_fixed_inputs && !g_input_list)
-      inputs |= g_gamepad_buttons;
+    if (!g_fixed_inputs && !g_input_list) {
+      uint8 gamepad_buttons = g_gamepad_buttons;
+      if (g_input1_state & 0xf0)
+        gamepad_buttons = 0;
+      inputs |= gamepad_buttons;
+    }
     int inputs2 = g_input2_state;
 
     uint8 is_replay = RtlRunFrame(inputs, inputs2);
