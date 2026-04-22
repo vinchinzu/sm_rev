@@ -4,6 +4,7 @@
 sm_rev
 sm_rev_mini
 .claude/
+*.mp4
 
 # Build artifacts
 *.o

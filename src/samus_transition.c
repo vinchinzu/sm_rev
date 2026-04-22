@@ -55,6 +55,24 @@ static Func_U8 *const off_91E951[6] = {  // 0x91E8F2
   Samus_HandleTransFromBlockColl_1_5,
 };
 
+static void SamusCrouchingEtcFunc_Noop(void) {
+}
+
+static Func_V *const kSamusCrouchingEtcFuncs[12] = {
+  SamusCrouchingEtcFunc_Noop,
+  SamusCrouchingEtcFunc_Noop,
+  SamusCrouchingEtcFunc_Noop,
+  SamusCrouchingEtcFunc_Noop,
+  SamusCrouchingEtcFunc,
+  SamusCrouchingEtcFunc,
+  SamusCrouchingEtcFunc_Noop,
+  SamusCrouchingEtcFunc_Noop,
+  SamusCrouchingEtcFunc_Noop,
+  SamusCrouchingEtcFunc_Noop,
+  SamusCrouchingEtcFunc,
+  SamusCrouchingEtcFunc,
+};
+
 void Samus_HandleTransFromBlockColl_2(void) {
 
   if (HIBYTE(input_to_pose_calc) != 4) {
@@ -179,6 +197,30 @@ void Samus_HandleTransFromBlockColl_5(void) {  // 0x91EABE
   else
     samus_new_pose = kPose_83_FaceR_Walljump;
   samus_momentum_routine_index = 5;
+}
+
+void Samus_Movement_0F_CrouchingEtcTransition(void) {
+  if (sign16(samus_pose - kPose_F1_FaceR_CrouchTrans_AimU)) {
+    if (!sign16(samus_pose - kPose_DB))
+      goto done;
+    kSamusCrouchingEtcFuncs[samus_pose - 53]();
+  }
+  Samus_Move_NoBaseSpeed_X();
+  if (!(Samus_MoveY_Simple_() & 1))
+    Samus_Move_NoSpeedCalc_Y();
+done:
+  if (input_to_pose_calc == 1025) {
+    samus_y_subspeed = 0;
+    samus_y_speed = 0;
+    samus_y_dir = 0;
+    used_for_ball_bounce_on_landing = 0;
+  }
+  input_to_pose_calc = 0;
+}
+
+void SamusCrouchingEtcFunc(void) {
+  enable_horiz_slope_coll = 3;
+  UNUSEDword_7E0AA4 = 0;
 }
 
 
@@ -944,4 +986,3 @@ void Samus_HandleTransitionsC_8(void) {  // 0x91F3FD
   Samus_HandleTransitionsC_1();
   Samus_HandleTransitionsC_3();
 }
-

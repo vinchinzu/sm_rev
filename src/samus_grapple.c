@@ -19,6 +19,11 @@ typedef struct PostGrappleCollInfo {
 
 typedef uint16 Func_PostGrappleCollInfo_U16(PostGrappleCollInfo *pgci);
 
+void Samus_Movement_16_Grappling(void) {
+  if (input_to_pose_calc != 5)
+    input_to_pose_calc = 0;
+}
+
 static uint16 Samus_GetXposSpan(void);
 static uint16 Samus_GetYposSpan(void);
 static uint16 PostGrappleColl_Vert_Solid(PostGrappleCollInfo *pgci);

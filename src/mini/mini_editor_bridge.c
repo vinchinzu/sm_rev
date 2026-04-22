@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <SDL.h>
+
 #include "third_party/cJSON.h"
 
 enum {
@@ -15,6 +17,7 @@ enum {
 
 static const char *g_room_export_path;
 static char g_resolved_room_export_path[512];
+static char g_base_path[512];
 
 static const char *const kDefaultRoomExportCandidates[] = {
   "assets/mini/landing_site.room.json",
@@ -24,6 +27,42 @@ static const char *const kDefaultRoomExportCandidates[] = {
 
 static void MiniEditorRoom_Reset(MiniEditorRoom *room) {
   memset(room, 0, sizeof(*room));
+}
+
+static bool MiniPathExists(const char *path) {
+  FILE *f = fopen(path, "rb");
+  if (f == NULL)
+    return false;
+  fclose(f);
+  return true;
+}
+
+static void MiniCopyDirname(char *dst, size_t dst_size, const char *path) {
+  const char *slash = strrchr(path, '/');
+  if (slash == NULL) {
+    snprintf(dst, dst_size, ".");
+    return;
+  }
+  snprintf(dst, dst_size, "%.*s", (int)(slash - path), path);
+}
+
+static bool MiniResolveSearchCandidate(const char *candidate, char *dst, size_t dst_size) {
+  if (candidate == NULL || candidate[0] == '\0' || dst_size == 0)
+    return false;
+  if (candidate[0] == '/') {
+    snprintf(dst, dst_size, "%s", candidate);
+    return true;
+  }
+  if (MiniPathExists(candidate)) {
+    snprintf(dst, dst_size, "%s", candidate);
+    return true;
+  }
+  if (g_base_path[0] != '\0') {
+    snprintf(dst, dst_size, "%s/%s", g_base_path, candidate);
+    if (MiniPathExists(dst))
+      return true;
+  }
+  return false;
 }
 
 static bool MiniReadFile(const char *path, char **out_data) {
@@ -623,18 +662,44 @@ void MiniEditorBridge_SetRoomExportPath(const char *path) {
   g_resolved_room_export_path[0] = '\0';
 }
 
+void MiniEditorBridge_SetBasePath(const char *path) {
+  char *sdl_base = NULL;
+
+  g_base_path[0] = '\0';
+  if (path != NULL && path[0] != '\0')
+    MiniCopyDirname(g_base_path, sizeof(g_base_path), path);
+
+  sdl_base = SDL_GetBasePath();
+  if (sdl_base != NULL && sdl_base[0] != '\0')
+    snprintf(g_base_path, sizeof(g_base_path), "%s", sdl_base);
+  SDL_free(sdl_base);
+
+  size_t len = strlen(g_base_path);
+  while (len > 1 && g_base_path[len - 1] == '/') {
+    g_base_path[len - 1] = '\0';
+    len--;
+  }
+}
+
 const char *MiniEditorBridge_GetResolvedPath(void) {
   return g_resolved_room_export_path[0] != '\0' ? g_resolved_room_export_path : NULL;
 }
 
 bool MiniEditorBridge_LoadRoom(MiniEditorRoom *room) {
+  char resolved_path[512];
   MiniEditorRoom_Reset(room);
-  if (g_room_export_path != NULL)
-    return MiniParseRoomJson(g_room_export_path, room);
+  if (g_room_export_path != NULL) {
+    const char *path = g_room_export_path;
+    if (MiniResolveSearchCandidate(g_room_export_path, resolved_path, sizeof(resolved_path)))
+      path = resolved_path;
+    return MiniParseRoomJson(path, room);
+  }
 
   for (size_t i = 0; i < sizeof(kDefaultRoomExportCandidates) / sizeof(kDefaultRoomExportCandidates[0]); i++) {
-    if (MiniParseRoomJson(kDefaultRoomExportCandidates[i], room))
+    if (MiniResolveSearchCandidate(kDefaultRoomExportCandidates[i], resolved_path, sizeof(resolved_path)) &&
+        MiniParseRoomJson(resolved_path, room)) {
       return true;
+    }
   }
   return false;
 }

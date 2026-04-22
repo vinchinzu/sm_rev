@@ -1,4 +1,5 @@
 #include "config.h"
+#include "default_controls.h"
 #include "types.h"
 #include <stdio.h>
 #include <string.h>
@@ -225,11 +226,6 @@ static int ParseGamepadButtonName(const char **value) {
   return kGamepadBtn_Invalid;
 }
 
-static const uint8 kDefaultGamepadCmds[] = {
-  kGamepadBtn_DpadUp, kGamepadBtn_DpadDown, kGamepadBtn_DpadLeft, kGamepadBtn_DpadRight, kGamepadBtn_Back, kGamepadBtn_Start,
-  kGamepadBtn_B, kGamepadBtn_A, kGamepadBtn_Y, kGamepadBtn_X, kGamepadBtn_L1, kGamepadBtn_R1,
-};
-
 static void ParseGamepadArray(char *value, int cmd, int size) {
   char *s;
   int i = 0;
@@ -260,14 +256,21 @@ static void ParseGamepadArray(char *value, int cmd, int size) {
 static void RegisterDefaultKeys(void) {
   for (int i = 1; i < countof(kKeyNameId); i++) {
     if (!has_keynameid[i]) {
+      if (kKeyNameId[i].id == kKeys_Controls) {
+        for (int j = 0; j < kSmDefaultControl_Count; j++) {
+          SDL_Keycode key = SDL_GetKeyFromScancode(SmDefaultControlKeyboardScancode((SmDefaultControl)j));
+          KeyMapHash_Add(REMAP_SDL_KEYCODE(key), kKeys_Controls + j);
+        }
+        continue;
+      }
       int size = kKeyNameId[i].size, k = kKeyNameId[i].id;
       for (int j = 0; j < size; j++, k++)
         KeyMapHash_Add(kDefaultKbdControls[k], k);
     }
   }
   if (!has_joypad_controls) {
-    for (int i = 0; i < countof(kDefaultGamepadCmds); i++)
-      GamepadMap_Add(kDefaultGamepadCmds[i], 0, kKeys_Controls + i);
+    for (int i = 0; i < kSmDefaultControl_Count; i++)
+      GamepadMap_Add(SmDefaultControlGamepadButton((SmDefaultControl)i), 0, kKeys_Controls + i);
   }
 }
 

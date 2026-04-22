@@ -7,7 +7,9 @@ All tests here must pass after EVERY code change — they are the first gate.
 
 from __future__ import annotations
 
+import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -18,7 +20,8 @@ EDITOR_LANDING_SITE_EXPORT = SM_REV_DIR.parent / "super_metroid_editor" / "expor
 
 
 def run(cmd: list[str], **kw) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, cwd=SM_REV_DIR, capture_output=True, text=True, **kw)
+    cwd = kw.pop("cwd", SM_REV_DIR)
+    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, **kw)
 
 
 class TestBuild:
@@ -72,6 +75,14 @@ class TestBuildMini:
         assert '"frames":3' in r.stdout
         assert '"no_rooms":false' in r.stdout
 
+    def test_mini_headless_smoke_outside_repo_cwd(self, tmp_path: Path):
+        """Mini should still find its default room export when launched outside the repo cwd."""
+        r = run([str(MINI_BINARY), "--headless", "--frames", "1"], cwd=tmp_path)
+        assert r.returncode == 0, f"mini external-cwd smoke failed:\n{r.stderr}\n{r.stdout}"
+        assert '"room_source":"editor_export"' in r.stdout
+        assert '"room_handle":"landingSite"' in r.stdout
+        assert '"room_visuals":"editor_tileset"' in r.stdout
+
     def test_mini_editor_export_bridge_smoke(self):
         """Mini should accept an explicit editor-exported Landing Site room file."""
         if not EDITOR_LANDING_SITE_EXPORT.exists():
@@ -88,3 +99,23 @@ class TestBuildMini:
         assert '"room_source":"editor_export"' in r.stdout
         assert '"room_handle":"landingSite"' in r.stdout
         assert '"rom_room":false' in r.stdout
+
+    def test_mini_record_smoke(self, tmp_path: Path):
+        """Mini should emit a capped low-resolution quick clip when recording is requested."""
+        if shutil.which("ffmpeg") is None:
+            return
+        r = run([
+            str(MINI_BINARY),
+            "--headless",
+            "--frames",
+            "3",
+            "--record",
+        ], cwd=tmp_path)
+        assert r.returncode == 0, f"mini record smoke failed:\n{r.stderr}\n{r.stdout}"
+        payload = json.loads(r.stdout)
+        output = Path(payload["record_path"])
+        assert output.exists(), f"expected recording at {output}\nstdout={r.stdout}\nstderr={r.stderr}"
+        assert "out" in output.parts
+        assert output.stat().st_size > 0
+        assert output.stat().st_size <= 10 * 1024 * 1024
+        assert '"recording":true' in r.stdout

@@ -95,6 +95,7 @@ typedef struct MiniEditorRoom {
 } MiniEditorRoom;
 
 void MiniEditorBridge_SetRoomExportPath(const char *path);
+void MiniEditorBridge_SetBasePath(const char *path);
 const char *MiniEditorBridge_GetResolvedPath(void);
 bool MiniEditorBridge_LoadRoom(MiniEditorRoom *room);
 void MiniEditorBridge_FreeRoom(MiniEditorRoom *room);

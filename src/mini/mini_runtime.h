@@ -6,6 +6,7 @@
 
 typedef struct MiniOptions {
   bool headless;
+  bool record;
   int frames;
   bool frames_explicit;
   const char *screenshot_path;

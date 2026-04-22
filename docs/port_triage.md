@@ -105,14 +105,25 @@ Bank `$86` is retired.
 - Walking + ninja + wall pirates. Already fits one session.
 - Depends on Phase 3 (`enemy_main.c`/`enemy_collision.c`).
 
-### Session 5.2 — `sm_aa.c` (1546 LOC) → `enemy_torizo.c` + `enemy_tourian_statue.c` + `enemy_shaktool.c`
-- Three independent subsystems in one bank; split ≈500 LOC each.
+### Session 5.2 — `sm_aa.c` part 1 (1034 LOC) → `enemy_torizo.c`
+- Torizo runtime peeled into `enemy_torizo.c` on 2026-04-22.
+- Remaining `sm_aa.c` is now a small Tourian statue / Shaktool / Chozo statue bank.
 
-### Session 5.3 — `sm_a3.c` part 1 (≈1500 LOC) → `enemy_metroid.c`
-- Pull Metroid AI out of the mixed elevator/Metroid bank.
+### Session 5.3 — `sm_a3.c` part 1 (149 LOC) → `enemy_mochtroid.c`
+- Mochtroid runtime peeled into `enemy_mochtroid.c` on 2026-04-22.
+- This was the clean cluster between Roach and Sidehopper, with no remaining bank-local callers.
 
-### Session 5.4 — `sm_a3.c` part 2 (≈1600 LOC) → `enemy_elevator.c`
-- Elevator scripting remainder. Retires `sm_a3.c`.
+### Session 5.4 — `sm_a3.c` part 2 (126 LOC) → `enemy_elevator.c`
+- Elevator runtime peeled first into `enemy_elevator.c` on 2026-04-22.
+- Remaining Bank `$A3` work is still mixed fauna/platform code; `sm_a3.c` is not retired yet.
+
+### Session 5.5 — `sm_a3.c` part 3 (346 LOC) → `enemy_metroid.c`
+- Metroid runtime peeled into `enemy_metroid.c` on 2026-04-22.
+- This owns the sprite-linked Metroid chase, latch, freeze, hurt, and drop logic.
+
+### Session 5.6 — `sm_a3.c` part 4 (2330 LOC) → `enemy_fauna.c`
+- Remaining Bank `$A3` fauna/hazard runtime peeled into `enemy_fauna.c` on 2026-04-22.
+- `sm_a3.c` is now down to the shared A3 enemy helper wrappers plus the falling-platform slice, so it is close to retirement.
 
 ---
 

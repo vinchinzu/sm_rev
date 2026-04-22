@@ -1,5 +1,7 @@
 # `save0` First-Room Diagnostics
 
+-deprecated 
+
 Target repro:
 
 ```bash

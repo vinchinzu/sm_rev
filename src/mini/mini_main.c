@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "features.h"
+#include "mini_editor_bridge.h"
 #include "mini_runtime.h"
 
 #if CURRENT_BUILD != BUILD_MINI
@@ -11,8 +12,9 @@
 
 static void PrintUsage(const char *argv0) {
   fprintf(stderr,
-          "Usage: %s [--headless] [--frames N] [--screenshot PATH] [--input-script PATH] [--room-export PATH]\n"
+          "Usage: %s [--headless] [--record] [--frames N] [--screenshot PATH] [--input-script PATH] [--room-export PATH]\n"
           "  --headless   Run the mini shell without SDL video.\n"
+          "  --record   Save a low-resolution quick clip under out/mini_recording_YYYYMMDD_HHMMSS.mp4.\n"
           "  --frames N   Limit the run to N frames. Windowed mode runs until quit by default.\n"
           "  --screenshot PATH  Save the last rendered frame to a BMP file.\n"
           "  --input-script PATH  Replay one line of input tokens per frame in headless or windowed mode.\n"
@@ -31,6 +33,7 @@ static bool ParseInt(const char *text, int *value) {
 
 static bool ParseArgs(int argc, char **argv, MiniOptions *options) {
   options->headless = false;
+  options->record = false;
   options->frames = kMiniDefaultFrames;
   options->frames_explicit = false;
   options->screenshot_path = NULL;
@@ -39,6 +42,8 @@ static bool ParseArgs(int argc, char **argv, MiniOptions *options) {
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--headless")) {
       options->headless = true;
+    } else if (!strcmp(argv[i], "--record")) {
+      options->record = true;
     } else if (!strcmp(argv[i], "--frames")) {
       if (i + 1 >= argc || !ParseInt(argv[i + 1], &options->frames))
         return false;
@@ -71,6 +76,7 @@ static bool ParseArgs(int argc, char **argv, MiniOptions *options) {
 
 int main(int argc, char **argv) {
   MiniOptions options;
+  MiniEditorBridge_SetBasePath(argv[0]);
   if (!ParseArgs(argc, argv, &options)) {
     PrintUsage(argv[0]);
     return 2;

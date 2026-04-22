@@ -512,6 +512,10 @@ void RtlSaveLoad(int cmd, int slot) {
     }
     RtlApuLock();
     StateRecorder_Load(&state_recorder, f, cmd == kSaveLoad_Replay);
+    if (cmd != kSaveLoad_Replay) {
+      state_recorder.snapshot_flags = 0;
+      state_recorder.last_inputs = 0;
+    }
     RtlApuUnlock();
     RtlRefreshRoomAssetsAfterLoad();
     ppu_copy(g_snes->my_ppu, g_snes->ppu);
@@ -544,6 +548,8 @@ void RtlLoadStateFromPath(const char *path) {
   }
   RtlApuLock();
   StateRecorder_Load(&state_recorder, f, false);
+  state_recorder.snapshot_flags = 0;
+  state_recorder.last_inputs = 0;
   RtlApuUnlock();
   RtlRefreshRoomAssetsAfterLoad();
   ppu_copy(g_snes->my_ppu, g_snes->ppu);
@@ -711,6 +717,30 @@ static void RtlResetApuQueue(void) {
   memset(&g_apu_write, 0xff, sizeof(g_apu_write));
 }
 
+static void RtlResetSfxQueuesAfterLoad(void) {
+  ResetSoundQueues();
+  memset(sfx_cur, 0, 3);
+  memset(sfx_clear_delay, 0, 3);
+  memset(sfx_max_queued, 0, 3);
+  memset(sfx1_queue, 0, 16);
+  memset(sfx2_queue, 0, 16);
+  memset(sfx3_queue, 0, 16);
+  sound_handler_downtime = 0;
+  g_spc_player->input_ports[1] = 255;
+  g_spc_player->input_ports[2] = 255;
+  g_spc_player->input_ports[3] = 255;
+}
+
+static void RtlResetJoypadStateAfterLoad(void) {
+  memset(g_ram + 0x87, 0, 0x20);
+  controller1_input_for_demo = 0;
+  controller1_new_input_for_demo = 0;
+  demo_backup_prev_controller_input = 0;
+  demo_backup_prev_controller_input_new = 0;
+  joypad1_input_samusfilter = 0;
+  joypad1_newinput_samusfilter = 0;
+}
+
 void RtlApuUpload(const uint8 *p) {
   RtlApuLock();
   RtlResetApuQueue();
@@ -719,14 +749,24 @@ void RtlApuUpload(const uint8 *p) {
 }
 
 void RtlRestoreMusicAfterLoad_Locked(bool is_reset) {
+  if (g_use_my_apu_code || !is_reset) {
+    memcpy(g_spc_player->ram, g_snes->apu->ram, 65536);
+    memcpy(g_spc_player->dsp->ram, g_snes->apu->dsp->ram, sizeof(Dsp) - offsetof(Dsp, ram));
+    SpcPlayer_CopyVariablesFromRam(g_spc_player);
+  }
+
   if (is_reset) {
     g_use_my_apu_code = true;
     SpcPlayer_Initialize(g_spc_player);
   } else {
-    // Savestates can resume the music engine in the middle of effect handling.
-    // The emulated APU state is authoritative after load, while the custom SPC
-    // player does not support every mid-stream restore path yet.
-    g_use_my_apu_code = false;
+    // Gameplay savestates restore the emulated APU state first; mirror that
+    // state back into the custom SPC player so runtime SFX keep using the main
+    // audio path after load. Then drop any queued pre-save SFX requests so new
+    // gameplay sounds are not delayed behind stale queue entries from the old
+    // frame history.
+    g_use_my_apu_code = true;
+    RtlResetSfxQueuesAfterLoad();
+    RtlResetJoypadStateAfterLoad();
   }
 
   RtlResetApuQueue();

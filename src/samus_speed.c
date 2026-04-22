@@ -43,6 +43,14 @@ static void Samus_GetScaledRunPair(uint16 base_speed, uint16 base_subspeed,
   *scaled_subspeed = (uint16)full;
 }
 
+static bool Samus_IsAtOrPastCap_Quirked(uint16 speed, uint16 subspeed,
+                                        uint16 cap_speed, uint16 cap_subspeed) {
+  // Match the original Bank 90 comparisons exactly: the cap only trips once
+  // both 16-bit halves have individually reached or exceeded the target.
+  return (int16)(speed - cap_speed) >= 0
+      && (int16)(subspeed - cap_subspeed) >= 0;
+}
+
 static bool Samus_IsMovementSpeedTableEntry(uint16 table_entry, uint16 table_base) {
   int delta = (int)table_entry - (int)table_base;
   return delta >= 0
@@ -80,8 +88,8 @@ static void Samus_TickExtraRunSpeed_Boosted(void) {
     special_samus_palette_frame = 0;
     speed_boost_counter = kSpeedBoostToCtr[0];
   }
-  if (IsGreaterThanQuirked(samus_x_extra_run_speed, samus_x_extra_run_subspeed, cap_speed, cap_subspeed)
-      || (samus_x_extra_run_speed == cap_speed && samus_x_extra_run_subspeed == cap_subspeed)) {
+  if (Samus_IsAtOrPastCap_Quirked(samus_x_extra_run_speed, samus_x_extra_run_subspeed,
+                                  cap_speed, cap_subspeed)) {
     samus_x_extra_run_speed = cap_speed;
     samus_x_extra_run_subspeed = cap_subspeed;
     return;
@@ -99,8 +107,8 @@ static void Samus_TickExtraRunSpeed_Normal(void) {
     samus_has_momentum_flag = 1;
     speed_boost_counter = 0;
   }
-  if (IsGreaterThanQuirked(samus_x_extra_run_speed, samus_x_extra_run_subspeed, cap_speed, cap_subspeed)
-      || (samus_x_extra_run_speed == cap_speed && samus_x_extra_run_subspeed == cap_subspeed)) {
+  if (Samus_IsAtOrPastCap_Quirked(samus_x_extra_run_speed, samus_x_extra_run_subspeed,
+                                  cap_speed, cap_subspeed)) {
     samus_x_extra_run_speed = cap_speed;
     samus_x_extra_run_subspeed = cap_subspeed;
     return;
@@ -151,7 +159,8 @@ int32 Samus_CalcBaseSpeed_X(uint16 k) {  // 0x909A7E
     }
   } else {
     AddToHiLo(&samus_x_base_speed, &samus_x_base_subspeed, __PAIR32__(accel, accel_sub));
-    if (IsGreaterThanQuirked(samus_x_base_speed, samus_x_base_subspeed, max_speed, max_speed_sub)) {
+    if (Samus_IsAtOrPastCap_Quirked(samus_x_base_speed, samus_x_base_subspeed,
+                                    max_speed, max_speed_sub)) {
       samus_x_base_speed = max_speed;
       samus_x_base_subspeed = max_speed_sub;
     }
@@ -187,7 +196,8 @@ Pair_Bool_Amt Samus_CalcBaseSpeed_NoDecel_X(uint16 k) {  // 0x909B1F
     }
   } else {
     AddToHiLo(&samus_x_base_speed, &samus_x_base_subspeed, __PAIR32__(accel, accel_sub));
-    if (IsGreaterThanQuirked(samus_x_base_speed, samus_x_base_subspeed, max_speed, max_speed_sub)) {
+    if (Samus_IsAtOrPastCap_Quirked(samus_x_base_speed, samus_x_base_subspeed,
+                                    max_speed, max_speed_sub)) {
       samus_x_base_speed = max_speed;
       samus_x_base_subspeed = max_speed_sub;
       rv = true;

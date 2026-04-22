@@ -1,5 +1,5 @@
 {
-  "gravity_scale_percent": 50,
-  "run_speed_scale_percent": 499,
-  "jump_scale_percent": 210
+  "gravity_scale_percent": 100,
+  "run_speed_scale_percent": 101,
+  "jump_scale_percent": 100
 }

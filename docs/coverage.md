@@ -4,7 +4,7 @@ Function coverage is complete (5,156 fns, 0 missing). This file is now a **struc
 audit: which bank-shaped files still exist, how big they are, and what they contain.
 The actionable porting plan lives in [port_triage.md](port_triage.md).
 
-Last refreshed: 2026-04-20.
+Last refreshed: 2026-04-22.
 
 ## Extracted topical modules
 
@@ -38,6 +38,12 @@ into them, don't recreate bank-shaped files.
 | `enemy_main.c` | 1321 | Shared enemy lifecycle, draw path, and frame dispatch from Bank `$A0` |
 | `enemy_collision.c` | 920 | Shared enemy/Samus/projectile/block collision layer from Bank `$A0` |
 | `enemy_drops.c` | 467 | Enemy drops, grapple-death hooks, and respawn helpers from Bank `$A0` |
+| `enemy_gunship.c` | 453 | Gunship-only enemy runtime peeled from Bank `$A2` |
+| `enemy_elevator.c` | 126 | Samus-linked elevator enemy runtime peeled from Bank `$A3` |
+| `enemy_fauna.c` | 2330 | Remaining Bank `$A3` fauna and hazard runtime |
+| `enemy_metroid.c` | 346 | Metroid runtime peeled from Bank `$A3` |
+| `enemy_mochtroid.c` | 149 | Mochtroid runtime peeled from Bank `$A3` |
+| `enemy_torizo.c` | 1034 | Bomb/Golden Torizo runtime peeled from Bank `$AA` |
 | `physics.c` | 492 | Movement-type dispatch table |
 | `physics_config.c` | 181 | `PhysicsParams` + `sm_physics.json` hot-reload |
 | `plm_core.c` | 1212 | PLM core + instruction byte-code handlers |
@@ -89,19 +95,19 @@ Core priority uses a separate rubric here:
 
 | File | Bank | System | LOC | LOE | Priority | Split angle |
 |------|------|--------|-----|-----|----------|-------------|
-| `sm_a2.c` | $A2 | Enemy AI — gunship, shutters | 4132 | XL | P2 | Room-scripted behaviors; defer |
-| `sm_a3.c` | $A3 | Enemy AI — elevator, Metroid | 3111 | L | P1 | Isolate Metroid from elevator scripting |
+| `sm_a2.c` | $A2 | Enemy AI — shutters | 3693 | L | P2 | Gunship now lives in `enemy_gunship.c`; room-scripted shutter logic remains |
+| `sm_a3.c` | $A3 | Enemy AI — shared A3 helpers, falling platforms | 237 | S | P1 | Fauna and Metroid now live in topical files; only the falling-platform slice plus shared wrappers remain |
 | `sm_a4.c` | $A4 | Enemy AI — Crocomire | 1646 | M | P2 | Boss-only; self-contained |
 | `sm_a5.c` | $A5 | Enemy AI — Draygon, Spore Spawn | 1603 | M | P2 | Two boss scripts |
 | `sm_a6.c` | $A6 | Enemy AI — Ridley, zebetites | 4944 | XL | P1 | Late-game combat |
 | `sm_a7.c` | $A7 | Enemy AI — Kraid, Phantoon | 3918 | L | P1 | Major boss pair |
 | `sm_a8.c` | $A8 | Enemy AI — Ki-Hunter | 4068 | XL | P1 | Broad combat patterns, good midgame rep |
 | `sm_a9.c` | $A9 | Enemy AI — Mother Brain, Shitroid | 6499 | XL | P2 | Largest + finale-specific. Defer. |
-| `sm_aa.c` | $AA | Enemy AI — Torizo, Tourian statue, Shaktool | 1546 | M | P1 | Compact progression-gate coverage |
+| `sm_aa.c` | $AA | Enemy AI — Tourian statue, Shaktool, Chozo statue | 516 | S | P1 | Torizo now lives in `enemy_torizo.c`; finish the Tourian statue/Shaktool cleanup to retire the bank |
 | `sm_b2.c` | $B2 | Enemy AI — Space Pirates | 775 | S | P1 | Cheap common-enemy win |
 | `sm_b3.c` | $B3 | Enemy AI — Botwoon | 1403 | M | P2 | Boss-only |
 
-**Bank-shaped total remaining:** 33,645 raw lines across 11 files.
+**Bank-shaped total remaining:** 29,302 raw lines across 11 files.
 
 ## What's driving priority
 

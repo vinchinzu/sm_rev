@@ -36,8 +36,10 @@ answer: "where did this logic live before we split it?"
 
 | Current file | Original bank file in `../sm/` | Notes |
 | --- | --- | --- |
-| `src/samus_runtime.c` | `../sm/src/sm_90.c` | Main Samus frame handler and state dispatcher |
-| `src/samus_air.c` | `../sm/src/sm_90.c` | Air-state movement handlers peeled out of `physics.c`; currently owns `Samus_Movement_03_SpinJumping` `0x90A436` |
+| `src/samus_runtime.c` | `../sm/src/sm_90.c` and `../sm/src/sm_91.c` | Main Samus frame handler/state dispatcher plus bootstrap helpers; now also owns `MoveSamusWithControlPad`, `Samus_UpdateSpeedEchoPos`, `Samus_Initialize`, and `Samus_Movement_1A_GrabbedByDraygon` from the old `physics.c` dispatch cluster |
+| `src/samus_air.c` | `../sm/src/sm_90.c` | Air-state movement handlers peeled out of `physics.c`; currently owns `Samus_Movement_02_NormalJumping`, `Samus_Movement_03_SpinJumping` `0x90A436`, `Samus_Movement_06_Falling`, `Samus_Movement_14_WallJumping`, `Samus_Movement_17_TurningAroundJumping`, `Samus_Movement_18_TurningAroundFalling`, and `Samus_Movement_19_DamageBoost` |
+| `src/samus_ball.c` | `../sm/src/sm_90.c` | Morph-ball and spring-ball movement handlers peeled out of `physics.c`; currently owns `Samus_Movement_04_MorphBallOnGround`, `Samus_Movement_08_MorphBallFalling`, `Samus_Movement_11_SpringBallOnGround`, `Samus_Movement_12_SpringBallInAir`, and `Samus_Movement_13_SpringBallFalling` |
+| `src/samus_ground.c` | `../sm/src/sm_90.c` | Grounded movement handlers peeled out of `physics.c`; currently owns `Samus_Movement_00_Standing`, `Samus_Movement_01_Running`, `Samus_Movement_05_Crouching`, `Samus_Movement_0E_TurningAroundOnGround`, `Samus_Movement_10_Moonwalking`, and `Samus_Movement_15_RanIntoWall` |
 | `src/samus_draw.c` | `../sm/src/sm_90.c` | Samus draw/spritemap composition |
 | `src/samus_speed.c` | `../sm/src/sm_90.c` | Horizontal speed tables and speed booster helpers |
 | `src/samus_jump.c` | `../sm/src/sm_90.c` | Jump/gravity selection |
@@ -46,7 +48,9 @@ answer: "where did this logic live before we split it?"
 | `src/samus_collision_block.c` | `../sm/src/sm_90.c`, `../sm/src/sm_91.c`, Bank `$94` code paths | Block-type dispatch, slope/solid reactions, block traversal, and movement-facing block collision handlers peeled out of `samus_collision_advanced.c` on 2026-04-21 |
 | `src/samus_collision_map.c` | `../sm/src/sm_90.c`, `../sm/src/sm_91.c`, Bank `$94` code paths | Shared block-index probe (`CalculateBlockAt`) peeled out of `samus_collision_advanced.c` on 2026-04-21 so mini and full build can share the same map lookup |
 | `src/samus_collision_advanced.c` | `../sm/src/sm_90.c`, `../sm/src/sm_91.c`, Bank `$94` code paths | Pose-change collision reconciliation and inside-block detection; block traversal/dispatch peeled further into `samus_collision_block.c` on 2026-04-21 |
-| `src/samus_grapple.c` | `../sm/src/sm_9b.c` and `../sm/src/sm_90.c` | Grapple logic was split across Samus banks before extraction |
+| `src/samus_transition.c` | `../sm/src/sm_91.c` and `../sm/src/sm_90.c` | Pose-transition state machine plus the crouch/stand transition movement handler `Samus_Movement_0F_CrouchingEtcTransition` peeled from `physics.c` |
+| `src/samus_grapple.c` | `../sm/src/sm_9b.c` and `../sm/src/sm_90.c` | Grapple logic was split across Samus banks before extraction; now also owns `Samus_Movement_16_Grappling` from the old `physics.c` dispatch cluster |
+| `src/samus_special_move.c` | `../sm/src/sm_90.c` | Shinespark, bomb-jump, knockback, and related special-movement helpers; now also owns `Samus_Movement_0A_KnockbackOrCrystalFlashEnding` and `Samus_Movement_1B_ShinesparkEtc` from the old `physics.c` dispatch cluster |
 | `src/samus_xray.c` | `../sm/src/sm_91.c` and `../sm/src/sm_88.c` | X-Ray scope state machine, block scan, setup stages, and HDMA runtime |
 
 ## Enemy / Combat Helpers
@@ -56,6 +60,11 @@ answer: "where did this logic live before we split it?"
 | `src/enemy_main.c` | `../sm/src/sm_a0.c` | Shared enemy lifecycle, spawn/load path, frame dispatch, and draw/runtime plumbing after the Bank `$A0` split |
 | `src/enemy_tiles.c` | `../sm/src/sm_a0.c` | Shared enemy tileset selection, palette staging, RAM tile assembly, and enemy-VRAM transfer helpers extracted from Bank `$A0` |
 | `src/enemy_gunship.c` | `../sm/src/sm_a2.c` | Gunship-only enemy runtime: landing-site idle/save interaction, event-driven departure, and takeoff choreography |
+| `src/enemy_elevator.c` | `../sm/src/sm_a3.c` | Elevator runtime peeled from the mixed Bank `$A3` file; owns the Samus/platform sync state machine and elevator-triggered transition handoff |
+| `src/enemy_fauna.c` | `../sm/src/sm_a3.c` | Remaining fauna/hazard runtime peeled from the mixed Bank `$A3` file; owns the Waver/Metalee/Fireflea/fish-crab-slug/Roach/Sidehopper/Bang/Skree/Maridia-snail/Reflec/Zoomer families and related small-enemy hazards |
+| `src/enemy_metroid.c` | `../sm/src/sm_a3.c` | Metroid runtime peeled from the mixed Bank `$A3` file; owns the sprite-linked chase, latch, freeze, hurt, and item-drop behavior |
+| `src/enemy_mochtroid.c` | `../sm/src/sm_a3.c` | Mochtroid chase/contact runtime peeled from the mixed Bank `$A3` file; now owns the full state machine between Roach and Sidehopper |
+| `src/enemy_torizo.c` | `../sm/src/sm_aa.c` | Bomb/Golden Torizo runtime peeled from Bank `$AA`; owns the boss AI, instruction handlers, and palette choreography while Tourian statue/Shaktool remain in `sm_aa.c` |
 | `src/enemy_collision.c` | `../sm/src/sm_a0.c` | Shared enemy-vs-Samus, enemy-vs-projectile, and block-collision helpers extracted from Bank `$A0` |
 | `src/enemy_drops.c` | `../sm/src/sm_a0.c` | Enemy drops, grapple-death hooks, and respawn/item-drop helpers extracted from Bank `$A0` |
 | `src/eproj_core.c` | `../sm/src/sm_86.c` | Enemy-projectile lifecycle, generic instruction handlers, shared block-collision/movement helpers, draw path, and screen-shake helpers |

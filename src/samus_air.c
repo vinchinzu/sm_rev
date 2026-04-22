@@ -52,6 +52,20 @@ static bool Samus_CanHiJumpRejumpDuringSpin(const SamusSpinJumpRejumpWindow *win
       && sign16(vertical_velocity - window->max_y_vel);
 }
 
+static void Samus_TurningAroundInAirMovement(void) {
+  Samus_HandleMovement_X();
+  if (!(Samus_CheckAndMoveY() & 1))
+    Samus_Move_NoSpeedCalc_Y();
+  Samus_CancelSpeedBoost();
+  samus_x_extra_run_speed = 0;
+  samus_x_extra_run_subspeed = 0;
+  input_to_pose_calc = 0;
+}
+
+void Samus_Movement_02_NormalJumping(void) {
+  Samus_JumpingMovement();
+}
+
 void Samus_Movement_03_SpinJumping(void) {  // 0x90A436
   static const SamusSpinJumpRejumpWindow kAirRejumpWindow = {
     .min_y_vel = 0x280,
@@ -81,4 +95,40 @@ void Samus_Movement_03_SpinJumping(void) {  // 0x90A436
   }
 
   Samus_SpinJumpMovement();
+}
+
+void Samus_Movement_06_Falling(void) {
+  Samus_FallingMovement();
+  if ((samus_pose == kPose_29_FaceR_Fall
+       || samus_pose == kPose_2A_FaceL_Fall
+       || samus_pose == kPose_67_FaceR_Fall_Gun
+       || samus_pose == kPose_68_FaceL_Fall_Gun)
+      && !sign16(samus_y_speed - 5)) {
+    if (sign16(samus_anim_frame - 5)) {
+      samus_anim_frame_timer = 8;
+      samus_anim_frame = 5;
+    }
+  }
+}
+
+void Samus_Movement_14_WallJumping(void) {
+  if (sign16(samus_anim_frame - 23)) {
+    if (!sign16(samus_anim_frame - 3) && !sign16(flare_counter - 60))
+      samus_contact_damage_index = kSamusContactDamageMode_PseudoScrew;
+  } else {
+    samus_contact_damage_index = kSamusContactDamageMode_ScrewAttack;
+  }
+  Samus_JumpingMovement();
+}
+
+void Samus_Movement_19_DamageBoost(void) {
+  Samus_JumpingMovement();
+}
+
+void Samus_Movement_17_TurningAroundJumping(void) {
+  Samus_TurningAroundInAirMovement();
+}
+
+void Samus_Movement_18_TurningAroundFalling(void) {
+  Samus_TurningAroundInAirMovement();
 }

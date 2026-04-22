@@ -7,6 +7,15 @@
 #include "sm_rtl.h"
 #include "funcs.h"
 
+void Samus_Movement_1B_ShinesparkEtc(void) {
+  input_to_pose_calc = 0;
+}
+
+void Samus_Movement_0A_KnockbackOrCrystalFlashEnding(void) {
+  input_to_pose_calc = 0;
+  Samus_Move_NoSpeedCalc_Y();
+}
+
 uint8 Samus_GrappleWallJumpCheck(int32 amt) {  // 0x909CAC
   enemy_index_to_shake = -1;
   if (samus_pose_x_dir != 4) {

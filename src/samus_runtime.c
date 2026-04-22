@@ -24,6 +24,116 @@ static const uint8 kSamus_MoveDown_SetPoseCalcInput_Tab1[28] = {
   4, 0, 4, 4,
 };
 
+void Samus_UpdateSpeedEchoPos(void) {  // 0x90EEE7
+  if ((speed_boost_counter & 0xFF00) == 1024 && (speed_echoes_index & 0x8000) == 0 && (game_time_frames & 3) == 0) {
+    uint16 v0 = speed_echoes_index;
+    int v1 = speed_echoes_index >> 1;
+    speed_echo_xpos[v1] = samus_x_pos;
+    speed_echo_ypos[v1] = samus_y_pos;
+    uint16 v2 = v0 + 2;
+    if ((int16)(v2 - 4) >= 0)
+      v2 = 0;
+    speed_echoes_index = v2;
+  }
+}
+
+void DEPRECATED_Samus_UpdateSpeedEchoPos(void) {  // 0x90EEE7
+  Samus_UpdateSpeedEchoPos();
+}
+
+void MoveSamusWithControlPad(void) {  // 0x90ECD5
+  if ((joypad1_lastkeys & 0x800) != 0)
+    Samus_MoveUp(INT16_SHL16(-4));
+  if ((joypad1_lastkeys & 0x400) != 0)
+    Samus_MoveDown(INT16_SHL16(4));
+  if ((joypad1_lastkeys & 0x200) != 0)
+    Samus_MoveLeft(INT16_SHL16(-4));
+  if ((joypad1_lastkeys & 0x100) != 0)
+    Samus_MoveRight(INT16_SHL16(4));
+}
+
+void Samus_Initialize(void) {  // 0x91E00D
+  static const uint16 word_909EAF = 0;
+  static const uint16 word_909EAD = 1;
+  static const uint16 word_909EB3 = 0;
+  static const uint16 word_909EB1 = 1;
+  static const uint16 word_909EA1 = 0x1c00;
+  static const uint16 word_909EA7 = 0;
+  uint16 r18 = debug_invincibility;
+  uint16 v0 = 0xE0B;
+  do
+    *RomPtr_RAM(v0--) = 0;
+  while ((int16)(v0 - 0xA02) >= 0);
+  if (game_state != kGameState_40_TransitionToDemo) {
+    frame_handler_alfa = FUNC16(EmptyFunction);
+    if (loading_game_state == kGameState_34_CeresGoesBoom) {
+      frame_handler_beta = FUNC16(SetContactDamageIndexAndUpdateMinimap);
+      samus_draw_handler = FUNC16(SamusDrawHandler_Default);
+      samus_momentum_routine_index = -1;
+      samus_special_transgfx_index = 0;
+      samus_hurt_switch_index = 0;
+      Samus_LoadSuitPalette();
+      samus_input_handler = FUNC16(Samus_InputHandler_E913);
+    } else {
+      frame_handler_beta = FUNC16(Samus_Func16);
+      samus_draw_handler = FUNC16(SamusDrawHandler_Default);
+      samus_momentum_routine_index = 0;
+      samus_special_transgfx_index = 0;
+      samus_hurt_switch_index = 0;
+      samus_input_handler = FUNC16(Samus_InputHandler_E913);
+      debug_invincibility = r18;
+    }
+  }
+  samus_new_pose = -1;
+  samus_new_pose_interrupted = -1;
+  samus_new_pose_transitional = -1;
+  if (area_index == 6)
+    frame_handler_gamma = FUNC16(Samus_Func3);
+  else
+    frame_handler_gamma = FUNC16(nullsub_152);
+  samus_movement_handler = FUNC16(Samus_MovementHandler_Normal);
+  UNUSED_word_7E0A5E = -2764;
+  samus_prev_health_for_flash = 50;
+  samus_visor_palette_timer_index = 1537;
+  uint16 v1 = 0;
+  do {
+    projectile_bomb_pre_instructions[v1 >> 1] = FUNC16(ProjPreInstr_Empty);
+    v1 += 2;
+  } while ((int16)(v1 - 20) < 0);
+  grapple_beam_function = FUNC16(GrappleBeamFunc_Inactive);
+  enable_horiz_slope_coll = 3;
+  samus_hurt_flash_counter = 0;
+  samus_special_super_palette_flags = 0;
+  absolute_moved_last_frame_x_fract = word_909EAF;
+  absolute_moved_last_frame_x = word_909EAD;
+  absolute_moved_last_frame_y_fract = word_909EB3;
+  absolute_moved_last_frame_y = word_909EB1;
+  for (int i = 510; i >= 0; i -= 2)
+    hdma_table_1[i >> 1] = 255;
+  samus_y_subaccel = word_909EA1;
+  samus_y_accel = word_909EA7;
+  fx_y_pos = -1;
+  lava_acid_y_pos = -1;
+  UpdateBeamTilesAndPalette();
+  cinematic_function = 0;
+  samus_pose = kPose_00_FaceF_Powersuit;
+  *(uint16 *)&samus_pose_x_dir = 0;
+  samus_prev_pose = 0;
+  *(uint16 *)&samus_prev_pose_x_dir = 0;
+  samus_last_different_pose = 0;
+  *(uint16 *)&samus_last_different_pose_x_dir = 0;
+  enemy_index_to_shake = -1;
+  hud_item_index = 0;
+  samus_auto_cancel_hud_item_index = 0;
+  samus_invincibility_timer = 0;
+  samus_knockback_timer = 0;
+  samus_hurt_flash_counter = 0;
+  debug_invincibility = 0;
+  if (game_state == kGameState_40_TransitionToDemo)
+    LoadDemoData();
+  samus_prev_health_for_flash = samus_health;
+}
+
 static void CallFrameHandlerGamma(uint32 ea) {
   switch (ea) {
   case fnSamus_Func1: Samus_Func1(); return;
@@ -262,6 +372,10 @@ void Samus_Func6(void) {  // 0x90E21C
   } else {
     Samus_BombJumpFallingYMovement_();
   }
+}
+
+void Samus_Movement_1A_GrabbedByDraygon(void) {
+  input_to_pose_calc = 0;
 }
 
 void Samus_GrabbedByDraygonFrameHandler(void) {  // 0x90E2A1
