@@ -3,6 +3,7 @@
 
 #include "stubs_mini.h"
 #include "types.h"
+#include <stdint.h>
 
 enum {
   kMiniSamusWidth = 24,
@@ -30,6 +31,8 @@ typedef struct MiniGameState {
   int camera_y;
   int samus_x;
   int samus_y;
+  uint16 samus_pose_value;
+  uint16 samus_movement_type_value;
   int ground_y;
   uint16 last_buttons;
   bool has_room;
@@ -44,5 +47,6 @@ typedef struct MiniGameState {
 
 void MiniGameState_Init(MiniGameState *state, int viewport_width, int viewport_height);
 void MiniUpdate(MiniGameState *state, const MiniInputState *input);
+uint64_t MiniGameState_ComputeHash(const MiniGameState *state);
 
 #endif  // SM_MINI_GAME_H_

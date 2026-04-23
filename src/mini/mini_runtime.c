@@ -21,13 +21,15 @@
 
 static void PrintResult(const MiniOptions *options, const MiniGameState *state,
                         const char *record_path) {
+  uint64_t state_hash = MiniGameState_ComputeHash(state);
   printf("{\"build\":\"mini\",\"headless\":%s,\"frames\":%d,"
          "\"no_enemies\":true,\"no_bosses\":true,\"no_rooms\":%s,"
          "\"room_ptr\":%u,\"room_width\":%d,\"room_height\":%d,"
          "\"room_source\":\"%s\",\"room_visuals\":\"%s\",\"room_handle\":\"%s\","
          "\"samus_suit\":\"%s\",\"recording\":%s,\"record_path\":\"%s\","
          "\"rom_room\":%s,"
-         "\"samus_x\":%d,\"samus_y\":%d}\n",
+         "\"samus_x\":%d,\"samus_y\":%d,\"samus_pose\":%u,\"samus_movement_type\":%u,"
+         "\"state_hash\":\"0x%016llx\"}\n",
          options->headless ? "true" : "false", state->frame,
          state->has_room ? "false" : "true",
          state->room_id,
@@ -40,7 +42,8 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          options->record ? "true" : "false",
          record_path != NULL ? record_path : "",
          state->uses_rom_room ? "true" : "false",
-         state->samus_x, state->samus_y);
+         state->samus_x, state->samus_y, state->samus_pose_value, state->samus_movement_type_value,
+         (unsigned long long)state_hash);
 }
 
 static void MiniRenderPresent(SDL_Renderer *renderer, SDL_Texture *frame_texture,

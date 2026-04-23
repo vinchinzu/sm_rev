@@ -5,6 +5,12 @@
 #include "funcs.h"
 #include "sm_rtl.h"
 
+enum {
+  kSamusFootstepSfx = 6,
+  kSpeedBoostCounter_ChargedBit = 0x400,
+  kSamusCollisionDirection_Up = 2,
+};
+
 static void Samus_ClearGroundHorizontalState(void) {
   Samus_CancelSpeedBoost();
   samus_x_extra_run_speed = 0;
@@ -26,7 +32,7 @@ void Samus_Movement_00_Standing(void) {
     Samus_ClearGroundHorizontalState();
   } else {
     if (elevator_status) {
-      samus_collision_direction = 2;
+      samus_collision_direction = kSamusCollisionDirection_Up;
       Samus_MoveDown_NoSolidColl(INT16_SHL16(1));
     }
     input_to_pose_calc = 0;
@@ -39,8 +45,10 @@ void Samus_Movement_01_Running(void) {
   Samus_Move_NoSpeedCalc_Y();
   if (samus_anim_frame_timer == 1 && kSamusFootstepFrame[samus_anim_frame]) {
     Samus_FootstepGraphics();
-    if (!cinematic_function && !boss_id && !samus_shine_timer && (speed_boost_counter & 0x400) == 0)
-      QueueSfx3_Max6(6);
+    if (!cinematic_function && !boss_id && !samus_shine_timer
+        && (speed_boost_counter & kSpeedBoostCounter_ChargedBit) == 0) {
+      QueueSfx3_Max6(kSamusFootstepSfx);
+    }
   }
 }
 

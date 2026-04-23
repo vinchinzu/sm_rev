@@ -10,10 +10,27 @@
 
 // File-local named constants for magic numbers that used to be bare literals.
 // Values match the original ROM semantics exactly — see comments for origin.
-//
-// samus_y_dir: 1 = rising, 2 = falling (game-wide convention).
-// samus_x_accel_mode: 0 = no input, 1 = decel, 2 = accel (game-wide convention).
-// samus_pose_x_dir: 4 = facing right, 8 = facing left.
+
+enum SamusVerticalDirection {
+  kSamusYDir_Rising = 1,
+  kSamusYDir_Falling = 2,
+};
+
+enum SamusHorizontalAccelMode {
+  kSamusXAccelMode_None = 0,
+  kSamusXAccelMode_Decelerating = 1,
+  kSamusXAccelMode_Accelerating = 2,
+};
+
+enum SamusPoseXDirection {
+  kSamusPoseXDir_FaceRight = 4,
+  kSamusPoseXDir_FaceLeft = 8,
+};
+
+enum SamusCollisionDirection {
+  kSamusCollisionDirection_Up = 2,
+  kSamusCollisionDirection_Down = 3,
+};
 
 // Sentinel used as the gravity cutoff: when samus_y_speed hits this value
 // during a fall, gravity stops adding. See Samus_MoveY_WithSpeedCalc.
@@ -22,10 +39,6 @@ static const uint16 kSamusYSpeedTerminal = 5;
 // Threshold (in 16.16 fixed-point) passed to Samus_WallJumpCheck from the
 // spin-jump handler. Originally a globally-scoped `g_word_909E9F = 8`.
 static const uint16 kWallJumpCheckThreshold = 8;
-
-// Movement-type index 20 (0x14) = Samus_Movement_14_WallJumping.
-// See kSamusMovementHandlers[] in physics.c.
-static const uint16 kMovementType_WallJumping = 20;
 
 void Samus_HandleMovement_X(void) {  // 0x908E64
   Samus_HandleExtraRunspeedX();
@@ -38,10 +51,11 @@ void Samus_MoveX(int32 amt) {  // 0x908EA9
   // calc returns a signed amount; the final MoveLeft/MoveRight call is decided
   // purely by the sign of that result.
   bool use_left_calc;
-  if (samus_x_accel_mode == 0 || samus_x_accel_mode == 2) {
-    use_left_calc = (samus_pose_x_dir == 4);
+  if (samus_x_accel_mode == kSamusXAccelMode_None
+      || samus_x_accel_mode == kSamusXAccelMode_Accelerating) {
+    use_left_calc = (samus_pose_x_dir == kSamusPoseXDir_FaceRight);
   } else {
-    use_left_calc = (samus_pose_x_dir == 8);
+    use_left_calc = (samus_pose_x_dir == kSamusPoseXDir_FaceLeft);
   }
   amt = use_left_calc ? Samus_CalcDisplacementMoveLeft(amt)
                       : Samus_CalcDisplacementMoveRight(amt);
@@ -70,14 +84,14 @@ void Samus_BombJumpRisingXMovement_(void) {
 }
 
 void Samus_BombJumpRisingYMovement_(void) {
-  if (samus_y_dir != 1)
+  if (samus_y_dir != kSamusYDir_Rising)
     return;
   if ((int16)samus_y_speed < 0) {
     samus_y_subspeed = 0;
     samus_y_speed = 0;
-    samus_y_dir = 2;
+    samus_y_dir = kSamusYDir_Falling;
     if ((uint8)bomb_jump_dir != 2)
-      samus_x_accel_mode = 2;
+      samus_x_accel_mode = kSamusXAccelMode_Accelerating;
   } else if ((int16)samus_y_speed < 1) {
     if (samus_input_handler != FUNC16(Samus_InputHandler_E91D))
       samus_input_handler = FUNC16(Samus_InputHandler_E913);
@@ -108,24 +122,24 @@ void Samus_JumpingMovement(void) {  // 0x908FB3
       || samus_pose == kPose_4C_FaceL_Jumptrans
       || ((int16)samus_pose >= (int16)kPose_55_FaceR_Jumptrans_AimU
           && (int16)samus_pose < (int16)kPose_5B)) {
-    samus_x_accel_mode = 0;
+    samus_x_accel_mode = kSamusXAccelMode_None;
     Samus_Move_NoBaseSpeed_X();
     Samus_MoveExtraY();
     return;
   }
-  if (samus_y_dir == 1
+  if (samus_y_dir == kSamusYDir_Rising
       && ((button_config_jump_a & joypad1_lastkeys) == 0
           || (int16)samus_y_speed < 0)) {
     samus_y_subspeed = 0;
     samus_y_speed = 0;
-    samus_y_dir = 2;
+    samus_y_dir = kSamusYDir_Falling;
   }
   Pair_Bool_Amt pair = Samus_CalcBaseSpeed_NoDecel_X(Samus_DetermineSpeedTableEntryPtr_X());
 
   bool do_move_x;
-  if (samus_movement_type == kMovementType_WallJumping) {
+  if (samus_movement_type == kMovementType_14_WallJumping) {
     if (!samus_x_accel_mode)
-      samus_x_accel_mode = 2;
+      samus_x_accel_mode = kSamusXAccelMode_Accelerating;
     do_move_x = true;
   } else {
     do_move_x = samus_x_accel_mode
@@ -144,12 +158,12 @@ void Samus_JumpingMovement(void) {  // 0x908FB3
 
 void Samus_SpinJumpMovement(void) {  // 0x909040
   Samus_HandleExtraRunspeedX();
-  if (samus_y_dir == 1
+  if (samus_y_dir == kSamusYDir_Rising
       && ((button_config_jump_a & joypad1_lastkeys) == 0
           || (int16)samus_y_speed < 0)) {
     samus_y_subspeed = 0;
     samus_y_speed = 0;
-    samus_y_dir = 2;
+    samus_y_dir = kSamusYDir_Falling;
   }
   Pair_Bool_Amt pair = Samus_CalcBaseSpeed_NoDecel_X(Samus_DetermineSpeedTableEntryPtr_X());
 
@@ -157,22 +171,22 @@ void Samus_SpinJumpMovement(void) {  // 0x909040
   // decelerating, or player input opposes facing direction (turn-around).
   // Otherwise freeze horizontal motion.
   bool continue_moving;
-  if (pair.flag || samus_x_accel_mode == 1) {
+  if (pair.flag || samus_x_accel_mode == kSamusXAccelMode_Decelerating) {
     continue_moving = true;
-  } else if (samus_pose_x_dir == 4) {
+  } else if (samus_pose_x_dir == kSamusPoseXDir_FaceRight) {
     continue_moving = ((joypad1_lastkeys & kButton_Left) != 0);
   } else {
     continue_moving = ((joypad1_lastkeys & kButton_Right) != 0);
   }
   if (continue_moving) {
     if (!samus_x_accel_mode)
-      samus_x_accel_mode = 2;
+      samus_x_accel_mode = kSamusXAccelMode_Accelerating;
   } else {
     pair.amt = 0;
     samus_x_base_speed = 0;
     samus_x_base_subspeed = 0;
     samus_collision_flag = 0;
-    samus_x_accel_mode = 0;
+    samus_x_accel_mode = kSamusXAccelMode_None;
   }
   Samus_MoveX(pair.amt);
   if (!Samus_WallJumpCheck(INT16_SHL16(kWallJumpCheckThreshold)))
@@ -180,22 +194,22 @@ void Samus_SpinJumpMovement(void) {  // 0x909040
 }
 
 void Samus_CheckStartFalling(void) {  // 0x9090C4
-  if (samus_y_dir == 1 && (int16)samus_y_speed < 0) {
+  if (samus_y_dir == kSamusYDir_Rising && (int16)samus_y_speed < 0) {
     samus_y_subspeed = 0;
     samus_y_speed = 0;
-    samus_y_dir = 2;
+    samus_y_dir = kSamusYDir_Falling;
   }
 }
 
 void Samus_MoveY_WithSpeedCalc(void) {  // 0x9090E2
   int32 amt = __PAIR32__(samus_y_speed, samus_y_subspeed);
-  if (samus_y_dir == 2) {
+  if (samus_y_dir == kSamusYDir_Falling) {
     if (samus_y_speed != kSamusYSpeedTerminal)
       AddToHiLo(&samus_y_speed, &samus_y_subspeed, __PAIR32__(samus_y_accel, samus_y_subaccel));
   } else {
     AddToHiLo(&samus_y_speed, &samus_y_subspeed, -IPAIR32(samus_y_accel, samus_y_subaccel));
   }
-  if (samus_y_dir != 2)
+  if (samus_y_dir != kSamusYDir_Falling)
     amt = -amt;
   amt += __PAIR32__(extra_samus_y_displacement, extra_samus_y_subdisplacement);
   if (amt < 0)
@@ -249,7 +263,7 @@ void Samus_MorphedBouncingMovement(void) {  // 0x9091D1
   if (knockback_dir)
     return;
   if (extra_samus_y_displacement || extra_samus_y_subdisplacement) {
-    samus_y_dir = 2;
+    samus_y_dir = kSamusYDir_Falling;
     samus_y_subspeed = 0;
     samus_y_speed = 0;
     int32 amt = __PAIR32__(extra_samus_y_displacement, extra_samus_y_subdisplacement);
@@ -342,7 +356,7 @@ void Samus_MoveRight(int32 amt) {  // 0x9093B1
 }
 
 void Samus_MoveUp(int32 amt) {  // 0x9093EC
-  samus_collision_direction = 2;
+  samus_collision_direction = kSamusCollisionDirection_Up;
   CheckEnemyColl_Result cres = Samus_CheckSolidEnemyColl(-amt);
   samus_collision_flag = cres.collision, amt = cres.amt;
   if (samus_collision_flag) {
@@ -356,7 +370,7 @@ void Samus_MoveUp(int32 amt) {  // 0x9093EC
 }
 
 void Samus_MoveDown(int32 amt) {  // 0x909440
-  samus_collision_direction = 3;
+  samus_collision_direction = kSamusCollisionDirection_Down;
   CheckEnemyColl_Result cres = Samus_CheckSolidEnemyColl(amt);
   samus_collision_flag = cres.collision, amt = cres.amt;
   if (samus_collision_flag) {
@@ -371,13 +385,13 @@ void Samus_MoveDown(int32 amt) {  // 0x909440
 }
 
 void Samus_MoveHandler_ReleaseFromGrapple(void) {  // 0x90946E
-  if (samus_y_dir == 1 && (int16)samus_y_speed < 0) {
+  if (samus_y_dir == kSamusYDir_Rising && (int16)samus_y_speed < 0) {
     samus_y_subspeed = 0;
     samus_y_speed = 0;
-    samus_y_dir = 2;
+    samus_y_dir = kSamusYDir_Falling;
     samus_movement_handler = FUNC16(Samus_MovementHandler_Normal);
   }
-  samus_x_accel_mode = 2;
+  samus_x_accel_mode = kSamusXAccelMode_Accelerating;
   int32 amt = Samus_CalcBaseSpeed_X(Samus_DetermineGrappleSwingSpeed_X());
   if (samus_x_accel_mode
       || (joypad1_lastkeys & kButton_Right) != 0
@@ -403,4 +417,3 @@ void Samus_HandleMovement_DrainedCrouching(void) {  // 0x9094CB
     samus_y_speed = 0;
   }
 }
-

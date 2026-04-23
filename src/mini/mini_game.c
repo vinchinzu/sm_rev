@@ -1,10 +1,13 @@
 #include "mini_game.h"
 
+#include <stdint.h>
 #include <string.h>
 
 #include "funcs.h"
 #include "ida_types.h"
+#include "mini_ppu_stub.h"
 #include "physics_config.h"
+#include "sm_rtl.h"
 #include "stubs_mini.h"
 #include "variables.h"
 
@@ -13,11 +16,41 @@ enum {
   kMiniItem_GravitySuit = 0x20,
 };
 
+static uint64_t MiniHashBytes(uint64_t hash, const void *data, size_t size) {
+  static const uint64_t kFnvPrime = UINT64_C(1099511628211);
+  const uint8 *bytes = (const uint8 *)data;
+  for (size_t i = 0; i < size; i++) {
+    hash ^= bytes[i];
+    hash *= kFnvPrime;
+  }
+  return hash;
+}
+
+static uint64_t MiniHashInt(uint64_t hash, int value) {
+  int32_t normalized = value;
+  return MiniHashBytes(hash, &normalized, sizeof(normalized));
+}
+
+static uint64_t MiniHashUInt16(uint64_t hash, uint16 value) {
+  return MiniHashBytes(hash, &value, sizeof(value));
+}
+
+static uint64_t MiniHashByte(uint64_t hash, uint8 value) {
+  return MiniHashBytes(hash, &value, sizeof(value));
+}
+
+static uint64_t MiniHashBool(uint64_t hash, bool value) {
+  uint8 normalized = value ? 1 : 0;
+  return MiniHashBytes(hash, &normalized, sizeof(normalized));
+}
+
 static void MiniSyncRenderState(MiniGameState *state) {
   state->camera_x = layer1_x_pos;
   state->camera_y = layer1_y_pos;
   state->samus_x = samus_x_pos - state->camera_x - samus_x_radius;
   state->samus_y = samus_y_pos - state->camera_y - samus_y_radius;
+  state->samus_pose_value = samus_pose;
+  state->samus_movement_type_value = samus_movement_type;
 }
 
 static void MiniUpdateButtons(MiniGameState *state, const MiniInputState *input) {
@@ -128,4 +161,46 @@ void MiniUpdate(MiniGameState *state, const MiniInputState *input) {
   NMI_ProcessVramWriteQueue();
   MiniSyncRenderState(state);
   state->frame++;
+}
+
+uint64_t MiniGameState_ComputeHash(const MiniGameState *state) {
+  static const uint64_t kFnvOffsetBasis = UINT64_C(14695981039346656037);
+  MiniRoomInfo room;
+  uint64_t hash = kFnvOffsetBasis;
+
+  MiniStubs_GetRoomInfo(&room);
+  hash = MiniHashInt(hash, state->frame);
+  hash = MiniHashInt(hash, state->viewport_width);
+  hash = MiniHashInt(hash, state->viewport_height);
+  hash = MiniHashInt(hash, state->camera_x);
+  hash = MiniHashInt(hash, state->camera_y);
+  hash = MiniHashInt(hash, state->samus_x);
+  hash = MiniHashInt(hash, state->samus_y);
+  hash = MiniHashUInt16(hash, state->samus_pose_value);
+  hash = MiniHashUInt16(hash, state->samus_movement_type_value);
+  hash = MiniHashUInt16(hash, state->last_buttons);
+  hash = MiniHashBool(hash, state->quit_requested);
+  hash = MiniHashBool(hash, room.has_room);
+  hash = MiniHashBool(hash, room.uses_rom_room);
+  hash = MiniHashBool(hash, room.booted_from_save_slot);
+  hash = MiniHashBool(hash, room.has_editor_room_visuals);
+  hash = MiniHashByte(hash, (uint8)room.samus_suit);
+  hash = MiniHashUInt16(hash, room.room_id);
+  hash = MiniHashByte(hash, (uint8)room.room_source);
+  hash = MiniHashInt(hash, room.room_left);
+  hash = MiniHashInt(hash, room.room_top);
+  hash = MiniHashInt(hash, room.room_right);
+  hash = MiniHashInt(hash, room.room_bottom);
+  hash = MiniHashInt(hash, room.room_width_blocks);
+  hash = MiniHashInt(hash, room.room_height_blocks);
+  hash = MiniHashInt(hash, room.camera_x);
+  hash = MiniHashInt(hash, room.camera_y);
+  hash = MiniHashInt(hash, room.spawn_x);
+  hash = MiniHashInt(hash, room.spawn_y);
+  hash = MiniHashBytes(hash, room.room_handle, sizeof(room.room_handle));
+  hash = MiniHashBytes(hash, room.room_name, sizeof(room.room_name));
+  hash = MiniHashBytes(hash, g_ram, sizeof(g_ram));
+  hash = MiniHashBytes(hash, g_sram, 0x2000);
+  hash = MiniHashBytes(hash, MiniPpu_GetVram(), 0x10000);
+  return hash;
 }
