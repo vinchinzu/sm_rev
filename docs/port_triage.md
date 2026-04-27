@@ -17,7 +17,7 @@ mini-build value and keeps each session within a 700–1000 LOC refactor budget
 - When cross-file calls need to be visible, add decls to `funcs.h` or a local
   topic header (e.g. `samus_env.h`). Keep helpers `static` when possible.
 
-## Status snapshot (2026-04-20)
+## Status snapshot (2026-04-26)
 
 - ✅ GONE: `sm_80.c` (→ `game_init`/`game_state_extras`/`nmi_transfer`/`palette_fader`/
   `util`/`hud`/`timer`/`irq`), `sm_82.c` (→ split), `sm_84.c` (→ `plm_*`), `sm_89.c`,
@@ -28,8 +28,10 @@ mini-build value and keeps each session within a 700–1000 LOC refactor budget
   (→ HDMA topical files), `sm_9b.c` (→ `samus_death.c` / `samus_grapple.c` / projectile
   helpers), `sm_8b.c` (→ `cinematics.c` topical rename), `sm_a0.c` (→ `enemy_main.c` /
   `enemy_collision.c` / `enemy_math.c` / `enemy_drops.c`), Bank `$82` shared tables
-  (→ `menu_assets.h` plus local owner-owned constants).
-- 📁 Remaining bank-shaped gameplay files: 11, totalling ~33.6k LOC. All remaining bank-shaped
+  (→ `menu_assets.h` plus local owner-owned constants), `sm_a3.c` (→ `enemy_falling_platform.c`),
+  `sm_aa.c` (→ `enemy_chozo_shaktool.c`), `sm_a4.c` (→ `enemy_crocomire.c`), `sm_a5.c` (→
+  `enemy_draygon_spore.c`), `sm_b2.c` (→ `enemy_space_pirates.c`).
+- 📁 Remaining bank-shaped gameplay files: 6, totalling ~24.5k LOC. All remaining bank-shaped
   gameplay files are enemy banks.
 
 ---
@@ -101,13 +103,16 @@ Bank `$86` is retired.
 
 # Phase 5 — small enemies & progression bosses
 
-### Session 5.1 — `sm_b2.c` (775 LOC) → `enemy_space_pirates.c`
-- Walking + ninja + wall pirates. Already fits one session.
-- Depends on Phase 3 (`enemy_main.c`/`enemy_collision.c`).
+### Session 5.1 — `sm_b2.c` (775 LOC) → `enemy_space_pirates.c` ✅
+- Walking + ninja + wall pirate runtime peeled into `enemy_space_pirates.c` on 2026-04-26.
+- `sm_b2.c` is retired.
 
-### Session 5.2 — `sm_aa.c` part 1 (1034 LOC) → `enemy_torizo.c`
+### Session 5.2 — `sm_aa.c` part 1 (1034 LOC) → `enemy_torizo.c` ✅
 - Torizo runtime peeled into `enemy_torizo.c` on 2026-04-22.
-- Remaining `sm_aa.c` is now a small Tourian statue / Shaktool / Chozo statue bank.
+
+### Session 5.2b — `sm_aa.c` part 2 (516 LOC) → `enemy_chozo_shaktool.c` ✅
+- Tourian Entrance Statue, Shaktool, Chozo Statue runtimes peeled into `enemy_chozo_shaktool.c` on 2026-04-26.
+- `sm_aa.c` is retired.
 
 ### Session 5.3 — `sm_a3.c` part 1 (149 LOC) → `enemy_mochtroid.c`
 - Mochtroid runtime peeled into `enemy_mochtroid.c` on 2026-04-22.
@@ -121,9 +126,12 @@ Bank `$86` is retired.
 - Metroid runtime peeled into `enemy_metroid.c` on 2026-04-22.
 - This owns the sprite-linked Metroid chase, latch, freeze, hurt, and drop logic.
 
-### Session 5.6 — `sm_a3.c` part 4 (2330 LOC) → `enemy_fauna.c`
+### Session 5.6 — `sm_a3.c` part 4 (2330 LOC) → `enemy_fauna.c` ✅
 - Remaining Bank `$A3` fauna/hazard runtime peeled into `enemy_fauna.c` on 2026-04-22.
-- `sm_a3.c` is now down to the shared A3 enemy helper wrappers plus the falling-platform slice, so it is close to retirement.
+
+### Session 5.7 — `sm_a3.c` part 5 (237 LOC) → `enemy_falling_platform.c` ✅
+- Falling/sinking platform runtime + shared A3 enemy-bank wrappers peeled into `enemy_falling_platform.c` on 2026-04-26.
+- `sm_a3.c` is retired.
 
 ---
 
@@ -175,12 +183,12 @@ Each boss bank is a self-contained chunk. Size them to one session each:
 
 | Bank | LOC | Split target | Sessions |
 |------|-----|--------------|----------|
-| `sm_a4.c` Crocomire | 1646 | `enemy_crocomire.c` | 2× |
-| `sm_a5.c` Draygon + SporeSpawn | 1603 | `enemy_draygon.c` + `enemy_spore_spawn.c` | 2× |
+| ~~`sm_a4.c` Crocomire~~ ✅ | 1646 | Lifted whole into `enemy_crocomire.c` on 2026-04-26 | done |
+| ~~`sm_a5.c` Draygon + SporeSpawn~~ ✅ | 1603 | Lifted whole into `enemy_draygon_spore.c` on 2026-04-26 | done |
 | `sm_a7.c` Kraid + Phantoon | 3918 | `enemy_kraid.c` + `enemy_phantoon.c` | 4× |
 | `sm_a8.c` Ki-Hunter | 4068 | `enemy_ki_hunter.c` (split by behavior) | 4× |
 | `sm_a6.c` Ridley + zebetites | 4944 | `enemy_ridley.c` + `enemy_zebetite.c` | 5× |
-| `sm_a2.c` Gunship + shutters | 4132 | `gunship.c` + `shutters.c` | 4× |
+| `sm_a2.c` Gunship + shutters | 3693 | `shutters.c` (gunship already in `enemy_gunship.c`) | 3× |
 | `sm_b3.c` Botwoon | 1403 | `enemy_botwoon.c` | 2× |
 | `sm_a9.c` Mother Brain + Shitroid | 6499 | `enemy_mother_brain.c` + `enemy_shitroid.c` | 7× |
 
@@ -190,7 +198,7 @@ Each boss bank is a self-contained chunk. Size them to one session each:
 
 1. Phase 0 housekeeping not done? → do it.
 2. Samus-adjacent cleanup needed? → review the completed notes in Phase 1, then stay in topical files.
-3. Cheapest active bank target? → `sm_b2.c` or `sm_aa.c`.
-4. Need progression/pathing coverage? → `sm_a3.c`.
-5. Need a major enemy bank? → `sm_a7.c`, then `sm_a6.c` or `sm_a9.c`.
+3. Cheapest active bank target? → `sm_b3.c` (Botwoon, 1403 LOC, single boss).
+4. Need a major enemy bank? → `sm_a7.c`, then `sm_a6.c` or `sm_a9.c`.
+5. Want to retire `sm_a2.c`? → split out shutter logic; gunship is already in `enemy_gunship.c`.
 6. Blocked on a specific subsystem? → stay in the topical file that now owns it; don’t recreate bank-shaped plans.

@@ -1,4 +1,4 @@
-// Enemy AI - Tourian statue, Shaktool, Chozo statue
+// Enemy AI - Tourian Entrance Statue, Shaktool, Chozo Statue — peeled from Bank $AA
 #include "ida_types.h"
 #include "variables.h"
 #include "funcs.h"
@@ -244,7 +244,7 @@ void Shaktool_DC2A(uint16 k) {  // 0xAADC2A
   Enemy_Shaktool *E = Get_Shaktool(k);
   int v3 = HIBYTE(E->shakt_var_B);
   int v5 = k >> 1;
-  SetHiLo(&E->base.x_pos, &E->base.x_subpos, INT16_SHL8(kSine[v3]) + 
+  SetHiLo(&E->base.x_pos, &E->base.x_subpos, INT16_SHL8(kSine[v3]) +
       __PAIR32__(enemy_drawing_queue[v5 + 91], enemy_drawing_queue[v5 + 92]));
   SetHiLo(&E->base.y_pos, &E->base.y_subpos, INT16_SHL8(kNegativeCosine[v3]) +
       __PAIR32__(enemy_drawing_queue[v5 + 93], enemy_drawing_queue[v5 + 94]));

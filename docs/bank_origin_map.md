@@ -67,7 +67,12 @@ answer: "where did this logic live before we split it?"
 | `src/enemy_fauna.c` | `../sm/src/sm_a3.c` | Remaining fauna/hazard runtime peeled from the mixed Bank `$A3` file; owns the Waver/Metalee/Fireflea/fish-crab-slug/Roach/Sidehopper/Bang/Skree/Maridia-snail/Reflec/Zoomer families and related small-enemy hazards |
 | `src/enemy_metroid.c` | `../sm/src/sm_a3.c` | Metroid runtime peeled from the mixed Bank `$A3` file; owns the sprite-linked chase, latch, freeze, hurt, and item-drop behavior |
 | `src/enemy_mochtroid.c` | `../sm/src/sm_a3.c` | Mochtroid chase/contact runtime peeled from the mixed Bank `$A3` file; now owns the full state machine between Roach and Sidehopper |
-| `src/enemy_torizo.c` | `../sm/src/sm_aa.c` | Bomb/Golden Torizo runtime peeled from Bank `$AA`; owns the boss AI, instruction handlers, and palette choreography while Tourian statue/Shaktool remain in `sm_aa.c` |
+| `src/enemy_falling_platform.c` | `../sm/src/sm_a3.c` | Falling/sinking platform runtime (`PlatformThatFallsWithSamus_*`, `FastMovingSlowSinkingPlatform_*`) plus the shared Bank `$A3` enemy wrappers (`Enemy_GrappleReact_*_A3`, `Enemy_Normal*_A3`); retires Bank `$A3` |
+| `src/enemy_torizo.c` | `../sm/src/sm_aa.c` | Bomb/Golden Torizo runtime peeled from Bank `$AA`; owns the boss AI, instruction handlers, and palette choreography |
+| `src/enemy_chozo_shaktool.c` | `../sm/src/sm_aa.c` | Tourian Entrance Statue, Shaktool, and Chozo Statue runtimes peeled from Bank `$AA`; retires Bank `$AA` |
+| `src/enemy_crocomire.c` | `../sm/src/sm_a4.c` | Crocomire boss runtime lifted whole from Bank `$A4`; retires Bank `$A4` |
+| `src/enemy_draygon_spore.c` | `../sm/src/sm_a5.c` | Draygon and Spore Spawn boss runtimes lifted whole from Bank `$A5`; retires Bank `$A5` |
+| `src/enemy_space_pirates.c` | `../sm/src/sm_b2.c` | Walking, Ninja, and Wall Space Pirate runtimes lifted whole from Bank `$B2`; retires Bank `$B2` |
 | `src/enemy_collision.c` | `../sm/src/sm_a0.c` | Shared enemy-vs-Samus, enemy-vs-projectile, and block-collision helpers extracted from Bank `$A0` |
 | `src/enemy_drops.c` | `../sm/src/sm_a0.c` | Enemy drops, grapple-death hooks, and respawn/item-drop helpers extracted from Bank `$A0` |
 | `src/eproj_core.c` | `../sm/src/sm_86.c` | Enemy-projectile lifecycle, generic instruction handlers, shared block-collision/movement helpers, draw path, and screen-shake helpers |

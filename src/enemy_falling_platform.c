@@ -1,4 +1,4 @@
-// Enemy AI - shared A3 helpers and falling-platform runtime
+// Enemy AI - Falling/Sinking platforms + shared A3 wrappers — peeled from Bank $A3
 #include "ida_types.h"
 #include "variables.h"
 #include "sm_rtl.h"

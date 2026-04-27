@@ -1,4 +1,4 @@
-// Enemy AI - Crocomire
+// Enemy AI - Crocomire boss runtime — peeled from Bank $A4
 #include "ida_types.h"
 #include "variables.h"
 #include "funcs.h"

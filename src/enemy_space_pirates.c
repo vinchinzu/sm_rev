@@ -1,4 +1,4 @@
-// $B2 - Enemy AI - space pirates
+// Enemy AI - Space Pirates (Walking, Ninja, Wall) — peeled from Bank $B2
 #include "ida_types.h"
 #include "variables.h"
 #include "funcs.h"

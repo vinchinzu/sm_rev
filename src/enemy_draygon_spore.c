@@ -1,4 +1,4 @@
-//  Enemy AI - Draygon & Spore Spawn
+// Enemy AI - Draygon + Spore Spawn boss runtimes — peeled from Bank $A5
 
 #include "ida_types.h"
 #include "variables.h"
