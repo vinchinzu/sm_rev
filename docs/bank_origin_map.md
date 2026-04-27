@@ -73,6 +73,12 @@ answer: "where did this logic live before we split it?"
 | `src/enemy_crocomire.c` | `../sm/src/sm_a4.c` | Crocomire boss runtime lifted whole from Bank `$A4`; retires Bank `$A4` |
 | `src/enemy_draygon_spore.c` | `../sm/src/sm_a5.c` | Draygon and Spore Spawn boss runtimes lifted whole from Bank `$A5`; retires Bank `$A5` |
 | `src/enemy_space_pirates.c` | `../sm/src/sm_b2.c` | Walking, Ninja, and Wall Space Pirate runtimes lifted whole from Bank `$B2`; retires Bank `$B2` |
+| `src/enemy_botwoon.c` | `../sm/src/sm_b3.c` | Botwoon boss runtime lifted whole from Bank `$B3`; retires Bank `$B3` |
+| `src/enemy_a2_misc.c` | `../sm/src/sm_a2.c` | Bank `$A2` remainder after gunship was peeled out: shutters, Norfair/Maridia fauna, and small enemies; retires Bank `$A2` |
+| `src/enemy_ridley_zebetite.c` | `../sm/src/sm_a6.c` | Ridley boss + zebetites lifted whole from Bank `$A6`; retires Bank `$A6` |
+| `src/enemy_kraid_phantoon.c` | `../sm/src/sm_a7.c` | Kraid + Phantoon bosses lifted whole from Bank `$A7`; retires Bank `$A7` |
+| `src/enemy_ki_hunter.c` | `../sm/src/sm_a8.c` | Ki-Hunter and remaining Bank `$A8` enemies lifted whole; retires Bank `$A8` |
+| `src/enemy_mother_brain.c` | `../sm/src/sm_a9.c` | Mother Brain + Shitroid + dead-monster props lifted whole from Bank `$A9`; retires Bank `$A9` |
 | `src/enemy_collision.c` | `../sm/src/sm_a0.c` | Shared enemy-vs-Samus, enemy-vs-projectile, and block-collision helpers extracted from Bank `$A0` |
 | `src/enemy_drops.c` | `../sm/src/sm_a0.c` | Enemy drops, grapple-death hooks, and respawn/item-drop helpers extracted from Bank `$A0` |
 | `src/eproj_core.c` | `../sm/src/sm_86.c` | Enemy-projectile lifecycle, generic instruction handlers, shared block-collision/movement helpers, draw path, and screen-shake helpers |

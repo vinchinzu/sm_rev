@@ -1,4 +1,4 @@
-// $B3 - Enemy AI - inc. Botwoon
+// Enemy AI - Botwoon boss runtime — peeled from Bank $B3
 #include "ida_types.h"
 #include "variables.h"
 #include "funcs.h"

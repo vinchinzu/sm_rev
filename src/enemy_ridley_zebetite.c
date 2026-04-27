@@ -1,4 +1,4 @@
-// Enemy AI - inc. Ridley & zebetites
+// Enemy AI - Ridley boss + zebetites — peeled from Bank $A6
 #include "ida_types.h"
 #include "variables.h"
 #include "sm_rtl.h"

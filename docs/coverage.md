@@ -49,6 +49,12 @@ into them, don't recreate bank-shaped files.
 | `enemy_crocomire.c` | 1646 | Crocomire boss runtime peeled from Bank `$A4` |
 | `enemy_draygon_spore.c` | 1603 | Draygon + Spore Spawn boss runtimes peeled from Bank `$A5` |
 | `enemy_space_pirates.c` | 775 | Walking/Ninja/Wall Space Pirate runtimes peeled from Bank `$B2` |
+| `enemy_botwoon.c` | 1403 | Botwoon boss runtime peeled from Bank `$B3` |
+| `enemy_a2_misc.c` | 3693 | Bank `$A2` remainder: shutters, Norfair/Maridia fauna, small enemies (gunship in `enemy_gunship.c`) |
+| `enemy_ridley_zebetite.c` | 4944 | Ridley boss + zebetites peeled from Bank `$A6` |
+| `enemy_kraid_phantoon.c` | 3918 | Kraid + Phantoon bosses peeled from Bank `$A7` |
+| `enemy_ki_hunter.c` | 4068 | Ki-Hunter and remaining Bank `$A8` enemies |
+| `enemy_mother_brain.c` | 6499 | Mother Brain + Shitroid + dead-monster props peeled from Bank `$A9` |
 | `physics.c` | 492 | Movement-type dispatch table |
 | `physics_config.c` | 181 | `PhysicsParams` + `sm_physics.json` hot-reload |
 | `plm_core.c` | 1212 | PLM core + instruction byte-code handlers |
@@ -79,43 +85,17 @@ These are not bank files — they are the C runtime shim. Keep.
 | `sm_dispatcher.c` / `sm_dispatcher.h` | 43 | Shim dispatch |
 | `snes/*.c` | — | SNES hardware emulation (CPU/PPU/APU/DMA). Do not edit casually. |
 
-## Bank-shaped files that still need porting
+## Bank-shaped files
 
-These `src/sm_XX.c` files are what the triage targets. Core priority rubric:
-- **P0** — blocks core gameplay coverage or mini-build progress
-- **P1** — important support / combat / shared infra
-- **P2** — presentation, menus, non-core flow (safe to defer)
+All bank-shaped gameplay files have been retired into topical modules. The only
+remaining `src/sm_*.c` files are the C runtime shim (see Infrastructure above).
 
-### System / engine banks
+## What's driving priority next
 
-No system/engine bank files remain. The old `$80`-series engine work and the `$86`
-enemy-projectile bank are now topical modules.
-
-### Enemy banks
-
-Core priority uses a separate rubric here:
-- **P0** — shared enemy infra (unlocks everything else)
-- **P1** — progression-critical bosses + broad combat coverage
-- **P2** — isolated bosses / finale-specific / defer
-
-| File | Bank | System | LOC | LOE | Priority | Split angle |
-|------|------|--------|-----|-----|----------|-------------|
-| `sm_a2.c` | $A2 | Enemy AI — shutters | 3693 | L | P2 | Gunship now lives in `enemy_gunship.c`; room-scripted shutter logic remains |
-| `sm_a6.c` | $A6 | Enemy AI — Ridley, zebetites | 4944 | XL | P1 | Late-game combat |
-| `sm_a7.c` | $A7 | Enemy AI — Kraid, Phantoon | 3918 | L | P1 | Major boss pair |
-| `sm_a8.c` | $A8 | Enemy AI — Ki-Hunter | 4068 | XL | P1 | Broad combat patterns, good midgame rep |
-| `sm_a9.c` | $A9 | Enemy AI — Mother Brain, Shitroid | 6499 | XL | P2 | Largest + finale-specific. Defer. |
-| `sm_b3.c` | $B3 | Enemy AI — Botwoon | 1403 | M | P2 | Boss-only |
-
-**Bank-shaped total remaining:** 24,525 raw lines across 6 files.
-
-## What's driving priority
-
-See [port_triage.md](port_triage.md) for the chunked plan. Short form:
-
-1. Large boss banks next (`sm_a7`, `sm_a6`, `sm_a9`) once you want enemy-specific work.
-2. `sm_a2.c` shutter logic and `sm_b3.c` Botwoon are the smaller remaining wins.
-3. Topical cleanup inside already-split modules stays secondary to retiring the remaining enemy banks.
+The remaining cleanup is **topical** — splitting combined-boss files (e.g.
+`enemy_kraid_phantoon.c` → `enemy_kraid.c` + `enemy_phantoon.c`) and breaking up
+the heterogeneous `enemy_a2_misc.c` and `enemy_ki_hunter.c` files. These are
+optional and lower priority than the bank-retirement campaign that is now done.
 
 ## Non-coverage scope still open
 

@@ -1,4 +1,4 @@
-// Enemy AI - Mother Brain(complete), Shitroid &dead monsters
+// Enemy AI - Mother Brain + Shitroid + dead-monster props — peeled from Bank $A9
 
 #include "ida_types.h"
 #include "variables.h"

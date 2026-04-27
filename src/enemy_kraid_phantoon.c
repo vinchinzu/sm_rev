@@ -1,4 +1,4 @@
-// Enemy AI - inc. Kraid (complete) & Phantoon
+// Enemy AI - Kraid + Phantoon bosses — peeled from Bank $A7
 #include "ida_types.h"
 #include "variables.h"
 #include "funcs.h"

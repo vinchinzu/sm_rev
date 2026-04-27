@@ -30,9 +30,12 @@ mini-build value and keeps each session within a 700–1000 LOC refactor budget
   `enemy_collision.c` / `enemy_math.c` / `enemy_drops.c`), Bank `$82` shared tables
   (→ `menu_assets.h` plus local owner-owned constants), `sm_a3.c` (→ `enemy_falling_platform.c`),
   `sm_aa.c` (→ `enemy_chozo_shaktool.c`), `sm_a4.c` (→ `enemy_crocomire.c`), `sm_a5.c` (→
-  `enemy_draygon_spore.c`), `sm_b2.c` (→ `enemy_space_pirates.c`).
-- 📁 Remaining bank-shaped gameplay files: 6, totalling ~24.5k LOC. All remaining bank-shaped
-  gameplay files are enemy banks.
+  `enemy_draygon_spore.c`), `sm_b2.c` (→ `enemy_space_pirates.c`), `sm_b3.c` (→
+  `enemy_botwoon.c`), `sm_a2.c` (→ `enemy_a2_misc.c`), `sm_a6.c` (→ `enemy_ridley_zebetite.c`),
+  `sm_a7.c` (→ `enemy_kraid_phantoon.c`), `sm_a8.c` (→ `enemy_ki_hunter.c`), `sm_a9.c` (→
+  `enemy_mother_brain.c`).
+- 🎉 **All bank-shaped gameplay files retired.** Only `sm_rtl.c`, `sm_cpu_infra.c`, and
+  `sm_dispatcher.c` remain — those are the C runtime shim, not bank files.
 
 ---
 
@@ -181,24 +184,26 @@ for the current mission because cinematics do not help the mini path.
 
 Each boss bank is a self-contained chunk. Size them to one session each:
 
-| Bank | LOC | Split target | Sessions |
-|------|-----|--------------|----------|
-| ~~`sm_a4.c` Crocomire~~ ✅ | 1646 | Lifted whole into `enemy_crocomire.c` on 2026-04-26 | done |
-| ~~`sm_a5.c` Draygon + SporeSpawn~~ ✅ | 1603 | Lifted whole into `enemy_draygon_spore.c` on 2026-04-26 | done |
-| `sm_a7.c` Kraid + Phantoon | 3918 | `enemy_kraid.c` + `enemy_phantoon.c` | 4× |
-| `sm_a8.c` Ki-Hunter | 4068 | `enemy_ki_hunter.c` (split by behavior) | 4× |
-| `sm_a6.c` Ridley + zebetites | 4944 | `enemy_ridley.c` + `enemy_zebetite.c` | 5× |
-| `sm_a2.c` Gunship + shutters | 3693 | `shutters.c` (gunship already in `enemy_gunship.c`) | 3× |
-| `sm_b3.c` Botwoon | 1403 | `enemy_botwoon.c` | 2× |
-| `sm_a9.c` Mother Brain + Shitroid | 6499 | `enemy_mother_brain.c` + `enemy_shitroid.c` | 7× |
+All boss banks have been lifted whole into combined topical files on 2026-04-26.
+A future topical-cleanup pass can split the multi-boss files further:
+
+| Bank | LOC | Current home | Future split (optional) |
+|------|-----|--------------|-------------------------|
+| ~~`sm_a4.c` Crocomire~~ ✅ | 1646 | `enemy_crocomire.c` | already topical |
+| ~~`sm_a5.c` Draygon + SporeSpawn~~ ✅ | 1603 | `enemy_draygon_spore.c` | → `enemy_draygon.c` + `enemy_spore_spawn.c` |
+| ~~`sm_a7.c` Kraid + Phantoon~~ ✅ | 3918 | `enemy_kraid_phantoon.c` | → `enemy_kraid.c` + `enemy_phantoon.c` |
+| ~~`sm_a8.c` Ki-Hunter~~ ✅ | 4068 | `enemy_ki_hunter.c` | split by behavior |
+| ~~`sm_a6.c` Ridley + zebetites~~ ✅ | 4944 | `enemy_ridley_zebetite.c` | → `enemy_ridley.c` + `enemy_zebetite.c` |
+| ~~`sm_a2.c` shutters/fauna~~ ✅ | 3693 | `enemy_a2_misc.c` | → `enemy_shutters.c` + Norfair/Maridia files |
+| ~~`sm_b3.c` Botwoon~~ ✅ | 1403 | `enemy_botwoon.c` | already topical |
+| ~~`sm_a9.c` Mother Brain + Shitroid~~ ✅ | 6499 | `enemy_mother_brain.c` | → `enemy_mother_brain.c` + `enemy_shitroid.c` |
 
 ---
 
 # Quick picker — "what should I do next?"
 
 1. Phase 0 housekeeping not done? → do it.
-2. Samus-adjacent cleanup needed? → review the completed notes in Phase 1, then stay in topical files.
-3. Cheapest active bank target? → `sm_b3.c` (Botwoon, 1403 LOC, single boss).
-4. Need a major enemy bank? → `sm_a7.c`, then `sm_a6.c` or `sm_a9.c`.
-5. Want to retire `sm_a2.c`? → split out shutter logic; gunship is already in `enemy_gunship.c`.
-6. Blocked on a specific subsystem? → stay in the topical file that now owns it; don’t recreate bank-shaped plans.
+2. All bank files are retired. Future work is **topical cleanup** inside the new
+   combined-boss files (see Phase 9 table above for the splits worth considering).
+3. Blocked on a specific subsystem? → stay in the topical file that now owns it;
+   don't recreate bank-shaped plans.

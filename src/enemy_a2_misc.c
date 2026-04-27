@@ -1,4 +1,4 @@
-// Enemy AI - inc. gunship & shutters
+// Enemy AI - Bank $A2 remainder (shutters, Norfair/Maridia fauna, small enemies) — peeled from Bank $A2; Gunship is in enemy_gunship.c
 #include "ida_types.h"
 #include "sm_rtl.h"
 #include "funcs.h"

@@ -1,4 +1,4 @@
-// Enemy AI - inc. ki-hunter
+// Enemy AI - Ki-Hunter (and remaining Bank $A8 enemies) — peeled from Bank $A8
 
 #include "ida_types.h"
 #include "variables.h"
