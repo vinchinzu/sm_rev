@@ -119,6 +119,36 @@ class TestBuildMini:
         assert '"room_handle":"landingSite"' in r.stdout
         assert '"room_visuals":"editor_tileset"' in r.stdout
 
+    def test_mini_default_export_from_worktree_without_local_assets(self, tmp_path: Path):
+        """A worktree-style checkout without ignored assets should still use the common checkout export."""
+        local_export = SM_REV_DIR / "assets" / "local_mini" / "room_91F8.json"
+        if not local_export.exists():
+            return
+
+        fake_checkout = tmp_path / "fake_worktree"
+        fake_gitdir = tmp_path / "git" / "worktrees" / "fake_worktree"
+        outside_cwd = tmp_path / "outside"
+        fake_checkout.mkdir()
+        fake_gitdir.mkdir(parents=True)
+        outside_cwd.mkdir()
+
+        common_git_dir = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            cwd=SM_REV_DIR,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        (fake_checkout / ".git").write_text(f"gitdir: {fake_gitdir}\n")
+        (fake_gitdir / "commondir").write_text(f"{common_git_dir}\n")
+        shutil.copy2(MINI_BINARY, fake_checkout / MINI_BINARY.name)
+
+        r = run([str(fake_checkout / MINI_BINARY.name), "--headless", "--frames", "1"], cwd=outside_cwd)
+        assert r.returncode == 0, f"mini fake-worktree smoke failed:\n{r.stderr}\n{r.stdout}"
+        assert '"room_source":"editor_export"' in r.stdout
+        assert '"room_handle":"landingSite"' in r.stdout
+        assert '"room_visuals":"editor_tileset"' in r.stdout
+
     def test_mini_editor_export_bridge_smoke(self):
         """Mini should accept an explicit editor-exported Landing Site room file."""
         if not EDITOR_LANDING_SITE_EXPORT.exists():
