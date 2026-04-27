@@ -6,12 +6,12 @@
 
 #include "funcs.h"
 #include "ida_types.h"
-#include "enemy_types.h"
 #include "mini_defs.h"
 #include "mini_asset_bootstrap.h"
 #include "mini_content_scope.h"
 #include "mini_editor_bridge.h"
 #include "mini_ppu_stub.h"
+#include "mini_rom_bootstrap.h"
 #include "samus_asset_bridge.h"
 #include "physics_config.h"
 #include "sm_rtl.h"
@@ -25,22 +25,10 @@ enum {
   kMiniDefaultUpScroller = 112,
   kMiniDefaultDownScroller = 160,
   kMiniLevelDataCapacity = (0x16402 - 0x10002) / 2,
-  kMiniRomCapacity = 0x400000,
-  kMiniLandingSiteRoom = 0x91F8,
-  kMiniLandingSiteCameraX = 1024,
-  kMiniLandingSiteCameraY = 976,
-  kMiniLandingSiteSamusX = 1153,
-  kMiniLandingSiteSamusY = 1088,
-  kMiniRoomTilesVramSize = 0x5000,
 };
 
 uint8 g_ram[0x20000];
 
-static uint8 g_mini_sram[0x2000];
-static uint8 g_mini_rom[0x400000];
-
-uint8 *g_sram = g_mini_sram;
-const uint8 *g_rom = g_mini_rom;
 bool g_use_my_apu_code;
 bool g_debug_flag;
 int snes_frame_counter;
@@ -74,19 +62,7 @@ static int g_mini_world_floor;
 static bool g_mini_explicit_room_export_path;
 static MiniRoomInfo g_mini_room_info;
 
-static const char *const kMiniRomCandidates[] = {
-  "sm.smc",
-  "../sm/sm.smc",
-  "../roms/rom.sfc",
-};
-
-static const char *const kMiniSaveCandidates[] = {
-  "saves/sm.srm",
-  "../sm/saves/sm.srm",
-};
-
 static void MiniClampCamera(void);
-static bool MiniLoadAnyRom(void);
 
 static int AlignUpToBlock(int value) {
   return (value + kMiniBlockSize - 1) & ~(kMiniBlockSize - 1);
@@ -131,22 +107,11 @@ static void MiniApplyEditorScrollState(const MiniEditorRoom *room) {
   memcpy(scrolls, room->scroll_values, scroll_count);
 }
 
-static void MiniTryLoadRoomHeaderMetadata(uint16 room_id) {
-  if (!MiniLoadAnyRom())
-    return;
-  RoomDefHeader *room_header = get_RoomDefHeader(room_id);
-  room_index = room_header->semiunique_room_number;
-  area_index = room_header->area_index_;
-  room_x_coordinate_on_map = room_header->x_coordinate_on_map;
-  room_y_coordinate_on_map = room_header->y_coordinate_on_map;
-  room_width_in_scrolls = room_header->width;
-  room_height_in_scrolls = room_header->height;
-  room_width_in_blocks = 16 * room_width_in_scrolls;
-  room_height_in_blocks = 16 * room_height_in_scrolls;
-  room_size_in_blocks = 2 * room_width_in_blocks * room_height_in_blocks;
-  up_scroller = room_header->up_scroller_;
-  down_scroller = room_header->down_scroller_;
-  door_list_pointer = room_header->ptr_to_doorout;
+static void MiniApplyRoomInfoWorld(void) {
+  g_mini_world_left = g_mini_room_info.room_left;
+  g_mini_world_right = g_mini_room_info.room_right;
+  g_mini_world_ceiling = g_mini_room_info.room_top;
+  g_mini_world_floor = g_mini_room_info.room_bottom;
 }
 
 static void MiniBuildCollisionMap(int viewport_width, int viewport_height) {
@@ -171,104 +136,6 @@ static void MiniBuildCollisionMap(int viewport_width, int viewport_height) {
   }
 }
 
-static bool MiniLoadRomFile(const char *path) {
-  FILE *f = fopen(path, "rb");
-  if (f == NULL)
-    return false;
-
-  if (fseek(f, 0, SEEK_END) != 0) {
-    fclose(f);
-    return false;
-  }
-  long length = ftell(f);
-  if (length <= 0) {
-    fclose(f);
-    return false;
-  }
-  rewind(f);
-
-  size_t rom_offset = ((size_t)length & 0x7fff) == 0x200 ? 0x200 : 0;
-  size_t rom_size = (size_t)length - rom_offset;
-  if (rom_size > kMiniRomCapacity) {
-    fclose(f);
-    return false;
-  }
-
-  memset(g_mini_rom, 0, sizeof(g_mini_rom));
-  if (rom_offset != 0)
-    fseek(f, (long)rom_offset, SEEK_SET);
-  bool ok = fread(g_mini_rom, 1, rom_size, f) == rom_size;
-  fclose(f);
-  return ok;
-}
-
-static bool MiniLoadAnyRom(void) {
-  for (size_t i = 0; i < sizeof(kMiniRomCandidates) / sizeof(kMiniRomCandidates[0]); i++) {
-    if (MiniLoadRomFile(kMiniRomCandidates[i]))
-      return true;
-  }
-  return false;
-}
-
-static bool MiniLoadSaveFile(const char *path) {
-  FILE *f = fopen(path, "rb");
-  if (f == NULL)
-    return false;
-  bool ok = fread(g_mini_sram, 1, sizeof(g_mini_sram), f) == sizeof(g_mini_sram);
-  fclose(f);
-  return ok;
-}
-
-static bool MiniLoadAnySave(void) {
-  for (size_t i = 0; i < sizeof(kMiniSaveCandidates) / sizeof(kMiniSaveCandidates[0]); i++) {
-    if (MiniLoadSaveFile(kMiniSaveCandidates[i]))
-      return true;
-  }
-  return false;
-}
-
-static void MiniLoadRoomTilemaps(void) {
-  LoadLibraryBackground();
-  DisplayViewablePartOfRoom();
-  RefreshFxVisualsAfterLoad();
-  CalculateLayer2Xpos();
-  CalculateLayer2Ypos();
-  CalculateBgScrolls();
-}
-
-static void MiniConfigureRoomInfo(bool booted_from_save_slot, int spawn_x, int spawn_y) {
-  g_mini_room_info = (MiniRoomInfo){
-    .has_room = true,
-    .uses_rom_room = true,
-    .booted_from_save_slot = booted_from_save_slot,
-    .has_editor_room_visuals = false,
-    .uses_original_gameplay_runtime = MiniContentScope_AllowsRoom(room_ptr),
-    .has_original_enemies = num_enemies_in_room != 0,
-    .has_original_plms = (plm_flag & 0x8000) != 0,
-    .samus_suit = (equipped_items & 0x20) != 0 ? kMiniSamusSuit_Gravity
-                 : (equipped_items & 1) != 0 ? kMiniSamusSuit_Varia
-                 : kMiniSamusSuit_Power,
-    .room_id = room_ptr,
-    .room_source = booted_from_save_slot ? kMiniRoomSource_RomSave : kMiniRoomSource_RomDemo,
-    .room_left = 0,
-    .room_top = 0,
-    .room_right = room_width_in_blocks * kMiniBlockSize,
-    .room_bottom = room_height_in_blocks * kMiniBlockSize,
-    .room_width_blocks = room_width_in_blocks,
-    .room_height_blocks = room_height_in_blocks,
-    .camera_x = layer1_x_pos,
-    .camera_y = layer1_y_pos,
-    .spawn_x = spawn_x,
-    .spawn_y = spawn_y,
-  };
-  MiniSetRoomLabel(&g_mini_room_info, MiniContentScope_RoomHandle(room_ptr),
-                   MiniContentScope_RoomName(room_ptr));
-  g_mini_world_left = g_mini_room_info.room_left;
-  g_mini_world_right = g_mini_room_info.room_right;
-  g_mini_world_ceiling = g_mini_room_info.room_top;
-  g_mini_world_floor = g_mini_room_info.room_bottom;
-}
-
 static bool MiniTryConfigureEditorRoom(void) {
   MiniEditorRoom room;
   if (!MiniEditorBridge_LoadRoom(&room))
@@ -289,15 +156,15 @@ static bool MiniTryConfigureEditorRoom(void) {
   MiniAssetBootstrap_InstallEditorAssets(&room);
   MiniAssetBootstrap_SetSamusSuitState(MiniAssetBootstrap_GetInitialSuit());
   MiniInitializeScrollState(room.width_blocks, room.height_blocks);
-  if (MiniLoadAnyRom()) {
+  if (MiniRomBootstrap_LoadAnyRom()) {
     MiniAssetBootstrap_PrimeEditorRoomFxAndMissingRomVisuals(
         &room,
         !room.has_tileset_assets,
         !room.has_bg2_assets);
   }
-  MiniTryLoadRoomHeaderMetadata(room.room_id);
+  MiniRomBootstrap_TryLoadRoomHeaderMetadata(room.room_id);
   MiniApplyEditorScrollState(&room);
-  if (!MiniAssetBootstrap_LoadSamusBaseTilesFromAssets() && MiniLoadAnyRom())
+  if (!MiniAssetBootstrap_LoadSamusBaseTilesFromAssets() && MiniRomBootstrap_LoadAnyRom())
     MiniAssetBootstrap_InstallRomSamusBaseTiles();
   layer1_x_pos = room.camera_x;
   layer1_y_pos = room.camera_y;
@@ -348,61 +215,23 @@ static bool MiniTryConfigureEditorRoom(void) {
     .spawn_y = room.spawn_y,
   };
   MiniSetRoomLabel(&g_mini_room_info, room.handle, room.name);
-  g_mini_world_left = g_mini_room_info.room_left;
-  g_mini_world_right = g_mini_room_info.room_right;
-  g_mini_world_ceiling = g_mini_room_info.room_top;
-  g_mini_world_floor = g_mini_room_info.room_bottom;
+  MiniApplyRoomInfoWorld();
   MiniClampCamera();
   MiniEditorBridge_FreeRoom(&room);
   return true;
 }
 
 static bool MiniTryConfigureSaveSlotRoom(void) {
-  MiniAssetBootstrap_Reset();
-  if (!MiniLoadAnyRom() || !MiniLoadAnySave())
+  if (!MiniRomBootstrap_TryConfigureSaveSlotRoom(&g_mini_room_info))
     return false;
-  if (LoadFromSram(0) != 0)
-    return false;
-
-  selected_save_slot = 0;
-  LoadFromLoadStation();
-  if (!MiniContentScope_AllowsRoom(room_ptr))
-    return false;
-  if (room_ptr == kMiniLandingSiteRoom) {
-    layer1_x_pos = kMiniLandingSiteCameraX;
-    layer1_y_pos = kMiniLandingSiteCameraY;
-    samus_x_pos = kMiniLandingSiteSamusX;
-    samus_y_pos = kMiniLandingSiteSamusY;
-  }
-  MiniAssetBootstrap_LoadCurrentRoomAssets();
-  MiniLoadRoomTilemaps();
-  MiniConfigureRoomInfo(true, samus_x_pos, samus_y_pos);
+  MiniApplyRoomInfoWorld();
   return true;
 }
 
 static bool MiniTryConfigureDemoRoom(void) {
-  MiniAssetBootstrap_Reset();
-  if (!MiniLoadAnyRom())
+  if (!MiniRomBootstrap_TryConfigureDemoRoom(&g_mini_room_info))
     return false;
-
-  const uint16 *demo_sets = (const uint16 *)RomFixedPtr(0x82876c);
-  DemoRoomData *drd = get_DemoRoomData(demo_sets[0]);
-  room_ptr = drd->room_ptr_;
-  if (!MiniContentScope_AllowsRoom(room_ptr))
-    return false;
-  layer1_x_pos = drd->screen_x_pos;
-  layer1_y_pos = drd->screen_y_pos;
-  int spawn_x = layer1_x_pos + 128 + drd->samus_y_offs;
-  int spawn_y = layer1_y_pos + drd->samus_x_offs;
-  if (room_ptr == kMiniLandingSiteRoom) {
-    layer1_x_pos = kMiniLandingSiteCameraX;
-    layer1_y_pos = kMiniLandingSiteCameraY;
-    spawn_x = kMiniLandingSiteSamusX;
-    spawn_y = kMiniLandingSiteSamusY;
-  }
-  MiniAssetBootstrap_LoadCurrentRoomAssets();
-  MiniLoadRoomTilemaps();
-  MiniConfigureRoomInfo(false, spawn_x, spawn_y);
+  MiniApplyRoomInfoWorld();
   return true;
 }
 
@@ -429,12 +258,9 @@ static void MiniClampCamera(void) {
 
 void MiniStubs_Reset(void) {
   memset(g_ram, 0, sizeof(g_ram));
-  memset(g_mini_sram, 0, sizeof(g_mini_sram));
-  memset(g_mini_rom, 0, sizeof(g_mini_rom));
   MiniPpu_Reset();
   MiniAssetBootstrap_Reset();
-  g_sram = g_mini_sram;
-  g_rom = g_mini_rom;
+  MiniRomBootstrap_Reset();
 }
 
 void MiniStubs_SetRoomExportPath(const char *path) {
@@ -485,8 +311,22 @@ void MiniStubs_GetRoomInfo(MiniRoomInfo *info) {
   *info = g_mini_room_info;
 }
 
-int MiniStubs_GetRoomSprites(const MiniRoomSprite **sprites) {
-  return MiniAssetBootstrap_GetRoomSprites(sprites);
+void MiniStubs_SaveSnapshot(MiniStubsSnapshot *snapshot) {
+  snapshot->world_left = g_mini_world_left;
+  snapshot->world_right = g_mini_world_right;
+  snapshot->world_ceiling = g_mini_world_ceiling;
+  snapshot->world_floor = g_mini_world_floor;
+  snapshot->explicit_room_export_path = g_mini_explicit_room_export_path;
+  snapshot->room_info = g_mini_room_info;
+}
+
+void MiniStubs_LoadSnapshot(const MiniStubsSnapshot *snapshot) {
+  g_mini_world_left = snapshot->world_left;
+  g_mini_world_right = snapshot->world_right;
+  g_mini_world_ceiling = snapshot->world_ceiling;
+  g_mini_world_floor = snapshot->world_floor;
+  g_mini_explicit_room_export_path = snapshot->explicit_room_export_path;
+  g_mini_room_info = snapshot->room_info;
 }
 
 void MiniStubs_GetEditorTilesetView(MiniEditorTilesetView *view) {

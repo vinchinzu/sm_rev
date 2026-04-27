@@ -48,15 +48,14 @@ typedef struct MiniRoomInfo {
   int spawn_y;
 } MiniRoomInfo;
 
-typedef struct MiniRoomSprite {
-  bool active;
-  uint8 bank;
-  uint16 spritemap;
-  uint16 x_pos;
-  uint16 y_pos;
-  uint16 palette_index;
-  uint16 vram_tiles_index;
-} MiniRoomSprite;
+typedef struct MiniStubsSnapshot {
+  int world_left;
+  int world_right;
+  int world_ceiling;
+  int world_floor;
+  bool explicit_room_export_path;
+  MiniRoomInfo room_info;
+} MiniStubsSnapshot;
 
 typedef struct MiniEditorTilesetView {
   bool loaded;
@@ -101,7 +100,8 @@ void MiniStubs_Reset(void);
 void MiniStubs_SetRoomExportPath(const char *path);
 void MiniStubs_ConfigureWorld(int viewport_width, int viewport_height);
 void MiniStubs_GetRoomInfo(MiniRoomInfo *info);
-int MiniStubs_GetRoomSprites(const MiniRoomSprite **sprites);
+void MiniStubs_SaveSnapshot(MiniStubsSnapshot *snapshot);
+void MiniStubs_LoadSnapshot(const MiniStubsSnapshot *snapshot);
 void MiniStubs_GetEditorTilesetView(MiniEditorTilesetView *view);
 void MiniStubs_GetEditorBg2View(MiniEditorBg2View *view);
 int MiniStubs_GetEditorRoomSpriteViews(const MiniEditorRoomSpriteView **sprites);

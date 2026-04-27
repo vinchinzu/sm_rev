@@ -22,7 +22,7 @@
 
 static void PrintResult(const MiniOptions *options, const MiniGameState *state,
                         const char *record_path) {
-  uint64_t state_hash = MiniGameState_ComputeHash(state);
+  uint64_t state_hash = MiniStateHash(state);
   const SamusProjectileView *first_projectile =
       state->projectile_count > 0 ? &state->projectiles[0] : NULL;
   printf("{\"build\":\"mini\",\"headless\":%s,\"frames\":%d,"
@@ -146,7 +146,7 @@ static void RunFrames(MiniGameState *state, const MiniOptions *options, SDL_Rend
         MiniPollLiveButtons(&input, controller);
     }
 
-    MiniUpdate(state, &input);
+    MiniStep(state, &input);
 
     if (renderer != NULL || (recorder != NULL && recorder->pipe != NULL && !recorder->closed_early)) {
       MiniRenderFrameToPixels(frame_pixels, kMiniGameWidth, state);
@@ -167,7 +167,7 @@ static int RunHeadless(const MiniOptions *options) {
   MiniGameState state;
   MiniRecorder recorder = {0};
   MiniStubs_SetRoomExportPath(options->room_export_path);
-  MiniGameState_Init(&state, kMiniGameWidth, kMiniGameHeight);
+  MiniInit(&state, kMiniGameWidth, kMiniGameHeight);
   if (options->record && !MiniRecord_Start(&recorder))
     return 1;
   RunFrames(&state, options, NULL, NULL, NULL, &recorder);
@@ -224,7 +224,7 @@ static int RunWindowed(const MiniOptions *options) {
   MiniGameState state;
   MiniRecorder recorder = {0};
   MiniStubs_SetRoomExportPath(options->room_export_path);
-  MiniGameState_Init(&state, kMiniGameWidth, kMiniGameHeight);
+  MiniInit(&state, kMiniGameWidth, kMiniGameHeight);
   if (options->record && !MiniRecord_Start(&recorder)) {
     if (controller != NULL)
       SDL_GameControllerClose(controller);

@@ -9,17 +9,12 @@
 #include "samus_asset_bridge.h"
 #include "sm_rtl.h"
 #include "variables.h"
-#include "enemy_types.h"
 
 enum {
-  kMiniLandingSiteRoom = 0x91F8,
-  kMiniRoomSpriteCount = 3,
   kMiniRoomTilesVramSize = 0x5000,
   kMiniCreTilesVramDst = 0x5000,
   kMiniStdObjTilesVramDst = 0x6000,
   kMiniStdObjTilesVramSize = 0x2E00,
-  kMiniEnemyObjTilesVramDst = 0x6C00,
-  kMiniEnemyTileRamSize = 0x2800,
 };
 
 static bool g_mini_has_editor_tileset_assets;
@@ -37,7 +32,6 @@ static uint16 g_mini_editor_bg2_tilemap_words[kMiniEditorBridgeBg2TilemapWordCou
 static uint16 g_mini_editor_samus_palette_power[kMiniEditorBridgeSamusPaletteCount];
 static uint16 g_mini_editor_samus_palette_varia[kMiniEditorBridgeSamusPaletteCount];
 static uint16 g_mini_editor_samus_palette_gravity[kMiniEditorBridgeSamusPaletteCount];
-static MiniRoomSprite g_mini_room_sprites[kMiniRoomSpriteCount];
 static MiniEditorRoomSpriteView *g_mini_editor_room_sprite_views;
 static int g_mini_editor_room_sprite_count;
 
@@ -131,10 +125,6 @@ static void MiniCopySuitPalette(void) {
     memcpy(&target_palettes[192], palette, 32);
     memcpy(&palette_buffer[192], palette, 32);
   }
-}
-
-static void MiniClearRoomSprites(void) {
-  memset(g_mini_room_sprites, 0, sizeof(g_mini_room_sprites));
 }
 
 static void MiniInstallEditorTilesetAssets(const MiniEditorRoom *room) {
@@ -236,100 +226,7 @@ static void MiniLoadRoomFxStateFromRom(void) {
   LoadFXHeader();
 }
 
-static void MiniPrepareEnemyTiles(void) {
-  ProcessEnemyTilesets();
-  LoadEnemyTileData();
-  MiniPpu_CopyVram(kMiniEnemyObjTilesVramDst, enemy_spawn_data, kMiniEnemyTileRamSize);
-}
-
-static void MiniAddRoomSprite(int slot, uint8 bank, uint16 spritemap, uint16 x_pos, uint16 y_pos,
-                              uint16 palette_index, uint16 vram_tiles_index) {
-  if ((unsigned)slot >= kMiniRoomSpriteCount)
-    return;
-  g_mini_room_sprites[slot] = (MiniRoomSprite){
-    .active = true,
-    .bank = bank,
-    .spritemap = spritemap,
-    .x_pos = x_pos,
-    .y_pos = y_pos,
-    .palette_index = palette_index,
-    .vram_tiles_index = vram_tiles_index,
-  };
-}
-
-static uint16 MiniGetEnemyInitialSpritemap(const EnemyData *enemy) {
-  if (enemy->current_instruction == 0)
-    return enemy->spritemap_pointer;
-
-  const uint16 *instr = (const uint16 *)RomPtrWithBank(enemy->bank, enemy->current_instruction);
-  if ((instr[0] & 0x8000) != 0)
-    return enemy->spritemap_pointer;
-  return instr[1];
-}
-
-static bool MiniBootstrapGunshipEnemy(int slot, uint16 population_ptr) {
-  uint16 enemy_index = slot * 64;
-  EnemyPopulation *ep = get_EnemyPopulation(0xA1, population_ptr);
-  EnemyDef *ed = get_EnemyDef_A2(ep->enemy_ptr);
-  EnemyData *enemy = gEnemyData(enemy_index);
-  EnemySpawnData *spawn = gEnemySpawnData(enemy_index);
-
-  memset(enemy, 0, sizeof(*enemy));
-  memset(spawn, 0, sizeof(*spawn));
-
-  enemy->enemy_ptr = ep->enemy_ptr;
-  enemy->x_pos = ep->x_pos;
-  enemy->y_pos = ep->y_pos;
-  enemy->x_width = ed->x_radius;
-  enemy->y_height = ed->y_radius;
-  enemy->health = ed->health;
-  enemy->layer = ed->layer;
-  enemy->current_instruction = ep->init_param;
-  enemy->properties = ep->properties;
-  enemy->extra_properties = ep->extra_properties;
-  enemy->parameter_1 = ep->parameter1;
-  enemy->parameter_2 = ep->parameter2;
-  enemy->instruction_timer = 1;
-  enemy->bank = ed->bank;
-
-  LoadEnemyGfxIndexes(population_ptr, enemy_index);
-
-  cur_enemy_index = enemy_index;
-  if (ep->enemy_ptr == 0xD07F) {
-    GunshipTop_Init();
-  } else if (ep->enemy_ptr == 0xD0BF) {
-    GunshipBottom_Init();
-  } else {
-    return false;
-  }
-
-  uint16 spritemap = MiniGetEnemyInitialSpritemap(enemy);
-  if (spritemap == 0)
-    return false;
-
-  MiniAddRoomSprite(slot, enemy->bank, spritemap, enemy->x_pos, enemy->y_pos,
-                    enemy->palette_index, enemy->vram_tiles_index);
-  return true;
-}
-
-static void MiniBootstrapLandingSiteGunship(void) {
-  if (room_ptr != kMiniLandingSiteRoom || room_enemy_population_ptr == 0 || room_enemy_tilesets_ptr == 0)
-    return;
-
-  MiniPrepareEnemyTiles();
-  memset(enemy_data, 0, 2048);
-  memset(enemy_spawn_data, 0, 0x2800);
-
-  for (int i = 0, slot = 0; slot < kMiniRoomSpriteCount; i++, slot++) {
-    EnemyPopulation *ep = get_EnemyPopulation(0xA1, room_enemy_population_ptr + i * sizeof(EnemyPopulation));
-    if (ep->enemy_ptr == 0xFFFF)
-      break;
-    MiniBootstrapGunshipEnemy(slot, room_enemy_population_ptr + i * sizeof(EnemyPopulation));
-  }
-}
-
 void MiniAssetBootstrap_Reset(void) {
-  MiniClearRoomSprites();
   MiniClearEditorTilesetAssets();
   MiniClearEditorSamusPaletteAssets();
   SamusAssetBridge_Reset();
@@ -412,9 +309,6 @@ void MiniAssetBootstrap_LoadCurrentRoomAssets(void) {
   LoadRoomPlmGfx();
   EnableEprojs();
   EnablePLMs();
-  MiniClearRoomSprites();
-  if (num_enemies_in_room == 0)
-    MiniBootstrapLandingSiteGunship();
 }
 
 void MiniAssetBootstrap_PrimeEditorRoomFxAndMissingRomVisuals(const MiniEditorRoom *room,
@@ -447,11 +341,6 @@ void MiniAssetBootstrap_PrimeEditorRoomFxAndMissingRomVisuals(const MiniEditorRo
     g_mini_editor_bg2_scroll_y = (uint8)(room->export_bg_scrolling >> 8);
     g_mini_has_editor_bg2_assets = true;
   }
-}
-
-int MiniAssetBootstrap_GetRoomSprites(const MiniRoomSprite **sprites) {
-  *sprites = g_mini_room_sprites;
-  return kMiniRoomSpriteCount;
 }
 
 void MiniAssetBootstrap_GetEditorTilesetView(MiniEditorTilesetView *view) {

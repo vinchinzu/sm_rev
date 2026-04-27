@@ -5,10 +5,6 @@
 #include "sm_rtl.h"
 #include "variables.h"
 
-enum {
-  kMiniVramSize = 0x10000,
-};
-
 static struct {
   uint16 vram_addr;
   uint8 vmain;
@@ -22,7 +18,7 @@ static struct {
   bool cgram_low_pending;
 } g_mini_ppu;
 
-static uint8 g_mini_vram[kMiniVramSize];
+static uint8 g_mini_vram[kMiniPpuVramSize];
 
 static const uint8 *MiniBusPtr(uint8 bank, uint16 addr) {
   if (bank == 0x7E || bank == 0x7F)
@@ -48,14 +44,14 @@ static void MiniAdvanceVramAddr(bool accessed_high) {
 
 static void MiniWriteVramData(bool high, uint8 value) {
   size_t offset = ((size_t)g_mini_ppu.vram_addr << 1) + (high ? 1 : 0);
-  if (offset < kMiniVramSize)
+  if (offset < kMiniPpuVramSize)
     g_mini_vram[offset] = value;
   MiniAdvanceVramAddr(high);
 }
 
 static uint8 MiniReadVramData(bool high) {
   size_t offset = ((size_t)g_mini_ppu.vram_addr << 1) + (high ? 1 : 0);
-  uint8 value = offset < kMiniVramSize ? g_mini_vram[offset] : 0;
+  uint8 value = offset < kMiniPpuVramSize ? g_mini_vram[offset] : 0;
   MiniAdvanceVramAddr(high);
   return value;
 }
@@ -132,15 +128,43 @@ void MiniPpu_InitGameplay(void) {
 
 void MiniPpu_CopyVram(uint16 vram_dst, const void *src, size_t size) {
   size_t dst = (size_t)vram_dst << 1;
-  if (dst >= kMiniVramSize || size == 0)
+  if (dst >= kMiniPpuVramSize || size == 0)
     return;
-  if (size > kMiniVramSize - dst)
-    size = kMiniVramSize - dst;
+  if (size > kMiniPpuVramSize - dst)
+    size = kMiniPpuVramSize - dst;
   memcpy(g_mini_vram + dst, src, size);
 }
 
 uint8 *MiniPpu_GetVram(void) {
   return g_mini_vram;
+}
+
+void MiniPpu_SaveSnapshot(MiniPpuSnapshot *snapshot) {
+  snapshot->vram_addr = g_mini_ppu.vram_addr;
+  snapshot->vmain = g_mini_ppu.vmain;
+  snapshot->a1t1 = g_mini_ppu.a1t1;
+  snapshot->a1b1 = g_mini_ppu.a1b1;
+  snapshot->das1 = g_mini_ppu.das1;
+  snapshot->dmap1 = g_mini_ppu.dmap1;
+  snapshot->bbad1 = g_mini_ppu.bbad1;
+  snapshot->cgadd = g_mini_ppu.cgadd;
+  snapshot->cgram_latch = g_mini_ppu.cgram_latch;
+  snapshot->cgram_low_pending = g_mini_ppu.cgram_low_pending;
+  memcpy(snapshot->vram, g_mini_vram, sizeof(snapshot->vram));
+}
+
+void MiniPpu_LoadSnapshot(const MiniPpuSnapshot *snapshot) {
+  g_mini_ppu.vram_addr = snapshot->vram_addr;
+  g_mini_ppu.vmain = snapshot->vmain;
+  g_mini_ppu.a1t1 = snapshot->a1t1;
+  g_mini_ppu.a1b1 = snapshot->a1b1;
+  g_mini_ppu.das1 = snapshot->das1;
+  g_mini_ppu.dmap1 = snapshot->dmap1;
+  g_mini_ppu.bbad1 = snapshot->bbad1;
+  g_mini_ppu.cgadd = snapshot->cgadd;
+  g_mini_ppu.cgram_latch = snapshot->cgram_latch;
+  g_mini_ppu.cgram_low_pending = snapshot->cgram_low_pending;
+  memcpy(g_mini_vram, snapshot->vram, sizeof(snapshot->vram));
 }
 
 void WriteReg(uint16 reg, uint8 value) {

@@ -1,6 +1,7 @@
 #include "mini_game.h"
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "funcs.h"
@@ -15,7 +16,25 @@
 enum {
   kMiniItem_VariaSuit = 1,
   kMiniItem_GravitySuit = 0x20,
+  kMiniSnapshotMagic = 0x4D53534D,
+  kMiniSnapshotVersion = 1,
+  kMiniRamSnapshotSize = 0x20000,
+  kMiniSramSnapshotSize = 0x2000,
 };
+
+typedef struct MiniStateSnapshot {
+  uint32 magic;
+  uint32 version;
+  MiniGameState game;
+  MiniStubsSnapshot stubs;
+  MiniPpuSnapshot ppu;
+  uint8 ram[kMiniRamSnapshotSize];
+  uint8 sram[kMiniSramSnapshotSize];
+  bool use_my_apu_code;
+  bool host_debug_flag;
+  int snes_frame_counter;
+  uint16 installed_bug_fix_counter;
+} MiniStateSnapshot;
 
 static uint64_t MiniHashBytes(uint64_t hash, const void *data, size_t size) {
   static const uint64_t kFnvPrime = UINT64_C(1099511628211);
@@ -262,6 +281,81 @@ uint64_t MiniGameState_ComputeHash(const MiniGameState *state) {
   hash = MiniHashBytes(hash, room.room_name, sizeof(room.room_name));
   hash = MiniHashBytes(hash, g_ram, sizeof(g_ram));
   hash = MiniHashBytes(hash, g_sram, 0x2000);
-  hash = MiniHashBytes(hash, MiniPpu_GetVram(), 0x10000);
+  hash = MiniHashBytes(hash, MiniPpu_GetVram(), kMiniPpuVramSize);
   return hash;
+}
+
+void MiniInit(MiniGameState *state, int viewport_width, int viewport_height) {
+  MiniGameState_Init(state, viewport_width, viewport_height);
+}
+
+void MiniStep(MiniGameState *state, const MiniInputState *input) {
+  MiniUpdate(state, input);
+}
+
+void MiniStepButtons(MiniGameState *state, uint16 buttons, bool quit_requested) {
+  MiniInputState input = {
+    .buttons = buttons,
+    .quit_requested = quit_requested,
+  };
+  MiniStep(state, &input);
+}
+
+uint64_t MiniStateHash(const MiniGameState *state) {
+  return MiniGameState_ComputeHash(state);
+}
+
+size_t MiniSaveStateSize(void) {
+  return sizeof(MiniStateSnapshot);
+}
+
+bool MiniSaveState(const MiniGameState *state, void *buffer, size_t buffer_size) {
+  if (state == NULL || buffer == NULL || buffer_size < sizeof(MiniStateSnapshot))
+    return false;
+
+  MiniStateSnapshot *snapshot = (MiniStateSnapshot *)buffer;
+  memset(snapshot, 0, sizeof(*snapshot));
+  snapshot->magic = kMiniSnapshotMagic;
+  snapshot->version = kMiniSnapshotVersion;
+  snapshot->game = *state;
+  MiniStubs_SaveSnapshot(&snapshot->stubs);
+  MiniPpu_SaveSnapshot(&snapshot->ppu);
+  memcpy(snapshot->ram, g_ram, sizeof(snapshot->ram));
+  memcpy(snapshot->sram, g_sram, sizeof(snapshot->sram));
+  snapshot->use_my_apu_code = g_use_my_apu_code;
+  snapshot->host_debug_flag = g_debug_flag;
+  snapshot->snes_frame_counter = snes_frame_counter;
+  snapshot->installed_bug_fix_counter = currently_installed_bug_fix_counter;
+  return true;
+}
+
+bool MiniLoadState(MiniGameState *state, const void *buffer, size_t buffer_size) {
+  if (state == NULL || buffer == NULL || buffer_size < sizeof(MiniStateSnapshot))
+    return false;
+
+  const MiniStateSnapshot *snapshot = (const MiniStateSnapshot *)buffer;
+  if (snapshot->magic != kMiniSnapshotMagic || snapshot->version != kMiniSnapshotVersion)
+    return false;
+
+  *state = snapshot->game;
+  MiniStubs_LoadSnapshot(&snapshot->stubs);
+  MiniPpu_LoadSnapshot(&snapshot->ppu);
+  memcpy(g_ram, snapshot->ram, sizeof(snapshot->ram));
+  memcpy(g_sram, snapshot->sram, sizeof(snapshot->sram));
+  g_use_my_apu_code = snapshot->use_my_apu_code;
+  g_debug_flag = snapshot->host_debug_flag;
+  snes_frame_counter = snapshot->snes_frame_counter;
+  currently_installed_bug_fix_counter = snapshot->installed_bug_fix_counter;
+  return true;
+}
+
+MiniGameState *MiniCreate(int viewport_width, int viewport_height) {
+  MiniGameState *state = (MiniGameState *)calloc(1, sizeof(*state));
+  if (state != NULL)
+    MiniInit(state, viewport_width, viewport_height);
+  return state;
+}
+
+void MiniDestroy(MiniGameState *state) {
+  free(state);
 }

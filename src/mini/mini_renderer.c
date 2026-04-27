@@ -108,6 +108,28 @@ static void MiniRenderTile(uint32_t *pixels, int pitch_pixels, const uint8 *tile
   }
 }
 
+static void MiniRenderTileScanline(uint32_t *pixels, int pitch_pixels, const uint8 *tiles,
+                                   const uint16 *palette, int tile_base, uint16 tile_attr,
+                                   int dst_x, int dst_y, int tile_row) {
+  int tile_index = tile_base + (tile_attr & 0x3FF);
+  int palette_base = ((tile_attr >> 10) & 7) * 16;
+  bool x_flip = (tile_attr & 0x4000) != 0;
+  bool y_flip = (tile_attr & 0x8000) != 0;
+  int sy = y_flip ? 7 - tile_row : tile_row;
+  if ((unsigned)dst_y >= kMiniGameHeight)
+    return;
+  for (int px = 0; px < 8; px++) {
+    int sx = x_flip ? 7 - px : px;
+    int out_x = dst_x + px;
+    if ((unsigned)out_x >= kMiniGameWidth)
+      continue;
+    uint8 color_index = MiniDecode4bppPixel(tiles, tile_index, sx, sy);
+    if (color_index == 0)
+      continue;
+    pixels[dst_y * pitch_pixels + out_x] = MiniConvertBgr555(palette[palette_base + color_index]);
+  }
+}
+
 static uint16 MiniReadVramWord(const uint8 *vram, uint16 word_addr) {
   size_t offset = (size_t)(word_addr & 0x7FFF) << 1;
   return GET_WORD(vram + offset);
@@ -198,21 +220,21 @@ static void MiniRenderEditorBg2(uint32_t *pixels, int pitch_pixels, const MiniGa
   if (!bg2_view.loaded || bg2_view.tilemap_words == NULL || !tileset_view->loaded)
     return;
 
-  int scroll_x = reg_BG2HOFS + MiniRoomFx_EditorBg2DriftX(state);
+  int base_scroll_x = reg_BG2HOFS + MiniRoomFx_EditorBg2DriftX(state);
   int scroll_y = reg_BG2VOFS;
-  int first_tile_x = scroll_x / 8;
-  int first_tile_y = scroll_y / 8;
-  int last_tile_x = (scroll_x + kMiniGameWidth + 7) / 8;
-  int last_tile_y = (scroll_y + kMiniGameHeight + 7) / 8;
-  for (int tile_y = first_tile_y; tile_y <= last_tile_y; tile_y++) {
+  for (int screen_y = 0; screen_y < kMiniGameHeight; screen_y++) {
+    int scroll_x = MiniRoomFx_EditorBg2ScrollXForScanline(state, screen_y, base_scroll_x);
+    int tile_y = (scroll_y + screen_y) / 8;
     int wrapped_y = tile_y & 31;
+    int tile_row = (scroll_y + screen_y) & 7;
+    int first_tile_x = scroll_x / 8;
+    int last_tile_x = (scroll_x + kMiniGameWidth + 7) / 8;
     for (int tile_x = first_tile_x; tile_x <= last_tile_x; tile_x++) {
       int wrapped_x = tile_x & 63;
       uint16 tile_attr = bg2_view.tilemap_words[wrapped_y * 64 + wrapped_x];
       int screen_x = tile_x * 8 - scroll_x;
-      int screen_y = tile_y * 8 - scroll_y;
-      MiniRenderTile(pixels, pitch_pixels, tileset_view->tiles4bpp, tileset_view->palette,
-                     0, tile_attr, screen_x, screen_y);
+      MiniRenderTileScanline(pixels, pitch_pixels, tileset_view->tiles4bpp, tileset_view->palette,
+                             0, tile_attr, screen_x, screen_y, tile_row);
     }
   }
 }
@@ -532,29 +554,6 @@ static void MiniRenderProjectiles(uint32_t *pixels, int pitch_pixels, const Mini
   }
 }
 
-static void MiniRenderRoomSprites(uint32_t *pixels, int pitch_pixels) {
-  const MiniRoomSprite *sprites = NULL;
-  int count = MiniStubs_GetRoomSprites(&sprites);
-  if (count <= 0 || sprites == NULL)
-    return;
-
-  memset(oam_ext, 0, sizeof(uint16) * 16);
-  oam_next_ptr = 0;
-  for (int i = 0; i < count; i++) {
-    const MiniRoomSprite *sprite = &sprites[i];
-    if (!sprite->active)
-      continue;
-    DrawSpritemapWithBaseTile(sprite->bank,
-                              sprite->spritemap,
-                              sprite->x_pos - layer1_x_pos,
-                              sprite->y_pos - layer1_y_pos,
-                              sprite->palette_index,
-                              sprite->vram_tiles_index);
-  }
-
-  MiniRenderCurrentOam(pixels, pitch_pixels, oam_next_ptr);
-}
-
 void MiniRenderFrameToPixels(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
   MiniRenderRoom(pixels, pitch_pixels, state);
   if (state->uses_original_gameplay_runtime) {
@@ -562,9 +561,8 @@ void MiniRenderFrameToPixels(uint32_t *pixels, int pitch_pixels, const MiniGameS
     return;
   }
   if (state->uses_rom_room)
-    MiniRenderRoomSprites(pixels, pitch_pixels);
-  else
-    MiniRenderEditorRoomSprites(pixels, pitch_pixels, state);
+    return;
+  MiniRenderEditorRoomSprites(pixels, pitch_pixels, state);
   MiniRenderSamus(pixels, pitch_pixels);
   MiniRenderProjectiles(pixels, pitch_pixels, state);
 }

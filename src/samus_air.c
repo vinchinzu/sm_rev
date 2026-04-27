@@ -6,11 +6,6 @@
 #include "samus_env.h"
 #include "sm_rtl.h"
 
-typedef struct SamusSpinJumpRejumpWindow {
-  uint16 min_y_vel;
-  uint16 max_y_vel;
-} SamusSpinJumpRejumpWindow;
-
 enum {
   kSamusSpinJumpRejumpYVel_AirMin = 0x280,
   kSamusSpinJumpRejumpYVel_SubmergedMin = 0x80,
@@ -25,12 +20,6 @@ enum {
   kSfx1_UnderwaterSpinJump = 0x2F,
 };
 
-enum SamusSuitPaletteVariant {
-  kSamusSuitPaletteVariant_Power = 0,
-  kSamusSuitPaletteVariant_Varia = 2,
-  kSamusSuitPaletteVariant_Gravity = 4,
-};
-
 static const uint8 *Samus_GetFramesForUnderwaterSfx(void) {
   return RomFixedPtr(0x90a514);
 }
@@ -40,7 +29,7 @@ static uint16 Samus_GetSpinJumpVerticalVelocity(void) {
 }
 
 static bool Samus_IsSpinJumpSubmerged(void) {
-  if ((samus_suit_palette_index & kSamusSuitPaletteVariant_Gravity) != 0)
+  if ((samus_suit_palette_index & kSamusSuitPalette_Gravity) != 0)
     return false;
 
   uint16 samus_top = Samus_GetTop_R20();
@@ -49,13 +38,26 @@ static bool Samus_IsSpinJumpSubmerged(void) {
   return Samus_IsSubmergedInWater(samus_top);
 }
 
-static bool Samus_CanHiJumpRejumpDuringSpin(const SamusSpinJumpRejumpWindow *window) {
+static SamusRejumpWindow Samus_GetSpinJumpRejumpWindow(uint16 vertical_env) {
+  if (vertical_env != kLiquidPhysicsType_Air) {
+    return (SamusRejumpWindow){
+      .min_y_subspeed_hi = kSamusSpinJumpRejumpYVel_SubmergedMin,
+      .max_y_subspeed_hi = kSamusSpinJumpRejumpYVel_Max,
+    };
+  }
+  return (SamusRejumpWindow){
+    .min_y_subspeed_hi = kSamusSpinJumpRejumpYVel_AirMin,
+    .max_y_subspeed_hi = kSamusSpinJumpRejumpYVel_Max,
+  };
+}
+
+static bool Samus_CanHiJumpRejumpDuringSpin(const SamusRejumpWindow *window) {
   if (!Samus_HasEquip(kSamusEquip_HiJumpBoots) || samus_y_dir != 2)
     return false;
 
   uint16 vertical_velocity = Samus_GetSpinJumpVerticalVelocity();
-  return (int16)(vertical_velocity - window->min_y_vel) >= 0
-      && sign16(vertical_velocity - window->max_y_vel);
+  return (int16)(vertical_velocity - window->min_y_subspeed_hi) >= 0
+      && sign16(vertical_velocity - window->max_y_subspeed_hi);
 }
 
 static void Samus_SetUnusedDfaLowByte(uint8 value) {
@@ -64,6 +66,46 @@ static void Samus_SetUnusedDfaLowByte(uint8 value) {
 
 static bool Samus_HasPseudoScrewCharge(void) {
   return !sign16(flare_counter - kSamusPseudoScrewChargeFrames);
+}
+
+static bool Samus_IsScrewAttackSpinPose(void) {
+  return samus_pose == kPose_81_FaceR_Screwattack
+      || samus_pose == kPose_82_FaceL_Screwattack;
+}
+
+static SamusSpinJumpContext Samus_BuildSpinJumpContext(void) {
+  uint16 vertical_env = liquid_physics_type;
+  SamusRejumpWindow rejump_window = Samus_GetSpinJumpRejumpWindow(vertical_env);
+  bool submerged = Samus_IsSpinJumpSubmerged();
+  return (SamusSpinJumpContext){
+    .vertical_env = vertical_env,
+    .submerged = submerged,
+    .can_rejump = !submerged && Samus_CanHiJumpRejumpDuringSpin(&rejump_window),
+    .screw_attack_active = Samus_IsScrewAttackSpinPose(),
+    .pseudo_screw_active = Samus_HasPseudoScrewCharge(),
+  };
+}
+
+static void Samus_TrySpinJumpRejump(const SamusSpinJumpContext *ctx) {
+  if (!ctx->can_rejump)
+    return;
+  Samus_SetUnusedDfaLowByte(1);
+  if ((button_config_jump_a & joypad1_newkeys) != 0)
+    Samus_InitJump();
+}
+
+static void Samus_UpdateSpinJumpContactDamage(const SamusSpinJumpContext *ctx) {
+  if (ctx->screw_attack_active) {
+    samus_contact_damage_index = kSamusContactDamage_ScrewAttack;
+  } else if (ctx->pseudo_screw_active) {
+    samus_contact_damage_index = kSamusContactDamage_PseudoScrew;
+  }
+}
+
+static void Samus_TickSpinJumpLiquidSfx(const SamusSpinJumpContext *ctx) {
+  (void)ctx;
+  if (samus_anim_frame_timer == 1 && Samus_GetFramesForUnderwaterSfx()[samus_anim_frame])
+    QueueSfx1_Max6(kSfx1_UnderwaterSpinJump);
 }
 
 static void Samus_TurningAroundInAirMovement(void) {
@@ -81,31 +123,12 @@ void Samus_Movement_02_NormalJumping(void) {
 }
 
 void Samus_Movement_03_SpinJumping(void) {  // 0x90A436
-  static const SamusSpinJumpRejumpWindow kAirRejumpWindow = {
-    .min_y_vel = kSamusSpinJumpRejumpYVel_AirMin,
-    .max_y_vel = kSamusSpinJumpRejumpYVel_Max,
-  };
-  static const SamusSpinJumpRejumpWindow kWaterRejumpWindow = {
-    .min_y_vel = kSamusSpinJumpRejumpYVel_SubmergedMin,
-    .max_y_vel = kSamusSpinJumpRejumpYVel_Max,
-  };
-
-  if (!Samus_IsSpinJumpSubmerged()) {
-    const SamusSpinJumpRejumpWindow *rejump_window =
-        (liquid_physics_type != kLiquidPhysicsType_Air) ? &kWaterRejumpWindow : &kAirRejumpWindow;
-    if (Samus_CanHiJumpRejumpDuringSpin(rejump_window)) {
-      Samus_SetUnusedDfaLowByte(1);
-      if ((button_config_jump_a & joypad1_newkeys) != 0)
-        Samus_InitJump();
-    }
-
-    if (samus_pose == kPose_81_FaceR_Screwattack || samus_pose == kPose_82_FaceL_Screwattack) {
-      samus_contact_damage_index = kSamusContactDamage_ScrewAttack;
-    } else if (Samus_HasPseudoScrewCharge()) {
-      samus_contact_damage_index = kSamusContactDamage_PseudoScrew;
-    }
-  } else if (samus_anim_frame_timer == 1 && Samus_GetFramesForUnderwaterSfx()[samus_anim_frame]) {
-    QueueSfx1_Max6(kSfx1_UnderwaterSpinJump);
+  SamusSpinJumpContext ctx = Samus_BuildSpinJumpContext();
+  if (!ctx.submerged) {
+    Samus_TrySpinJumpRejump(&ctx);
+    Samus_UpdateSpinJumpContactDamage(&ctx);
+  } else {
+    Samus_TickSpinJumpLiquidSfx(&ctx);
   }
 
   Samus_SpinJumpMovement();

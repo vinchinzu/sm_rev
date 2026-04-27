@@ -4,6 +4,7 @@
 #include "stubs_mini.h"
 #include "samus_projectile_view.h"
 #include "types.h"
+#include <stddef.h>
 #include <stdint.h>
 
 enum {
@@ -56,5 +57,16 @@ typedef struct MiniGameState {
 void MiniGameState_Init(MiniGameState *state, int viewport_width, int viewport_height);
 void MiniUpdate(MiniGameState *state, const MiniInputState *input);
 uint64_t MiniGameState_ComputeHash(const MiniGameState *state);
+
+void MiniInit(MiniGameState *state, int viewport_width, int viewport_height);
+void MiniStep(MiniGameState *state, const MiniInputState *input);
+void MiniStepButtons(MiniGameState *state, uint16 buttons, bool quit_requested);
+uint64_t MiniStateHash(const MiniGameState *state);
+size_t MiniSaveStateSize(void);
+bool MiniSaveState(const MiniGameState *state, void *buffer, size_t buffer_size);
+bool MiniLoadState(MiniGameState *state, const void *buffer, size_t buffer_size);
+
+MiniGameState *MiniCreate(int viewport_width, int viewport_height);
+void MiniDestroy(MiniGameState *state);
 
 #endif  // SM_MINI_GAME_H_

@@ -273,9 +273,11 @@ class TestBuildMini:
             "--headless",
             "--frames",
             "20",
+            "--room-export",
+            str(tmp_path / "missing_room.json"),
             "--input-script",
             str(script),
-        ])
+        ], cwd=tmp_path)
         assert r.returncode == 0, f"mini shooting smoke failed:\n{r.stderr}\n{r.stdout}"
         payload = parse_json_payload(r.stdout)
         assert payload["projectile_count"] >= 1, r.stdout

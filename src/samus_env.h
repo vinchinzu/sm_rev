@@ -37,6 +37,25 @@ typedef enum SamusContactDamageMode {
   kSamusContactDamage_PseudoScrew = 4,
 } SamusContactDamageMode;
 
+typedef enum SamusSuitPaletteVariant {
+  kSamusSuitPalette_Power = 0,
+  kSamusSuitPalette_Varia = 2,
+  kSamusSuitPalette_Gravity = 4,
+} SamusSuitPaletteVariant;
+
+typedef struct SamusSpinJumpContext {
+  uint16 vertical_env;
+  bool submerged;
+  bool can_rejump;
+  bool screw_attack_active;
+  bool pseudo_screw_active;
+} SamusSpinJumpContext;
+
+typedef struct SamusRejumpWindow {
+  uint16 min_y_subspeed_hi;
+  uint16 max_y_subspeed_hi;
+} SamusRejumpWindow;
+
 typedef enum SamusPoseXDirection {
   kSamusPoseXDir_FaceRight = 4,
   kSamusPoseXDir_FaceLeft = 8,

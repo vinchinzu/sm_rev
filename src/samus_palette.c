@@ -6,6 +6,7 @@
 #include "variables.h"
 #include "sm_rtl.h"
 #include "funcs.h"
+#include "samus_env.h"
 
 #define off_91D727 ((uint16*)RomFixedPtr(0x91d727))
 #define kSamusPalette_HyperBeam ((uint16*)RomFixedPtr(0x91d829))
@@ -552,17 +553,17 @@ LABEL_17:;
 }
 
 uint8 Samus_HandleScrewAttackSpeedBoostingPals(void) {  // 0x91D9B2
-  if ((samus_suit_palette_index & 4) == 0) {
+  if ((samus_suit_palette_index & kSamusSuitPalette_Gravity) == 0) {
     uint16 r20 = Samus_GetTop_R20();
-    if ((fx_y_pos & 0x8000) != 0) {
-      if ((lava_acid_y_pos & 0x8000) == 0 && sign16(lava_acid_y_pos - r20))
+    if ((fx_y_pos & kLiquidYPos_Disabled) != 0) {
+      if ((lava_acid_y_pos & kLiquidYPos_Disabled) == 0 && sign16(lava_acid_y_pos - r20))
         return 1;
-    } else if (sign16(fx_y_pos - r20) && (fx_liquid_options & 4) == 0) {
+    } else if (sign16(fx_y_pos - r20) && (fx_liquid_options & kFxLiquidOptions_Passthrough) == 0) {
       return 1;
     }
   }
   if (samus_movement_type == kMovementType_03_SpinJumping) {
-    if ((equipped_items & 8) == 0)
+    if (!Samus_HasEquip(kSamusEquip_ScrewAttack))
       goto LABEL_10;
     if (samus_anim_frame) {
       if (!sign16(samus_anim_frame - 27))
@@ -572,7 +573,7 @@ uint8 Samus_HandleScrewAttackSpeedBoostingPals(void) {  // 0x91D9B2
     goto LABEL_21;
   }
   if (samus_movement_type == kMovementType_14_WallJumping) {
-    if ((equipped_items & 8) == 0)
+    if (!Samus_HasEquip(kSamusEquip_ScrewAttack))
       return 1;
     if (!sign16(samus_anim_frame - 3)) {
 LABEL_18:;

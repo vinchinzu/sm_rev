@@ -7,6 +7,7 @@
 
 #undef r18
 
+#define g_stru_A7902D ((ExtendedSpriteMap*)RomFixedPtr(0xa7902d))
 #define g_off_A7CE8E ((uint16*)RomFixedPtr(0xa7ce8e))
 #define g_word_A7CDED ((uint16*)RomFixedPtr(0xa7cded))
 #define g_byte_A7CFC2 ((uint8*)RomFixedPtr(0xa7cfc2))
