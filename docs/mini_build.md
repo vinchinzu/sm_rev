@@ -50,6 +50,22 @@ macOS:
 
 The existing native macOS path uses SDL2 frameworks and turns on bundled assets by default for the full build. The mini shell does not require a ROM and is the easiest target to validate first on macOS.
 
+## Rust Rollback Host
+
+`make mini-rust-host` builds `sm_rev_mini_rs`, a headless Rust host that drives
+the C mini gameplay kernel through `MiniCreate`, `MiniStepButtons`,
+`MiniSaveState`, `MiniLoadState`, and `MiniStateHash`.
+
+Useful commands:
+
+- `./sm_rev_mini_rs --frames 6`
+- `./sm_rev_mini_rs --rollback --frames 18 --input-delay 3 --rollback-window 8 --trace`
+
+Rollback mode keeps a fixed-size ring of pre-step snapshots, predicts input,
+reveals actual delayed input later, rewinds to the changed frame, re-simulates
+to the current frame, and compares the final per-frame hashes with a clean
+reference run. A hash mismatch is reported as a desync and exits non-zero.
+
 ## Landing Site Parity Shape
 
 Mini has moved past the first negative-only shell. The target is now:

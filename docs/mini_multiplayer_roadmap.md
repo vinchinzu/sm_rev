@@ -371,7 +371,7 @@ Success condition:
 
 ### Phase 6: Port The Host First, Not The Gameplay Core [complete]
 
-Status: Complete for the first host port.
+Status: Complete for the first headless host and rollback driver.
 
 Completed work:
 
@@ -381,6 +381,10 @@ Completed work:
   `libsm_rev_mini_kernel.a`
 - the Rust host initializes the C kernel, steps deterministic input, saves and
   reloads state, and reports hashes without moving gameplay code out of C
+- `./sm_rev_mini_rs --rollback` keeps a ring of opaque C snapshots, injects
+  actual input after a configured delay, rewinds to the changed frame,
+  re-simulates back to the current frame, and reports hash desyncs against a
+  clean reference run
 - the SDL windowed host remains in C for now; the important boundary is that a
   non-C host can drive the validated gameplay kernel without owning gameplay
 

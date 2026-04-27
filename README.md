@@ -41,16 +41,15 @@ The project has moved past the first mini-shell milestone. The immediate work is
 
 - the mini gameplay API now exposes `MiniInit`, `MiniStep`, `MiniSaveState`, `MiniLoadState`, `MiniStateHash`, `MiniCreate`, and `MiniDestroy`
 - `make mini-test` runs the mini smoke test plus a focused rollback seam check
-- a first Rust headless host exists in `src/mini/mini_rust_host.rs`
+- the Rust headless host in `src/mini/mini_rust_host.rs` can now run a rollback simulation over the C gameplay API
 - ROM/save bootstrap and first-pass room FX have been split into mini-specific modules instead of growing `stubs_mini.c` forever like an evil coral reef
 
 ### Next workstreams
 
-1. **Rollback driver**
-   - build a headless rollback runner on top of the mini C API
-   - keep a snapshot ring buffer
-   - support rewind + re-simulate from delayed input
-   - emit deterministic hashes for desync detection
+1. **Rollback stress coverage**
+   - keep expanding the Rust rollback host beyond the current deterministic smoke path
+   - exercise longer delayed-input windows, room-export inputs, projectile-heavy scripts, and ROM-backed room paths
+   - make CI fail loudly when rollback hashes diverge from a clean reference run
 
 2. **Determinism stress tests**
    - expand beyond the current short rollback seam check
