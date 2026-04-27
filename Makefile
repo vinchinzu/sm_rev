@@ -98,6 +98,7 @@ $(MINI_KERNEL_LIB): $(MINI_KERNEL_OBJS) $(MINI_ASSET_DEPS)
 	$(AR) rcs $@ $(MINI_KERNEL_OBJS)
 
 mini-rollback-test: $(MINI_ROLLBACK_TEST)
+	./$(MINI_ROLLBACK_TEST)
 
 $(MINI_ROLLBACK_TEST): tests/mini_rollback_api.c $(MINI_KERNEL_LIB)
 	$(CC) $(MINI_CFLAGS) $< -o $@ -L. -lsm_rev_mini_kernel $(MINI_LDFLAGS)
@@ -112,7 +113,6 @@ run: all
 
 mini-test: mini mini-rollback-test
 	./$(MINI_TARGET_EXEC) --headless --frames 3
-	./$(MINI_ROLLBACK_TEST)
 
 mini-mac: NATIVE_MAC=1
 mini-mac: mini
