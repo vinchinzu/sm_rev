@@ -295,3 +295,45 @@ class TestHeadlessRunMode:
         assert mine.returncode == 0, f"mine run failed:\n{mine.stderr}"
         assert theirs.returncode == 0, f"theirs run failed:\n{theirs.stderr}"
         assert mine_frame.read_bytes() == theirs_frame.read_bytes()
+
+    def test_jump_only_mod_does_not_override_run_start_speed(self, tmp_path: Path):
+        """Jump-only mods must not replace the ROM horizontal run speed table."""
+        saves = find_saves()
+        if not saves:
+            pytest.skip("no save states available")
+
+        config = tmp_path / "sm.ini"
+        config.write_text("[General]\nSkipIntro=1\n[Features]\nFullSpec=0\n", encoding="utf-8")
+        (tmp_path / "sm_mods.json").write_text(
+            json.dumps({
+                "gravity_scale_percent": 100,
+                "run_speed_scale_percent": 100,
+                "jump_scale_percent": 101,
+            }) + "\n",
+            encoding="utf-8",
+        )
+
+        def run_loaded(runmode: str) -> subprocess.CompletedProcess:
+            import os
+            env = os.environ.copy()
+            env.update(HEADLESS_ENV)
+            return subprocess.run([
+                str(BINARY),
+                "--config", str(config),
+                "--headless", "30",
+                "--runmode", runmode,
+                "--dump", "-",
+                "--load-state", str(saves[0].resolve()),
+                "--inputs", "81",
+                str(ROM.resolve()),
+            ], cwd=tmp_path, capture_output=True, text=True, env=env, timeout=30)
+
+        mine = run_loaded("mine")
+        theirs = run_loaded("theirs")
+        assert mine.returncode == 0, f"mine run failed:\n{mine.stderr}\n{mine.stdout}"
+        assert theirs.returncode == 0, f"theirs run failed:\n{theirs.stderr}\n{theirs.stdout}"
+
+        mine_data = parse_dump(mine)
+        theirs_data = parse_dump(theirs)
+        for field in ("samus_x_pos", "samus_x_speed", "samus_pose", "inputs"):
+            assert mine_data[field] == theirs_data[field]

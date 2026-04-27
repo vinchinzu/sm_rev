@@ -19,10 +19,9 @@ enum {
 #define BUILD_IS_MODDABLE (CURRENT_BUILD == BUILD_MODDABLE)
 
 #if CURRENT_BUILD == BUILD_MINI
-#define NO_ENEMIES 1
-#define NO_BOSSES 1
-#define NO_ROOMS 1
-#define NO_GAME_SYSTEMS 1
+// Mini links shared game systems and constrains content/runtime entry to the
+// Landing Site slice instead of compiling broad systems out.
+#define MINI_LANDING_SITE_ONLY 1
 #define NO_SOUND 1
 #endif
 

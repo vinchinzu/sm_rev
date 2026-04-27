@@ -40,9 +40,12 @@ FULL_SRCS := $(wildcard src/*.c) \
 OBJS := $(FULL_SRCS:%.c=%.o)
 
 MINI_RUNTIME_SRCS := $(wildcard src/mini/*.c)
-MINI_SUPPORT_SRCS := $(filter-out src/main.c src/opengl.c src/glsl_shader.c src/sm_cpu_infra.c src/sm_rtl.c,$(wildcard src/*.c))
+# Mini now links the shared gameplay engine and constrains content at runtime to
+# Landing Site. Keep only the full host, emulator bridge, and GL frontend out.
+MINI_SHARED_ENGINE_SRCS := $(filter-out src/main.c src/opengl.c src/glsl_shader.c src/sm_cpu_infra.c src/sm_rtl.c,$(wildcard src/*.c))
 MINI_EXTRA_SRCS := third_party/cJSON.c
-MINI_SRCS := $(MINI_RUNTIME_SRCS) $(MINI_SUPPORT_SRCS) $(MINI_EXTRA_SRCS)
+MINI_SRCS := $(MINI_RUNTIME_SRCS) $(MINI_SHARED_ENGINE_SRCS) $(MINI_EXTRA_SRCS)
+MINI_ASSET_DEPS := src/mini/mini_generated_background_data.inc
 MINI_CFLAGS = $(CFLAGS) -DCURRENT_BUILD=BUILD_MINI -ffunction-sections -fdata-sections
 MINI_LDFLAGS = $(LDFLAGS) $(SDLFLAGS) -Wl,--gc-sections
 
@@ -79,8 +82,8 @@ $(TARGET_EXEC): $(OBJS)
 
 mini: $(MINI_TARGET_EXEC)
 
-$(MINI_TARGET_EXEC): $(MINI_SRCS)
-	$(CC) $(MINI_CFLAGS) $^ -o $@ $(MINI_LDFLAGS)
+$(MINI_TARGET_EXEC): $(MINI_SRCS) $(MINI_ASSET_DEPS)
+	$(CC) $(MINI_CFLAGS) $(MINI_SRCS) -o $@ $(MINI_LDFLAGS)
 
 run: all
 	./$(TARGET_EXEC)

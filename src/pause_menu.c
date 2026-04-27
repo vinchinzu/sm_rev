@@ -6,7 +6,7 @@
 
 static Func_V *const kPauseMenuFuncs[8] = {
   PauseMenu_0_MapScreen,
-  PauseMenu_0_MapScreen,
+  PauseMenu_1_EquipmentScreen,
   PauseMenu_2,
   PauseMenu_3_MapToEquipment_Load,
   PauseMenu_4_MapToEquipment_FadeIn,
@@ -229,23 +229,21 @@ void ContinueInitPauseMenu(void) {  // 0x829009
 }
 
 CoroutineRet GameState_14_Paused_Async(void) {  // 0x8290C8
-  MainPauseRoutine();
-  HighlightPauseScreenButton();
-  if (joypad1_newkeys & kButton_Start) {
-    QueueSfx1_Max6(0x38);
+  DrawPauseMenuDuringFadeIn();
+  HandleFadeIn();
+  if (reg_INIDISP == 15) {
+    screen_fade_delay = 0;
+    screen_fade_counter = 0;
     ++game_state;
   }
   return kCoroutineNone;
 }
 
 CoroutineRet GameState_15_Paused_Async(void) {  // 0x8290E8
+  ReleaseButtonsFilter(3);
   MainPauseRoutine();
-  HighlightPauseScreenButton();
-  if (AdvancePaletteFadeForAllPalettes()) {
-    ++game_state;
-    screen_fade_delay = 0;
-    screen_fade_counter = 0;
-  }
+  HandleHudTilemap();
+  HandlePauseScreenPaletteAnimation();
   return kCoroutineNone;
 }
 

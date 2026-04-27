@@ -32,6 +32,8 @@ enum {
   kSpeedBoostPhase_Charged = 4,
   kSamusSpeedTableEntrySize = 12,
   kSamusMovementTypeCount = 28,
+  kSamusPseudoScrewAnimFrame = 3,
+  kSamusScrewAttackAnimFrame = 23,
 };
 #define SPEED_BOOST_PHASE(ctr) (((ctr) & 0xFF00) >> 8)
 
@@ -51,6 +53,9 @@ static bool Samus_IsMovementSpeedTableEntry(uint16 table_entry, uint16 table_bas
 }
 
 static bool Samus_UsesPhysicsRunOverride(uint16 table_entry) {
+  if (!g_physics_run_override_active)
+    return false;
+
   // The configurable run accel/decel/max pair is only meant for grounded
   // locomotion. Applying it to every entry in the Normal/Water/Lava tables
   // clobbers jump/fall air-control tuning, because those tables contain
@@ -73,9 +78,20 @@ static void Samus_ClearExtraRunSpeedIfNoMomentum(void) {
 }
 
 static bool Samus_IsRunningOnGround(void) {
-  // movement_type 1 = Samus_Movement_01_Running (see physics.c handler table).
-  return samus_movement_type == 1
+  return samus_movement_type == kMovementType_01_Running
       && (button_config_run_b & joypad1_lastkeys) != 0;
+}
+
+static bool Samus_PoseFacesRight(void) {
+  return samus_pose_x_dir == kSamusPoseXDir_FaceRight;
+}
+
+static bool Samus_HasVariaOrGravitySuit(void) {
+  return Samus_HasEquip(kSamusEquip_VariaSuit | kSamusEquip_GravitySuit);
+}
+
+static void Samus_SetPrevPoseDirAndMovement(SamusPoseXDirection x_dir, uint8 movement_type) {
+  *(uint16 *)&samus_prev_pose_x_dir = ((uint16)movement_type << 8) | x_dir;
 }
 
 static void Samus_TickExtraRunSpeed_Boosted(void) {
@@ -130,7 +146,7 @@ void Samus_HandleExtraRunspeedX(void) {  // 0x90973E
     Samus_TickExtraRunSpeed_Normal();
   }
   if (SPEED_BOOST_PHASE(speed_boost_counter) == kSpeedBoostPhase_Charged)
-    samus_contact_damage_index = 1;
+    samus_contact_damage_index = kSamusContactDamage_SpeedBoost;
 }
 
 int32 Samus_CalcBaseSpeed_X(uint16 k) {  // 0x909A7E
@@ -220,7 +236,7 @@ uint16 Samus_DetermineSpeedTableEntryPtr_X(void) {  // 0x909BD1
   default:
     break;
   }
-  return samus_x_speed_table_pointer + 12 * samus_movement_type;
+  return samus_x_speed_table_pointer + kSamusSpeedTableEntrySize * samus_movement_type;
 }
 
 uint16 Samus_DetermineGrappleSwingSpeed_X(void) {  // 0x909C21
@@ -274,7 +290,7 @@ static Func_V *const off_91E6E1[28] = {  // 0x91E633
 
 void SamusFunc_E633(void) {
   off_91E6E1[samus_movement_type]();
-  if ((equipped_items & 0x2000) != 0) {
+  if (Samus_HasEquip(kSamusEquip_SpeedBooster)) {
     if (samus_has_momentum_flag && !speed_boost_counter) {
       special_samus_palette_timer = speed_boost_counter;
       special_samus_palette_frame = 0;
@@ -324,11 +340,11 @@ void Samus_UpdatePreviousPose_0(void) {  // 0x91E719
 
 void SamusFunc_E633_0(void) {  // 0x91E733
   if (samus_pose) {
-    if (samus_pose == kPose_9B_FaceF_VariaGravitySuit && (equipped_items & 1) == 0 && (equipped_items & 0x20) == 0) {
+    if (samus_pose == kPose_9B_FaceF_VariaGravitySuit && !Samus_HasVariaOrGravitySuit()) {
       samus_pose = kPose_00_FaceF_Powersuit;
       goto LABEL_10;
     }
-  } else if ((equipped_items & 1) != 0 || (equipped_items & 0x20) != 0) {
+  } else if (Samus_HasVariaOrGravitySuit()) {
     samus_pose = kPose_9B_FaceF_VariaGravitySuit;
 LABEL_10:
     SamusFunc_F433();
@@ -338,15 +354,15 @@ LABEL_10:
 }
 
 void SamusFunc_E633_3(void) {  // 0x91E776
-  if (samus_pose_x_dir == 4)
-    *(uint16 *)&samus_prev_pose_x_dir = 260;
+  if (Samus_PoseFacesRight())
+    Samus_SetPrevPoseDirAndMovement(kSamusPoseXDir_FaceRight, kMovementType_01_Running);
   else
-    *(uint16 *)&samus_prev_pose_x_dir = 264;
+    Samus_SetPrevPoseDirAndMovement(kSamusPoseXDir_FaceLeft, kMovementType_01_Running);
   if (samus_pose != kPose_81_FaceR_Screwattack && samus_pose != kPose_82_FaceL_Screwattack) {
     if (samus_pose != kPose_1B_FaceR_SpaceJump && samus_pose != kPose_1C_FaceL_SpaceJump)
       goto LABEL_18;
-    if ((equipped_items & 8) != 0) {
-      if (samus_pose_x_dir == 4)
+    if (Samus_HasEquip(kSamusEquip_ScrewAttack)) {
+      if (Samus_PoseFacesRight())
         samus_pose = kPose_82_FaceL_Screwattack;
       else
         samus_pose = kPose_81_FaceR_Screwattack;
@@ -354,9 +370,9 @@ void SamusFunc_E633_3(void) {  // 0x91E776
     }
     goto LABEL_15;
   }
-  if ((equipped_items & 8) == 0) {
+  if (!Samus_HasEquip(kSamusEquip_ScrewAttack)) {
 LABEL_15:
-    if (samus_pose_x_dir == 4)
+    if (Samus_PoseFacesRight())
       samus_pose = kPose_1A_FaceL_SpinJump;
     else
       samus_pose = kPose_19_FaceR_SpinJump;
@@ -364,16 +380,16 @@ LABEL_15:
 LABEL_18:
   SamusFunc_F433();
   Samus_SetAnimationFrameIfPoseChanged();
-  if (samus_pose_x_dir == 4)
-    *(uint16 *)&samus_prev_pose_x_dir = 772;
+  if (Samus_PoseFacesRight())
+    Samus_SetPrevPoseDirAndMovement(kSamusPoseXDir_FaceRight, kMovementType_03_SpinJumping);
   else
-    *(uint16 *)&samus_prev_pose_x_dir = 776;
+    Samus_SetPrevPoseDirAndMovement(kSamusPoseXDir_FaceLeft, kMovementType_03_SpinJumping);
   Samus_UpdatePreviousPose_0();
 }
 
 void SamusFunc_E633_4(void) {  // 0x91E83A
-  if ((equipped_items & 2) != 0) {
-    if (samus_pose_x_dir == 4)
+  if (Samus_HasEquip(kSamusEquip_SpringBall)) {
+    if (Samus_PoseFacesRight())
       samus_pose = kPose_7A_FaceL_Springball_Ground;
     else
       samus_pose = kPose_79_FaceR_Springball_Ground;
@@ -384,8 +400,8 @@ void SamusFunc_E633_4(void) {  // 0x91E83A
 }
 
 void SamusFunc_E633_17(void) {  // 0x91E867
-  if ((equipped_items & 2) == 0) {
-    if (samus_pose_x_dir == 4)
+  if (!Samus_HasEquip(kSamusEquip_SpringBall)) {
+    if (Samus_PoseFacesRight())
       samus_pose = kPose_41_FaceL_Morphball_Ground;
     else
       samus_pose = kPose_1D_FaceR_Morphball_Ground;
@@ -396,8 +412,8 @@ void SamusFunc_E633_17(void) {  // 0x91E867
 }
 
 void SamusFunc_E633_20(void) {  // 0x91E894
-  if ((equipped_items & 8) != 0)
-    samus_anim_frame = 23;
+  if (Samus_HasEquip(kSamusEquip_ScrewAttack))
+    samus_anim_frame = kSamusScrewAttackAnimFrame;
   else
-    samus_anim_frame = 3;
+    samus_anim_frame = kSamusPseudoScrewAnimFrame;
 }

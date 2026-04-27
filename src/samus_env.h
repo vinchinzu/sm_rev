@@ -29,6 +29,23 @@ enum {
   kSamusEquip_SpeedBooster = 0x2000,
 };
 
+typedef enum SamusContactDamageMode {
+  kSamusContactDamage_None = 0,
+  kSamusContactDamage_SpeedBoost = 1,
+  kSamusContactDamage_Shinespark = 2,
+  kSamusContactDamage_ScrewAttack = 3,
+  kSamusContactDamage_PseudoScrew = 4,
+} SamusContactDamageMode;
+
+typedef enum SamusPoseXDirection {
+  kSamusPoseXDir_FaceRight = 4,
+  kSamusPoseXDir_FaceLeft = 8,
+} SamusPoseXDirection;
+
+enum {
+  kSpeedBoostCounter_Charged = 0x0400,
+};
+
 // fx_liquid_options bit 2 = "liquid is pass-through" (treated as air).
 enum {
   kFxLiquidOptions_Passthrough = 0x04,

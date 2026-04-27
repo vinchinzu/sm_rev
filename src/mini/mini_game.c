@@ -7,6 +7,7 @@
 #include "ida_types.h"
 #include "mini_ppu_stub.h"
 #include "physics_config.h"
+#include "samus_projectile_view.h"
 #include "sm_rtl.h"
 #include "stubs_mini.h"
 #include "variables.h"
@@ -51,6 +52,8 @@ static void MiniSyncRenderState(MiniGameState *state) {
   state->samus_y = samus_y_pos - state->camera_y - samus_y_radius;
   state->samus_pose_value = samus_pose;
   state->samus_movement_type_value = samus_movement_type;
+  state->projectile_count = SamusProjectile_GetActiveViews(
+      state->projectiles, kMiniProjectileViewCapacity);
 }
 
 static void MiniUpdateButtons(MiniGameState *state, const MiniInputState *input) {
@@ -115,11 +118,15 @@ void MiniGameState_Init(MiniGameState *state, int viewport_width, int viewport_h
   state->room_bottom = room.room_bottom;
   state->camera_x = room.camera_x;
   state->camera_y = room.camera_y;
+  state->original_oam_next_ptr = 0;
   state->ground_y = room.room_bottom;
   state->last_buttons = 0;
   state->has_room = room.has_room;
   state->uses_rom_room = room.uses_rom_room;
   state->has_editor_room_visuals = room.has_editor_room_visuals;
+  state->uses_original_gameplay_runtime = room.uses_original_gameplay_runtime;
+  state->has_original_enemies = room.has_original_enemies;
+  state->has_original_plms = room.has_original_plms;
   state->quit_requested = false;
   state->samus_suit = room.samus_suit;
   state->room_source = room.room_source;
@@ -137,6 +144,10 @@ void MiniGameState_Init(MiniGameState *state, int viewport_width, int viewport_h
 
   LoadPhysicsConfig();
   MiniInitializeSamusRuntime(&room);
+  EnablePaletteFx();
+  EnableHdmaObjects();
+  EnableAnimtiles();
+  SetLiquidPhysicsType();
   samus_x_pos = room.spawn_x;
   samus_y_pos = room.spawn_y;
   samus_prev_x_pos = samus_x_pos;
@@ -144,21 +155,53 @@ void MiniGameState_Init(MiniGameState *state, int viewport_width, int viewport_h
   MiniSyncRenderState(state);
 }
 
+static uint16 MiniStepOriginalGameplayFrame(void) {
+  coroutine_state_1 = 0;
+  coroutine_state_2 = 0;
+  coroutine_state_3 = 0;
+  coroutine_state_4 = 0;
+
+  HdmaObjectHandler();
+  NextRandom();
+  ClearOamExt();
+  oam_next_ptr = 0;
+  nmi_copy_samus_halves = 0;
+  nmi_copy_samus_top_half_src = 0;
+  nmi_copy_samus_bottom_half_src = 0;
+
+  (void)GameState_8_MainGameplay();
+  HandleSoundEffects();
+  uint16 original_oam_next_ptr = oam_next_ptr;
+  ClearUnusedOam();
+
+  waiting_for_nmi = 1;
+  Vector_NMI();
+  return original_oam_next_ptr;
+}
+
 void MiniUpdate(MiniGameState *state, const MiniInputState *input) {
   if (input->quit_requested) {
     state->quit_requested = true;
   }
 
-  nmi_frame_counter_word++;
   MiniUpdateButtons(state, input);
-  HandleControllerInputForGamePhysics();
-  HandleSamusMovementAndPause();
-  MainScrollingRoutine();
-  if (!state->uses_rom_room)
-    MiniStubs_ClampCameraToRoom();
-  CalculateLayer2PosAndScrollsWhenScrolling();
-  NmiProcessAnimtilesVramTransfers();
-  NMI_ProcessVramWriteQueue();
+  if (state->uses_original_gameplay_runtime) {
+    state->original_oam_next_ptr = MiniStepOriginalGameplayFrame();
+  } else {
+    state->original_oam_next_ptr = 0;
+    nmi_frame_counter_word++;
+    HdmaObjectHandler();
+    PaletteFxHandler();
+    HandleControllerInputForGamePhysics();
+    HandleSamusMovementAndPause();
+    MainScrollingRoutine();
+    if (!state->uses_rom_room)
+      MiniStubs_ClampCameraToRoom();
+    CalculateLayer2PosAndScrollsWhenScrolling();
+    AnimtilesHandler();
+    NmiProcessAnimtilesVramTransfers();
+    NMI_ProcessVramWriteQueue();
+  }
   MiniSyncRenderState(state);
   state->frame++;
 }
@@ -178,12 +221,30 @@ uint64_t MiniGameState_ComputeHash(const MiniGameState *state) {
   hash = MiniHashInt(hash, state->samus_y);
   hash = MiniHashUInt16(hash, state->samus_pose_value);
   hash = MiniHashUInt16(hash, state->samus_movement_type_value);
+  hash = MiniHashInt(hash, state->projectile_count);
+  for (int i = 0; i < kMiniProjectileViewCapacity; i++) {
+    const SamusProjectileView *projectile = &state->projectiles[i];
+    hash = MiniHashBool(hash, projectile->active);
+    hash = MiniHashBool(hash, projectile->is_beam);
+    hash = MiniHashBool(hash, projectile->is_basic_beam);
+    hash = MiniHashUInt16(hash, projectile->slot_index);
+    hash = MiniHashUInt16(hash, projectile->type);
+    hash = MiniHashUInt16(hash, projectile->direction);
+    hash = MiniHashUInt16(hash, projectile->x_pos);
+    hash = MiniHashUInt16(hash, projectile->y_pos);
+    hash = MiniHashUInt16(hash, projectile->x_radius);
+    hash = MiniHashUInt16(hash, projectile->y_radius);
+    hash = MiniHashUInt16(hash, projectile->damage);
+  }
   hash = MiniHashUInt16(hash, state->last_buttons);
   hash = MiniHashBool(hash, state->quit_requested);
   hash = MiniHashBool(hash, room.has_room);
   hash = MiniHashBool(hash, room.uses_rom_room);
   hash = MiniHashBool(hash, room.booted_from_save_slot);
   hash = MiniHashBool(hash, room.has_editor_room_visuals);
+  hash = MiniHashBool(hash, room.uses_original_gameplay_runtime);
+  hash = MiniHashBool(hash, room.has_original_enemies);
+  hash = MiniHashBool(hash, room.has_original_plms);
   hash = MiniHashByte(hash, (uint8)room.samus_suit);
   hash = MiniHashUInt16(hash, room.room_id);
   hash = MiniHashByte(hash, (uint8)room.room_source);

@@ -133,6 +133,7 @@ typedef struct {
 // The unmodified base values live as a private copy in physics_config.c.
 extern PhysicsParams g_physics_params;
 extern PhysicsMods   g_physics_mods;
+extern bool g_physics_run_override_active;
 
 void LoadPhysicsConfig(void);
 void SavePhysicsConfig(void);

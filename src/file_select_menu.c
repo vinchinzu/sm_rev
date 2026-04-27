@@ -6,6 +6,7 @@
 #include "funcs.h"
 #include "menu_common.h"
 #include "enemy_types.h"
+#include "samus_full_spec.h"
 
 #define kOffsetToSaveSlot ((uint16*)RomFixedPtr(0x81812b))
 #define kZebesAndStarsTilemap ((uint16*)RomFixedPtr(0x8edc00))
@@ -352,6 +353,7 @@ static void NewSaveFile(void) {  // 0x81B2CB
     explored_map_tiles_saved[v3 >> 1] = 0;
     v3 += 2;
   } while ((int16)(v3 - 1792) < 0);
+  SamusFullSpec_ApplyIfEnabled();
 }
 
 static const uint16 kMenuSelectionMissileXY[12] = {  // 0x81951E

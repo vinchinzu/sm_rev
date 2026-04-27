@@ -25,14 +25,6 @@ enum {
   kSfx1_UnderwaterSpinJump = 0x2F,
 };
 
-enum SamusContactDamageMode {
-  kSamusContactDamageMode_None = 0,
-  kSamusContactDamageMode_SpeedBoost = 1,
-  kSamusContactDamageMode_Shinespark = 2,
-  kSamusContactDamageMode_ScrewAttack = 3,
-  kSamusContactDamageMode_PseudoScrew = 4,
-};
-
 enum SamusSuitPaletteVariant {
   kSamusSuitPaletteVariant_Power = 0,
   kSamusSuitPaletteVariant_Varia = 2,
@@ -108,9 +100,9 @@ void Samus_Movement_03_SpinJumping(void) {  // 0x90A436
     }
 
     if (samus_pose == kPose_81_FaceR_Screwattack || samus_pose == kPose_82_FaceL_Screwattack) {
-      samus_contact_damage_index = kSamusContactDamageMode_ScrewAttack;
+      samus_contact_damage_index = kSamusContactDamage_ScrewAttack;
     } else if (Samus_HasPseudoScrewCharge()) {
-      samus_contact_damage_index = kSamusContactDamageMode_PseudoScrew;
+      samus_contact_damage_index = kSamusContactDamage_PseudoScrew;
     }
   } else if (samus_anim_frame_timer == 1 && Samus_GetFramesForUnderwaterSfx()[samus_anim_frame]) {
     QueueSfx1_Max6(kSfx1_UnderwaterSpinJump);
@@ -136,9 +128,9 @@ void Samus_Movement_06_Falling(void) {
 void Samus_Movement_14_WallJumping(void) {
   if (sign16(samus_anim_frame - kSamusWallJumpScrewAttackStartFrame)) {
     if (!sign16(samus_anim_frame - kSamusWallJumpPseudoScrewStartFrame) && Samus_HasPseudoScrewCharge())
-      samus_contact_damage_index = kSamusContactDamageMode_PseudoScrew;
+      samus_contact_damage_index = kSamusContactDamage_PseudoScrew;
   } else {
-    samus_contact_damage_index = kSamusContactDamageMode_ScrewAttack;
+    samus_contact_damage_index = kSamusContactDamage_ScrewAttack;
   }
   Samus_JumpingMovement();
 }

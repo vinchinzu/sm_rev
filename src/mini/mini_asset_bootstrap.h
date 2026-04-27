@@ -12,6 +12,9 @@ bool MiniAssetBootstrap_HasEditorTilesetAssets(void);
 bool MiniAssetBootstrap_LoadSamusBaseTilesFromAssets(void);
 void MiniAssetBootstrap_InstallRomSamusBaseTiles(void);
 void MiniAssetBootstrap_LoadCurrentRoomAssets(void);
+void MiniAssetBootstrap_PrimeEditorRoomFxAndMissingRomVisuals(const MiniEditorRoom *room,
+                                                             bool load_tileset_visuals,
+                                                             bool load_bg2_visuals);
 int MiniAssetBootstrap_GetRoomSprites(const MiniRoomSprite **sprites);
 void MiniAssetBootstrap_GetEditorTilesetView(MiniEditorTilesetView *view);
 void MiniAssetBootstrap_GetEditorBg2View(MiniEditorBg2View *view);

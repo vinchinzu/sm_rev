@@ -13,6 +13,14 @@
 #include "physics_config.h"
 #include "samus_env.h"
 
+enum {
+  kUnusedJumpTransitionAimMask = 0x20,
+  kUnusedJumpTransitionPrevPoseRight = 100,
+  kUnusedJumpTransitionPrevPoseLeft = 99,
+  kSamusCrouchJumpYOffset = 10,
+  kXrayAngleFullTurn = 256,
+};
+
 static void Samus_ResetVerticalMovementState(void) {
   grapple_walljump_timer = 0;
   reached_ceres_elevator_fade_timer = 0;
@@ -151,10 +159,10 @@ void UNUSED_sub_91FC42(void) {  // 0x91FC42
   // Dead code in the final ROM — the pose constants combined with the
   // prev-pose sentinels don't match any real state transition — but
   // preserved byte-for-byte so the function address table still links.
-  uint16 target_r = kPose_44_FaceL_Turn_Crouch | kPose_01_FaceR_Normal | 0x20;
-  uint16 target_l = kPose_44_FaceL_Turn_Crouch | kPose_02_FaceL_Normal | 0x20;
-  bool match_r = (samus_pose == target_r) && (samus_prev_pose == 100);
-  bool match_l = (samus_pose == target_l) && (samus_prev_pose == 99);
+  uint16 target_r = kPose_44_FaceL_Turn_Crouch | kPose_01_FaceR_Normal | kUnusedJumpTransitionAimMask;
+  uint16 target_l = kPose_44_FaceL_Turn_Crouch | kPose_02_FaceL_Normal | kUnusedJumpTransitionAimMask;
+  bool match_r = (samus_pose == target_r) && (samus_prev_pose == kUnusedJumpTransitionPrevPoseRight);
+  bool match_l = (samus_pose == target_l) && (samus_prev_pose == kUnusedJumpTransitionPrevPoseLeft);
   if (match_r || match_l)
     Samus_InitJump();
 }
@@ -164,7 +172,7 @@ void HandleJumpTransition_NormalJump(void) {  // 0x91FC66
       || samus_pose == kPose_4C_FaceL_Jumptrans
       || !sign16(samus_pose - kPose_55_FaceR_Jumptrans_AimU) && sign16(samus_pose - kPose_5B)) {
     if (samus_prev_pose == kPose_27_FaceR_Crouch || samus_prev_pose == kPose_28_FaceL_Crouch)
-      samus_y_pos -= 10;
+      samus_y_pos -= kSamusCrouchJumpYOffset;
     Samus_InitJump();
   }
 }
@@ -177,9 +185,9 @@ void HandleJumpTransition_SpinJump(void) {  // 0x91FC99
 }
 
 void Samus_Func20(void) {  // 0x91FCAF
-  if (samus_movement_type == 14) {
+  if (samus_movement_type == kMovementType_14_WallJumping) {
     if (samus_anim_frame == 2 && samus_anim_frame_timer == 1) {
-      if (samus_pose_x_dir == 4) {
+      if (samus_pose_x_dir == kSamusPoseXDir_FaceRight) {
         if (samus_pose == kPose_25_FaceR_Turn_Stand)
           samus_pose = kPose_D6_FaceL_Xray_Stand;
         else
@@ -197,18 +205,18 @@ void Samus_Func20(void) {  // 0x91FCAF
       *(uint16 *)&samus_prev_pose_x_dir = *(uint16 *)&samus_pose_x_dir;
     }
   } else {
-    if (samus_pose_x_dir == 4) {
+    if (samus_pose_x_dir == kSamusPoseXDir_FaceRight) {
       if ((button_config_right & joypad1_lastkeys) == 0)
         return;
-      xray_angle = 256 - xray_angle;
-      if (samus_movement_type == 5)
+      xray_angle = kXrayAngleFullTurn - xray_angle;
+      if (samus_movement_type == kMovementType_05_Crouching)
         samus_pose = kPose_44_FaceL_Turn_Crouch;
       else
         samus_pose = kPose_26_FaceL_Turn_Stand;
     } else {
       if ((button_config_left & joypad1_lastkeys) == 0)
         return;
-      xray_angle = 256 - xray_angle;
+      xray_angle = kXrayAngleFullTurn - xray_angle;
       if (samus_movement_type == kMovementType_05_Crouching)
         samus_pose = kPose_43_FaceR_Turn_Crouch;
       else

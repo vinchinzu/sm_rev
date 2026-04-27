@@ -75,6 +75,10 @@ PhysicsParams g_physics_params = PHYSICS_BASE_DEFAULTS_LITERAL;
 // Public: mod knobs. Filled by the loader; vanilla (no-op) until then.
 PhysicsMods   g_physics_mods   = PHYSICS_MODS_DEFAULTS_LITERAL;
 
+// Horizontal run config is not a direct mirror of the ROM speed table, so keep
+// the ROM authoritative unless a run field or run-speed mod explicitly opts in.
+bool g_physics_run_override_active;
+
 static time_t g_last_physics_mtime;
 static time_t g_last_mods_mtime;
 
@@ -96,6 +100,9 @@ static bool parse_json_int(const char *json, const char *key, uint16 *out_val) {
 }
 
 #define LOAD_FIELD(ctx, name) parse_json_int((ctx), #name, &p->name)
+#define LOAD_RUN_FIELD(ctx, name) do { \
+    if (LOAD_FIELD((ctx), name)) g_physics_run_override_active = true; \
+  } while (0)
 #define SAVE_FIELD(f, name, is_last) \
     fprintf((f), "  \"%s\": %u%s\n", #name, p->name, (is_last) ? "" : ",")
 
@@ -200,12 +207,12 @@ static void load_base_from_buf(const char *buf) {
     LOAD_ENV(buf, knockback_y_initial_speed);
     LOAD_ENV(buf, knockback_y_initial_subspeed);
 
-    LOAD_FIELD(buf, run_accel);
-    LOAD_FIELD(buf, run_accel_sub);
-    LOAD_FIELD(buf, run_decel);
-    LOAD_FIELD(buf, run_decel_sub);
-    LOAD_FIELD(buf, run_max_speed);
-    LOAD_FIELD(buf, run_max_speed_sub);
+    LOAD_RUN_FIELD(buf, run_accel);
+    LOAD_RUN_FIELD(buf, run_accel_sub);
+    LOAD_RUN_FIELD(buf, run_decel);
+    LOAD_RUN_FIELD(buf, run_decel_sub);
+    LOAD_RUN_FIELD(buf, run_max_speed);
+    LOAD_RUN_FIELD(buf, run_max_speed_sub);
     LOAD_FIELD(buf, gravity_accel);
     LOAD_FIELD(buf, gravity_subaccel);
     LOAD_FIELD(buf, gravity_underwater_subaccel);
@@ -224,6 +231,7 @@ void LoadPhysicsConfig(void) {
     // vanilla value instead of keeping the stale prior-loaded override.
     g_physics_base = kPhysicsBaseDefaults;
     g_physics_mods = kPhysicsModsDefaults;
+    g_physics_run_override_active = false;
 
     char *buf = slurp_file("sm_physics.json");
     if (buf) { load_base_from_buf(buf); free(buf); }
@@ -232,6 +240,8 @@ void LoadPhysicsConfig(void) {
     if (buf) { load_mods_from_buf(buf); free(buf); }
 
     PhysicsConfig_RecomputeEffective();
+    if (g_physics_mods.run_speed_scale_percent != 100)
+      g_physics_run_override_active = true;
 
     if (g_physics_mods.gravity_scale_percent   != 100 ||
         g_physics_mods.run_speed_scale_percent != 100 ||

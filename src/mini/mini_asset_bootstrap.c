@@ -220,6 +220,22 @@ static void MiniInstallEditorRoomSprites(const MiniEditorRoom *room) {
   }
 }
 
+static void MiniCopyMetatileWordsFromTileTable(uint16 *dst) {
+  for (int i = 0; i < 1024; i++) {
+    dst[i * 4 + 0] = tile_table.tables[i].top_left;
+    dst[i * 4 + 1] = tile_table.tables[i].top_right;
+    dst[i * 4 + 2] = tile_table.tables[i].bottom_left;
+    dst[i * 4 + 3] = tile_table.tables[i].bottom_right;
+  }
+}
+
+static void MiniLoadRoomFxStateFromRom(void) {
+  InitializeSpecialEffectsForNewRoom();
+  LoadRoomHeader();
+  LoadStateHeader();
+  LoadFXHeader();
+}
+
 static void MiniPrepareEnemyTiles(void) {
   ProcessEnemyTilesets();
   LoadEnemyTileData();
@@ -367,11 +383,20 @@ void MiniAssetBootstrap_InstallRomSamusBaseTiles(void) {
   MiniCopySuitPalette();
 }
 
+static void MiniTransferOriginalEnemyTilesToVramAndInit(void) {
+  for (int i = 0; i < 10 && enemy_tile_vram_src != 0xFFFF; i++) {
+    TransferEnemyTilesToVramAndInit();
+    NMI_ProcessVramWriteQueue();
+  }
+}
+
 void MiniAssetBootstrap_LoadCurrentRoomAssets(void) {
   MiniPpu_InitGameplay();
   LoadInitialPalette();
-  LoadRoomHeader();
-  LoadStateHeader();
+  MiniLoadRoomFxStateFromRom();
+  ClearPLMs();
+  ClearEprojs();
+  ClearPaletteFXObjects();
   LoadLevelDataAndOtherThings();
   DecompressToMem(Load24(&tileset_tiles_pointer), (uint8 *)tilemap_stuff);
   DecompressToMem(Load24(&tileset_compr_palette_ptr), (uint8 *)target_palettes);
@@ -382,8 +407,46 @@ void MiniAssetBootstrap_LoadCurrentRoomAssets(void) {
   DecompressToMem(0xb98000, MiniPpu_GetVram() + ((size_t)kMiniCreTilesVramDst << 1));
   MiniAssetBootstrap_InstallRomSamusBaseTiles();
   LoadColorsForSpritesBeamsAndEnemies();
+  LoadEnemies();
+  MiniTransferOriginalEnemyTilesToVramAndInit();
+  LoadRoomPlmGfx();
+  EnableEprojs();
+  EnablePLMs();
   MiniClearRoomSprites();
-  MiniBootstrapLandingSiteGunship();
+  if (num_enemies_in_room == 0)
+    MiniBootstrapLandingSiteGunship();
+}
+
+void MiniAssetBootstrap_PrimeEditorRoomFxAndMissingRomVisuals(const MiniEditorRoom *room,
+                                                             bool load_tileset_visuals,
+                                                             bool load_bg2_visuals) {
+  if (room == NULL)
+    return;
+
+  MiniPpu_InitGameplay();
+  LoadInitialPalette();
+  MiniLoadRoomFxStateFromRom();
+
+  if (load_tileset_visuals) {
+    DecompressToMem(Load24(&tileset_tiles_pointer), (uint8 *)tilemap_stuff);
+    DecompressToMem(Load24(&tileset_compr_palette_ptr), (uint8 *)target_palettes);
+    memcpy(palette_buffer, target_palettes, 512);
+    memcpy(g_mini_editor_tiles4bpp, tilemap_stuff, sizeof(g_mini_editor_tiles4bpp));
+    MiniCopyMetatileWordsFromTileTable(g_mini_editor_metatile_words);
+    memcpy(g_mini_editor_palette, target_palettes, sizeof(g_mini_editor_palette));
+    g_mini_editor_tileset_id = room->tileset;
+    g_mini_has_editor_tileset_assets = true;
+  }
+
+  LoadLibraryBackground();
+
+  if (load_bg2_visuals) {
+    memcpy(g_mini_editor_bg2_tilemap_words, ram4000.bg2_tilemap, sizeof(g_mini_editor_bg2_tilemap_words));
+    snprintf(g_mini_editor_bg2_variant_key, sizeof(g_mini_editor_bg2_variant_key), "%s", "rom_fallback");
+    g_mini_editor_bg2_scroll_x = (uint8)(room->export_bg_scrolling & 0xFF);
+    g_mini_editor_bg2_scroll_y = (uint8)(room->export_bg_scrolling >> 8);
+    g_mini_has_editor_bg2_assets = true;
+  }
 }
 
 int MiniAssetBootstrap_GetRoomSprites(const MiniRoomSprite **sprites) {

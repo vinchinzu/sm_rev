@@ -1,6 +1,7 @@
 #ifndef SM_MINI_RUNTIME_H_
 #define SM_MINI_RUNTIME_H_
 
+#include "mini_backdrop.h"
 #include "mini_defs.h"
 #include "types.h"
 
@@ -12,6 +13,7 @@ typedef struct MiniOptions {
   const char *screenshot_path;
   const char *input_script_path;
   const char *room_export_path;
+  MiniBackdropMode backdrop_mode;
 } MiniOptions;
 
 int MiniRun(const MiniOptions *options);

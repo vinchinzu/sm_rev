@@ -7,6 +7,7 @@
 #include "spc_player.h"
 #include "util.h"
 #include "physics_config.h"
+#include "samus_full_spec.h"
 #ifdef __GLIBC__
 #include <execinfo.h>
 #endif
@@ -520,6 +521,7 @@ void RtlSaveLoad(int cmd, int slot) {
     RtlRefreshRoomAssetsAfterLoad();
     ppu_copy(g_snes->my_ppu, g_snes->ppu);
     RtlSynchronizeWholeState();
+    SamusFullSpec_ApplyIfEnabled();
     fclose(f);
 
     if (coroutine_state_0 | coroutine_state_1 | coroutine_state_2 | coroutine_state_3 | coroutine_state_4) {
@@ -554,6 +556,7 @@ void RtlLoadStateFromPath(const char *path) {
   RtlRefreshRoomAssetsAfterLoad();
   ppu_copy(g_snes->my_ppu, g_snes->ppu);
   RtlSynchronizeWholeState();
+  SamusFullSpec_ApplyIfEnabled();
   fclose(f);
   if (coroutine_state_0 == 4)
     coroutine_state_0 = 10 + game_state;

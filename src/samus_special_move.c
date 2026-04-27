@@ -6,6 +6,7 @@
 #include "variables.h"
 #include "sm_rtl.h"
 #include "funcs.h"
+#include "samus_env.h"
 
 void Samus_Movement_1B_ShinesparkEtc(void) {
   input_to_pose_calc = 0;
@@ -18,8 +19,8 @@ void Samus_Movement_0A_KnockbackOrCrystalFlashEnding(void) {
 
 uint8 Samus_GrappleWallJumpCheck(int32 amt) {  // 0x909CAC
   enemy_index_to_shake = -1;
-  if (samus_pose_x_dir != 4) {
-    if (samus_pose_x_dir != 8)
+  if (samus_pose_x_dir != kSamusPoseXDir_FaceRight) {
+    if (samus_pose_x_dir != kSamusPoseXDir_FaceLeft)
       return 0;
     samus_collision_direction = 1;
   } else {
@@ -39,7 +40,7 @@ uint8 Samus_GrappleWallJumpCheck(int32 amt) {  // 0x909CAC
 void Projectile_Func7_Shinespark(void) {  // 0x90CFFA
   samus_movement_handler = FUNC16(Samus_MoveHandlerShinesparkWindup);
   samus_y_dir = 1;
-  speed_boost_counter = 1024;
+  speed_boost_counter = kSpeedBoostCounter_Charged;
   samus_y_subspeed = 0;
   samus_y_speed = 0;
   knockback_dir = 0;
@@ -66,7 +67,7 @@ void Projectile_Func7_Shinespark(void) {  // 0x90CFFA
 void Samus_MoveHandlerShinesparkWindup(void) {  // 0x90D068
   bool v0 = (--timer_for_shinesparks_startstop & 0x8000) != 0;
   if (!timer_for_shinesparks_startstop || v0) {
-    if (samus_pose_x_dir == 4)
+    if (samus_pose_x_dir == kSamusPoseXDir_FaceRight)
       samus_new_pose_interrupted = 204;
     else
       samus_new_pose_interrupted = 203;
@@ -82,7 +83,7 @@ void Samus_MoveHandlerShinesparkWindup(void) {  // 0x90D068
 }
 
 void Samus_MoveHandlerVerticalShinespark(void) {  // 0x90D0AB
-  samus_contact_damage_index = 2;
+  samus_contact_damage_index = kSamusContactDamage_Shinespark;
   samus_hurt_flash_counter = 8;
   Samus_UpdateSpeedEchoPos();
   Samus_ShinesparkMove_Y();
@@ -92,7 +93,7 @@ void Samus_MoveHandlerVerticalShinespark(void) {  // 0x90D0AB
 }
 
 void Samus_MoveHandler_Shinespark_Diag(void) {  // 0x90D0D7
-  samus_contact_damage_index = 2;
+  samus_contact_damage_index = kSamusContactDamage_Shinespark;
   samus_hurt_flash_counter = 8;
   Samus_UpdateSpeedEchoPos();
   Samus_ShinesparkMove_X();
@@ -103,7 +104,7 @@ void Samus_MoveHandler_Shinespark_Diag(void) {  // 0x90D0D7
 }
 
 void Samus_MoveHandler_Shinespark_Horiz(void) {  // 0x90D106
-  samus_contact_damage_index = 2;
+  samus_contact_damage_index = kSamusContactDamage_Shinespark;
   samus_hurt_flash_counter = 8;
   Samus_UpdateSpeedEchoPos();
   Samus_ShinesparkMove_X();
@@ -126,7 +127,7 @@ void Samus_ShinesparkMove_X(void) {  // 0x90D132
   if (!sign16(samus_x_extra_run_speed - 15))
     SetHiLo(&samus_x_extra_run_speed, &samus_x_extra_run_subspeed, INT16_SHL16(15));
   int32 amt = 0;
-  if (samus_pose_x_dir == 4) {
+  if (samus_pose_x_dir == kSamusPoseXDir_FaceRight) {
     amt = Samus_ClampSpeedHi(-(int32)Samus_CalcDisplacementMoveLeft(amt), 15);
     CheckEnemyColl_Result cres = Samus_CheckSolidEnemyColl(amt);
     amt = cres.amt;
@@ -178,7 +179,7 @@ void Samus_ShinesparkMove_Y(void) {  // 0x90D1FF
 uint8 Samus_EndSuperJump(void) {  // 0x90D2BA
   if (!sign16(samus_health - 30) && !samus_collision_flag)
     return 0;
-  if (samus_pose_x_dir == 4) {
+  if (samus_pose_x_dir == kSamusPoseXDir_FaceRight) {
     speed_echo_xspeed[0] = 32;
     speed_echo_xspeed[1] = 160;
     speed_echo_xpos[2] = 4;
@@ -287,7 +288,7 @@ void Samus_MoveHandler_ShinesparkCrashFinish(void) {  // 0x90D40D
   }
   cooldown_timer = 0;
   samus_shine_timer = 1;
-  if (samus_pose_x_dir == 4)
+  if (samus_pose_x_dir == kSamusPoseXDir_FaceRight)
     samus_new_pose_transitional = 2;
   else
     samus_new_pose_transitional = 1;
@@ -360,7 +361,7 @@ uint8 Hdmaobj_CrystalFlash(void) {  // 0x90D5A2
       || sign16(samus_power_bombs - 10)) {
     return 1;
   }
-  v1 = samus_pose_x_dir == 4 ? kPose_D4_FaceL_CrystalFlash : kPose_D3_FaceR_CrystalFlash;
+  v1 = samus_pose_x_dir == kSamusPoseXDir_FaceRight ? kPose_D4_FaceL_CrystalFlash : kPose_D3_FaceR_CrystalFlash;
   samus_pose = v1;
   SamusFunc_F433();
   Samus_SetAnimationFrameIfPoseChanged();
@@ -564,7 +565,7 @@ void Samus_HitInterruption(void) {
     if (samus_movement_type == kPose_0A_MoveL_NoAim) {
       if (!sign16(flare_counter - 16))
         QueueSfx1_Max6(0x41);
-      if (samus_pose_x_dir == 4)
+      if (samus_pose_x_dir == kSamusPoseXDir_FaceRight)
         samus_new_pose_transitional = kPose_2A_FaceL_Fall;
       else
         samus_new_pose_transitional = kPose_29_FaceR_Fall;
@@ -611,7 +612,7 @@ uint8 Samus_HitInterrupt_Falling(void) {  // 0x90DEEA
 }
 
 uint8 Samus_HitInterrupt_Stand(void) {  // 0x90DEFA
-  if (samus_pose_x_dir == 4)
+  if (samus_pose_x_dir == kSamusPoseXDir_FaceRight)
     samus_new_pose_interrupted = 84;
   else
     samus_new_pose_interrupted = 83;
@@ -624,7 +625,7 @@ uint8 Samus_HitInterrupt_Ball(void) {  // 0x90DF15
 }
 
 uint8 Samus_HitInterrupt_Unused(void) {  // 0x90DF1D
-  if (samus_pose_x_dir == 4)
+  if (samus_pose_x_dir == kSamusPoseXDir_FaceRight)
     samus_new_pose_interrupted = 52;
   else
     samus_new_pose_interrupted = 51;
@@ -689,7 +690,7 @@ uint8 SetupBombJump_StandCrouch(void) {  // 0x90DFED
 }
 
 uint8 SetupBombJump_1(void) {  // 0x90DFF7
-  if (samus_pose_x_dir == 4)
+  if (samus_pose_x_dir == kSamusPoseXDir_FaceRight)
     samus_new_pose_interrupted = kPose_52_FaceL_Jump_NoAim_MoveF;
   else
     samus_new_pose_interrupted = kPose_51_FaceR_Jump_NoAim_MoveF;
@@ -783,7 +784,7 @@ void Samus_MoveHandler_F072(void) {  // 0x90F072
 }
 
 void MakeSamusFaceForward(void) {  // 0x91E3F6
-  if ((equipped_items & 0x20) != 0 || (equipped_items & 1) != 0)
+  if (Samus_HasEquip(kSamusEquip_GravitySuit | kSamusEquip_VariaSuit))
     samus_pose = kPose_9B_FaceF_VariaGravitySuit;
   else
     samus_pose = kPose_00_FaceF_Powersuit;
@@ -850,7 +851,7 @@ void SomeMotherBrainScripts(uint16 a) {
 uint8 SomeMotherBrainScripts_0(void) {  // 0x91E4F8
   samus_y_pos -= 21 - samus_y_radius;
   samus_prev_y_pos = samus_y_pos;
-  if (samus_pose_x_dir == 4)
+  if (samus_pose_x_dir == kSamusPoseXDir_FaceRight)
     samus_pose = kPose_E9_FaceL_Drained_CrouchFalling;
   else
     samus_pose = kPose_E8_FaceR_Drained_CrouchFalling;
@@ -877,7 +878,7 @@ uint8 SomeMotherBrainScripts_0(void) {  // 0x91E4F8
 uint8 SomeMotherBrainScripts_1(void) {  // 0x91E571
   samus_anim_frame_timer = 16;
   samus_anim_frame = 0;
-  if (samus_pose_x_dir == 4)
+  if (samus_pose_x_dir == kSamusPoseXDir_FaceRight)
     samus_pose = kPose_EB_FaceL_Drained_Stand;
   else
     samus_pose = kPose_EA_FaceR_Drained_Stand;
@@ -914,7 +915,7 @@ uint8 SomeMotherBrainScripts_3_EnableHyperBeam(void) {  // 0x91E5F0
 uint8 SomeMotherBrainScripts_4(void) {  // 0x91E60C
   samus_anim_frame_timer = 16;
   samus_anim_frame = 8;
-  if (samus_pose_x_dir == 4)
+  if (samus_pose_x_dir == kSamusPoseXDir_FaceRight)
     samus_pose = kPose_E9_FaceL_Drained_CrouchFalling;
   else
     samus_pose = kPose_E8_FaceR_Drained_CrouchFalling;

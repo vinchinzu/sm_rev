@@ -7,7 +7,9 @@
 #include "funcs.h"
 #include "ida_types.h"
 #include "mini_defs.h"
+#include "mini_generated_background.h"
 #include "mini_ppu_stub.h"
+#include "mini_room_fx.h"
 #include "samus_asset_bridge.h"
 #include "variables.h"
 
@@ -15,9 +17,28 @@ enum {
   kMiniEditorAirMetatile = 0xFF,
 };
 
+static MiniBackdropMode g_backdrop_mode = kMiniBackdropMode_Game;
+
+void MiniRenderer_SetBackdropMode(MiniBackdropMode mode) {
+  g_backdrop_mode = mode;
+}
+
 static int MiniBgTileBase(int layer) {
-  uint16 word_addr = layer == 1 ? (reg_BG12NBA & 0xF) << 12
-                                : (reg_BG12NBA & 0xF0) << 8;
+  uint16 word_addr;
+  switch (layer) {
+  case 1:
+    word_addr = (reg_BG12NBA & 0x0F) << 12;
+    break;
+  case 2:
+    word_addr = (reg_BG12NBA & 0xF0) << 8;
+    break;
+  case 3:
+    word_addr = (reg_BG34NBA & 0x0F) << 12;
+    break;
+  default:
+    word_addr = (reg_BG34NBA & 0xF0) << 8;
+    break;
+  }
   return word_addr >> 4;
 }
 
@@ -176,9 +197,8 @@ static void MiniRenderEditorBg2(uint32_t *pixels, int pitch_pixels, const MiniGa
   MiniStubs_GetEditorBg2View(&bg2_view);
   if (!bg2_view.loaded || bg2_view.tilemap_words == NULL || !tileset_view->loaded)
     return;
-  (void)state;
 
-  int scroll_x = reg_BG2HOFS;
+  int scroll_x = reg_BG2HOFS + MiniRoomFx_EditorBg2DriftX(state);
   int scroll_y = reg_BG2VOFS;
   int first_tile_x = scroll_x / 8;
   int first_tile_y = scroll_y / 8;
@@ -265,18 +285,25 @@ static void MiniRenderEditorRoomSprites(uint32_t *pixels, int pitch_pixels, cons
 }
 
 static void MiniRenderRoom(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
+  bool use_generated_backdrop = g_backdrop_mode == kMiniBackdropMode_Generated;
   if (!state->uses_rom_room) {
     MiniEditorTilesetView tileset_view;
     MiniStubs_GetEditorTilesetView(&tileset_view);
-    uint32_t sky_top = tileset_view.loaded ? MiniConvertBgr555(tileset_view.palette[0]) : MiniConvertBgr555(0x0C24);
-    uint32_t sky_bottom = MiniConvertBgr555(0x1C03);
-    for (int y = 0; y < kMiniGameHeight; y++) {
-      uint32_t sky = MiniBlendColor(sky_top, sky_bottom, y, kMiniGameHeight - 1);
-      for (int x = 0; x < kMiniGameWidth; x++)
-        pixels[y * pitch_pixels + x] = sky;
+    if (use_generated_backdrop) {
+      MiniGeneratedBackground_Render(pixels, pitch_pixels);
+    } else {
+      uint32_t sky_top = tileset_view.loaded ? MiniConvertBgr555(tileset_view.palette[0]) : MiniConvertBgr555(0x0C24);
+      uint32_t sky_bottom = MiniConvertBgr555(0x1C03);
+      for (int y = 0; y < kMiniGameHeight; y++) {
+        uint32_t sky = MiniBlendColor(sky_top, sky_bottom, y, kMiniGameHeight - 1);
+        for (int x = 0; x < kMiniGameWidth; x++)
+          pixels[y * pitch_pixels + x] = sky;
+      }
     }
 
-    MiniRenderEditorBg2(pixels, pitch_pixels, state, &tileset_view);
+    if (!use_generated_backdrop)
+      MiniRenderEditorBg2(pixels, pitch_pixels, state, &tileset_view);
+    MiniRoomFx_RenderEditorOverlay(pixels, pitch_pixels, state);
 
     if (state->has_editor_room_visuals) {
       MiniRenderEditorRoomTiles(pixels, pitch_pixels, state);
@@ -342,14 +369,17 @@ static void MiniRenderRoom(uint32_t *pixels, int pitch_pixels, const MiniGameSta
     return;
   }
 
-  (void)state;
   const uint8 *vram = MiniPpu_GetVram();
-  uint32_t clear = MiniConvertBgr555(target_palettes[0]);
-  for (int y = 0; y < kMiniGameHeight; y++) {
-    for (int x = 0; x < kMiniGameWidth; x++)
-      pixels[y * pitch_pixels + x] = clear;
+  if (use_generated_backdrop) {
+    MiniGeneratedBackground_Render(pixels, pitch_pixels);
+  } else {
+    uint32_t clear = MiniConvertBgr555(target_palettes[0]);
+    for (int y = 0; y < kMiniGameHeight; y++) {
+      for (int x = 0; x < kMiniGameWidth; x++)
+        pixels[y * pitch_pixels + x] = clear;
+    }
+    MiniRenderBgLayer(pixels, pitch_pixels, vram, reg_BG2SC, MiniBgTileBase(2), reg_BG2HOFS, reg_BG2VOFS);
   }
-  MiniRenderBgLayer(pixels, pitch_pixels, vram, reg_BG2SC, MiniBgTileBase(2), reg_BG2HOFS, reg_BG2VOFS);
   MiniRenderBgLayer(pixels, pitch_pixels, vram, reg_BG1SC, MiniBgTileBase(1), reg_BG1HOFS, reg_BG1VOFS);
 }
 
@@ -423,17 +453,16 @@ static void MiniRenderObjTile(uint32_t *pixels, int pitch_pixels, const uint8 *t
   }
 }
 
-static void MiniRenderSamus(uint32_t *pixels, int pitch_pixels) {
+static void MiniRenderCurrentOam(uint32_t *pixels, int pitch_pixels, int oam_next_ptr_limit) {
   const uint8 *vram = MiniPpu_GetVram();
-  memset(oam_ext, 0, sizeof(uint16) * 16);
-  oam_next_ptr = 0;
-  nmi_copy_samus_halves = 0;
-  Samus_DrawWhenNotAnimatingOrDying();
-  MiniPrepareSamusObjTiles();
-
   int large_size = MiniObjSpriteSizePixels();
   int small_size = large_size / 2;
-  for (int idx = 0; idx < oam_next_ptr; idx += 4) {
+  if (oam_next_ptr_limit < 0)
+    oam_next_ptr_limit = 0;
+  if (oam_next_ptr_limit > 0x200)
+    oam_next_ptr_limit = 0x200;
+  oam_next_ptr_limit &= ~3;
+  for (int idx = 0; idx < oam_next_ptr_limit; idx += 4) {
     uint16 ext = (oam_ext[idx >> 5] >> (2 * ((idx >> 2) & 7))) & 3;
     OamEnt *oam = gOamEnt(idx);
     uint16 attr = *(uint16 *)&oam->charnum;
@@ -467,6 +496,42 @@ static void MiniRenderSamus(uint32_t *pixels, int pitch_pixels) {
   }
 }
 
+static void MiniRenderSamus(uint32_t *pixels, int pitch_pixels) {
+  memset(oam_ext, 0, sizeof(uint16) * 16);
+  oam_next_ptr = 0;
+  nmi_copy_samus_halves = 0;
+  Samus_DrawWhenNotAnimatingOrDying();
+  MiniPrepareSamusObjTiles();
+
+  MiniRenderCurrentOam(pixels, pitch_pixels, oam_next_ptr);
+}
+
+static void MiniRenderProjectiles(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
+  int count = state->projectile_count < kMiniProjectileViewCapacity
+                  ? state->projectile_count
+                  : kMiniProjectileViewCapacity;
+  for (int i = 0; i < count; i++) {
+    const SamusProjectileView *projectile = &state->projectiles[i];
+    if (!projectile->active || !projectile->is_beam)
+      continue;
+
+    int x = (int)projectile->x_pos - state->camera_x;
+    int y = (int)projectile->y_pos - state->camera_y;
+    uint16 dir = projectile->direction & 0xF;
+    bool vertical = dir == 0 || dir == 4;
+    bool horizontal = dir == 2 || dir == 7;
+    int width = horizontal ? 10 : (vertical ? 4 : 8);
+    int height = vertical ? 10 : (horizontal ? 4 : 8);
+    uint32_t core = projectile->is_basic_beam ? MiniConvertBgr555(0x03FF) : MiniConvertBgr555(0x7FE0);
+    uint32_t edge = MiniBlendColor(core, 0xFFFFFFFFu, 1, 3);
+
+    MiniFillRect(pixels, pitch_pixels, x - width / 2, y - height / 2,
+                 width, height, core);
+    MiniFillRect(pixels, pitch_pixels, x - width / 2, y - height / 2,
+                 width, 1, edge);
+  }
+}
+
 static void MiniRenderRoomSprites(uint32_t *pixels, int pitch_pixels) {
   const MiniRoomSprite *sprites = NULL;
   int count = MiniStubs_GetRoomSprites(&sprites);
@@ -487,47 +552,21 @@ static void MiniRenderRoomSprites(uint32_t *pixels, int pitch_pixels) {
                               sprite->vram_tiles_index);
   }
 
-  const uint8 *vram = MiniPpu_GetVram();
-  int large_size = MiniObjSpriteSizePixels();
-  int small_size = large_size / 2;
-  for (int idx = 0; idx < oam_next_ptr; idx += 4) {
-    uint16 ext = (oam_ext[idx >> 5] >> (2 * ((idx >> 2) & 7))) & 3;
-    OamEnt *oam = gOamEnt(idx);
-    uint16 attr = *(uint16 *)&oam->charnum;
-    int charnum = attr & 0x1FF;
-    int palette_base = 128 + ((attr >> 9) & 7) * 16;
-    bool x_flip = (attr & 0x4000) != 0;
-    bool y_flip = (attr & 0x8000) != 0;
-    int size = (ext & 2) ? large_size : small_size;
-    int tiles_per_side = size / 8;
-    int sprite_x = oam->xcoord | ((ext & 1) << 8);
-    int sprite_y = oam->ycoord;
-    int obj_tile_base = MiniObjTileAddr((charnum & 0x100) != 0);
-    if (sprite_x >= 256)
-      sprite_x -= 512;
-    if (sprite_y >= 224)
-      sprite_y -= 256;
-    if (sprite_x <= -size || sprite_x >= kMiniGameWidth || sprite_y <= -size || sprite_y >= kMiniGameHeight)
-      continue;
-    for (int ty = 0; ty < tiles_per_side; ty++) {
-      for (int tx = 0; tx < tiles_per_side; tx++) {
-        int tile_x = x_flip ? (tiles_per_side - 1 - tx) : tx;
-        int tile_y = y_flip ? (tiles_per_side - 1 - ty) : ty;
-        int tile_addr = obj_tile_base + MiniObjTileOffset(charnum, tile_x, tile_y);
-        MiniRenderObjTile(pixels, pitch_pixels, vram, tile_addr, palette_base,
-                          x_flip, y_flip, sprite_x + tx * 8, sprite_y + ty * 8);
-      }
-    }
-  }
+  MiniRenderCurrentOam(pixels, pitch_pixels, oam_next_ptr);
 }
 
 void MiniRenderFrameToPixels(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
   MiniRenderRoom(pixels, pitch_pixels, state);
+  if (state->uses_original_gameplay_runtime) {
+    MiniRenderCurrentOam(pixels, pitch_pixels, state->original_oam_next_ptr);
+    return;
+  }
   if (state->uses_rom_room)
     MiniRenderRoomSprites(pixels, pitch_pixels);
   else
     MiniRenderEditorRoomSprites(pixels, pitch_pixels, state);
   MiniRenderSamus(pixels, pitch_pixels);
+  MiniRenderProjectiles(pixels, pitch_pixels, state);
 }
 
 bool MiniSaveScreenshot(const char *path, const MiniGameState *state) {

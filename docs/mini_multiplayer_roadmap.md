@@ -59,7 +59,7 @@ The target architecture is:
 Before broad cleanup, hold these rules:
 
 - do not break `make`
-- do not let `mini` depend on heavy room/enemy/menu/audio systems
+- do not let `mini` expand past its declared content scope by accident
 - do not rewrite large bank files for aesthetics alone
 - do not port to Rust before the gameplay seam is stable enough for rollback
 - keep the full build moving toward topical modules in parallel with mini work
@@ -95,10 +95,41 @@ Near-term work:
   - `samus_motion.c`
   - `samus_jump.c`
   - `samus_collision.c`
+- keep moving room visuals and authored-room rendering toward reusable chunks from the original engine instead of placeholder-only logic
+
+Current visual boundary for mini:
+
+- `mini` now has a named `landing_site_only` content scope
+- when no explicit editor export is requested and a ROM-backed Landing Site path is available, mini boots that original room path first
+- the ROM-backed path steps the shared original gameplay loop and renders the generated original OAM buffer instead of mini-only Samus/enemy sprites
+- `mini` now has a larger windowed shell while keeping the same internal logical gameplay resolution
+- plain editor-export JSON without embedded asset paths can fall back to ROM-backed room visuals instead of dropping straight to placeholder rendering
+- the first Landing Site background pass now uses original runtime-driven state to render visible scanline-varied sky/cloud bands
+- Landing Site editor-room drift and scanline overlay logic now lives in `src/mini/mini_room_fx.c`, keeping the renderer focused on drawing primitives
+- this is intentionally only the first chunk, not full generalized HDMA emulation for every room FX family
+
+Current weapon boundary for mini:
+
+- basic shooting uses the existing Samus projectile runtime instead of a mini-only duplicate
+- projectile slot reset/clear/kill lifecycle now lives in `src/samus_projectile_state.c`, so the original full build and mini both use the same cleaner module boundary
+- beam fire/cooldown/palette setup now lives in `src/samus_projectile_weapon.c`, keeping mini shooting and the original `sm_rev` build on the same weapon path
+- `src/samus_projectile_view.c` exposes a typed read-only projectile snapshot for mini telemetry and rendering
+- mini renders active beam projectiles from projectile state directly, leaving ROM spritemap/OAM projectile drawing out until the weapon slice needs full presentation parity
+- scripted `SHOOT` input now has a deterministic mini regression that asserts a basic power-beam projectile is spawned
+
+Next visual extraction order:
+
+1. split ROM loading/save-slot/demo-room selection out of `src/mini/stubs_mini.c`
+2. keep the editor-room ROM visual fallback narrow and safe; do not run full room setup scripts just to fetch visuals
+3. replace remaining mini-only projectile/room-sprite presentation in the ROM path with original OAM/VRAM state
+4. expand the new mini room-fx module from one-off sky bands to reusable per-scanline layer scroll rendering
+5. only then add the next families such as rain, haze, and liquid layers
 
 Success condition:
 
-- mini can run Samus movement inside authored or editor-exported rooms without full-game boot flow
+- mini can run the ROM-backed Landing Site room with original shared gameplay systems active
+- mini can still run authored/editor Landing Site data for fast iteration
+- mini room visuals are built from shared original-engine chunks rather than a growing pile of placeholder special cases
 
 ### Phase 2: Turn `physics.c` Into Dispatch, Not A Bucket
 

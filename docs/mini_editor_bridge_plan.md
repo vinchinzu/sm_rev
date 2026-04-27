@@ -23,13 +23,15 @@ First implemented slice:
 - `src/mini/mini_editor_bridge.c` reads a room export JSON file
 - default search path includes
   `../super_metroid_editor/export/sm_nav/rooms/room_91F8.json`
-- `src/mini/stubs_mini.c` now tries editor JSON before ROM save/demo boot
+- explicit `--room-export` tries editor JSON first; the default boot now prefers
+  the ROM-backed Landing Site parity path when it is available
 - exported collision/BTS grids are translated into `level_data` and `BTS`
 - non-ROM rooms render through a local software block renderer in
   `src/mini/mini_runtime.c`
 - headless output reports `room_source` so tests can verify which path booted
 
-This reduces room-system ROM imports first, without breaking the old path.
+This keeps the editor path available for fast authoring while making the
+ROM-backed Landing Site path the parity authority.
 
 ## Data Ownership
 

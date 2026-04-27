@@ -26,7 +26,7 @@ into them, don't recreate bank-shaped files.
 | `samus_motion.c` | 406 | MoveX/Y primitives |
 | `samus_palette.c` | 591 | Beam/suit/speed-boost palette cycles |
 | `samus_pose.c` | 547 | Pose-change gate + movement-type dispatcher |
-| `samus_projectile_core.c` / `samus_projectile_beam.c` / `samus_projectile_block.c` | split + shared impl | Samus projectile runtime, with shared implementation in `samus_projectile_impl.h` |
+| `samus_projectile_core.c` / `samus_projectile_beam.c` / `samus_projectile_block.c` / `samus_projectile_state.c` / `samus_projectile_view.c` / `samus_projectile_weapon.c` | split + shared impl | Samus projectile runtime. Slot lifecycle, read-only projectile views, and beam fire/cooldown/palette setup are now normal shared modules; remaining pre-instr/HUD/SBA logic still uses `samus_projectile_impl.h` |
 | `samus_resource.c` | 63 | Health/missile/super/PB add-sub helpers |
 | `samus_runtime.c` | 1156 | Per-frame Samus handler entry + misc |
 | `samus_special_move.c` | 913 | Shinespark, crystal flash, MB scripted states |

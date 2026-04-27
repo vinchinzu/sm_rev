@@ -12,13 +12,15 @@
 
 static void PrintUsage(const char *argv0) {
   fprintf(stderr,
-          "Usage: %s [--headless] [--record] [--frames N] [--screenshot PATH] [--input-script PATH] [--room-export PATH]\n"
+          "Usage: %s [--headless] [--record] [--frames N] [--screenshot PATH] [--input-script PATH] [--room-export PATH] [--background MODE] [--ai-background]\n"
           "  --headless   Run the mini shell without SDL video.\n"
           "  --record   Save a low-resolution quick clip under out/mini_recording_YYYYMMDD_HHMMSS.mp4.\n"
           "  --frames N   Limit the run to N frames. Windowed mode runs until quit by default.\n"
           "  --screenshot PATH  Save the last rendered frame to a BMP file.\n"
           "  --input-script PATH  Replay one line of input tokens per frame in headless or windowed mode.\n"
-          "  --room-export PATH  Load room collision data from a Super Metroid Editor export JSON file.\n",
+          "  --room-export PATH  Load room collision data from a Super Metroid Editor export JSON file.\n"
+          "  --background MODE  Select mini backdrop mode: game or generated.\n"
+          "  --ai-background  Alias for --background generated.\n",
           argv0);
 }
 
@@ -39,6 +41,7 @@ static bool ParseArgs(int argc, char **argv, MiniOptions *options) {
   options->screenshot_path = NULL;
   options->input_script_path = NULL;
   options->room_export_path = NULL;
+  options->backdrop_mode = kMiniBackdropMode_Game;
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--headless")) {
       options->headless = true;
@@ -64,6 +67,12 @@ static bool ParseArgs(int argc, char **argv, MiniOptions *options) {
         return false;
       options->room_export_path = argv[i + 1];
       i++;
+    } else if (!strcmp(argv[i], "--background")) {
+      if (i + 1 >= argc || !MiniBackdropMode_Parse(argv[i + 1], &options->backdrop_mode))
+        return false;
+      i++;
+    } else if (!strcmp(argv[i], "--ai-background")) {
+      options->backdrop_mode = kMiniBackdropMode_Generated;
     } else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
       PrintUsage(argv[0]);
       exit(0);

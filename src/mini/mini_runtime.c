@@ -9,6 +9,7 @@
 #include "default_controls.h"
 #include "features.h"
 #include "ida_types.h"
+#include "mini_content_scope.h"
 #include "mini_game.h"
 #include "mini_input_script.h"
 #include "mini_record.h"
@@ -22,15 +23,25 @@
 static void PrintResult(const MiniOptions *options, const MiniGameState *state,
                         const char *record_path) {
   uint64_t state_hash = MiniGameState_ComputeHash(state);
+  const SamusProjectileView *first_projectile =
+      state->projectile_count > 0 ? &state->projectiles[0] : NULL;
   printf("{\"build\":\"mini\",\"headless\":%s,\"frames\":%d,"
-         "\"no_enemies\":true,\"no_bosses\":true,\"no_rooms\":%s,"
+         "\"content_scope\":\"%s\","
+         "\"no_enemies\":%s,\"no_bosses\":true,\"no_rooms\":%s,"
          "\"room_ptr\":%u,\"room_width\":%d,\"room_height\":%d,"
          "\"room_source\":\"%s\",\"room_visuals\":\"%s\",\"room_handle\":\"%s\","
+         "\"background\":\"%s\","
+         "\"original_runtime\":%s,\"original_enemies\":%s,\"original_plms\":%s,"
          "\"samus_suit\":\"%s\",\"recording\":%s,\"record_path\":\"%s\","
          "\"rom_room\":%s,"
          "\"samus_x\":%d,\"samus_y\":%d,\"samus_pose\":%u,\"samus_movement_type\":%u,"
+         "\"projectile_count\":%d,\"first_projectile_type\":%u,"
+         "\"first_projectile_x\":%u,\"first_projectile_y\":%u,"
+         "\"first_projectile_dir\":%u,"
          "\"state_hash\":\"0x%016llx\"}\n",
          options->headless ? "true" : "false", state->frame,
+         MiniContentScope_Name(),
+         state->has_original_enemies ? "false" : "true",
          state->has_room ? "false" : "true",
          state->room_id,
          state->room_width_blocks * kMiniBlockSize,
@@ -38,11 +49,20 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          MiniStubs_RoomSourceName(state->room_source),
          state->uses_rom_room ? "rom" : (state->has_editor_room_visuals ? "editor_tileset" : "placeholder"),
          state->room_handle,
+         MiniBackdropMode_Name(options->backdrop_mode),
+         state->uses_original_gameplay_runtime ? "true" : "false",
+         state->has_original_enemies ? "true" : "false",
+         state->has_original_plms ? "true" : "false",
          MiniStubs_SamusSuitName(state->samus_suit),
          options->record ? "true" : "false",
          record_path != NULL ? record_path : "",
          state->uses_rom_room ? "true" : "false",
          state->samus_x, state->samus_y, state->samus_pose_value, state->samus_movement_type_value,
+         state->projectile_count,
+         first_projectile != NULL ? first_projectile->type : 0,
+         first_projectile != NULL ? first_projectile->x_pos : 0,
+         first_projectile != NULL ? first_projectile->y_pos : 0,
+         first_projectile != NULL ? first_projectile->direction : 0,
          (unsigned long long)state_hash);
 }
 
@@ -234,5 +254,6 @@ static int RunWindowed(const MiniOptions *options) {
 }
 
 int MiniRun(const MiniOptions *options) {
+  MiniRenderer_SetBackdropMode(options->backdrop_mode);
   return options->headless ? RunHeadless(options) : RunWindowed(options);
 }

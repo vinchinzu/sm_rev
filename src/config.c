@@ -424,6 +424,9 @@ static bool HandleIniConfig(int section, const char *key, char *value) {
       return ParseBool(value, &g_config.skip_intro);
     }
   } else if (section == 4) {
+    if (StringEqualsNoCase(key, "FullSpec")) {
+      return ParseBool(value, &g_config.full_spec);
+    }
   }
   return false;
 }
@@ -500,6 +503,7 @@ static bool ParseConfigFromBuffer(const char *buf, size_t len) {
 void ParseConfigFile(const char *filename) {
   g_config.msuvolume = 100;  // default msu volume, 100%
   g_config.skip_intro = true;
+  g_config.full_spec = BUILD_IS_FULL;
 
 #ifdef BUNDLE_ASSETS
   // Use embedded config when bundled

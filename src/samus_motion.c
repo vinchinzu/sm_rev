@@ -7,6 +7,7 @@
 #include "sm_rtl.h"
 #include "funcs.h"
 #include "physics_config.h"
+#include "samus_env.h"
 
 // File-local named constants for magic numbers that used to be bare literals.
 // Values match the original ROM semantics exactly — see comments for origin.
@@ -20,11 +21,6 @@ enum SamusHorizontalAccelMode {
   kSamusXAccelMode_None = 0,
   kSamusXAccelMode_Decelerating = 1,
   kSamusXAccelMode_Accelerating = 2,
-};
-
-enum SamusPoseXDirection {
-  kSamusPoseXDir_FaceRight = 4,
-  kSamusPoseXDir_FaceLeft = 8,
 };
 
 enum SamusCollisionDirection {

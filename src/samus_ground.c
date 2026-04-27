@@ -3,11 +3,11 @@
 #include "ida_types.h"
 #include "variables.h"
 #include "funcs.h"
+#include "samus_env.h"
 #include "sm_rtl.h"
 
 enum {
   kSamusFootstepSfx = 6,
-  kSpeedBoostCounter_ChargedBit = 0x400,
   kSamusCollisionDirection_Up = 2,
 };
 
@@ -46,7 +46,7 @@ void Samus_Movement_01_Running(void) {
   if (samus_anim_frame_timer == 1 && kSamusFootstepFrame[samus_anim_frame]) {
     Samus_FootstepGraphics();
     if (!cinematic_function && !boss_id && !samus_shine_timer
-        && (speed_boost_counter & kSpeedBoostCounter_ChargedBit) == 0) {
+        && (speed_boost_counter & kSpeedBoostCounter_Charged) == 0) {
       QueueSfx3_Max6(kSamusFootstepSfx);
     }
   }

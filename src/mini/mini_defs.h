@@ -5,8 +5,8 @@ enum {
   kMiniDefaultFrames = 180,
   kMiniGameWidth = 256,
   kMiniGameHeight = 224,
-  kMiniWindowWidth = 960,
-  kMiniWindowHeight = 540,
+  kMiniWindowWidth = 1440,
+  kMiniWindowHeight = 900,
   kMiniFrameDelayMs = 16,
 };
 

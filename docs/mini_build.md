@@ -10,10 +10,17 @@ kernel, including the next `physics.c` extraction target, see
 
 Current scope:
 - `make mini` builds `sm_rev_mini`.
-- `sm_rev_mini` now runs Samus inside a small authored room backed by the same
-  mini collision tilemap used for movement bring-up.
-- It is still not a gameplay-complete Samus sandbox yet.
-- The build is compiled with `CURRENT_BUILD=BUILD_MINI`, which activates negative feature flags in [src/features.h](../src/features.h).
+- `sm_rev_mini` now defaults to the ROM-backed Landing Site slice when a ROM
+  and compatible save/demo entry are available.
+- The default ROM path steps the shared original gameplay loop for that room,
+  including original room runtime, PLMs, enemy setup, OAM drawing, Samus, physics,
+  projectiles, palette FX, HDMA objects, and room main code.
+- Explicit `--room-export PATH` still selects the editor-authored Landing Site
+  sandbox path for fast movement/editor work.
+- The editor/authored path can opt into the generated background with
+  `--background generated` or `--ai-background`; the default remains `game`.
+- The build is compiled with `CURRENT_BUILD=BUILD_MINI`, which now means
+  "Landing Site content scope" rather than broad compile-time subtraction.
 - The shell supports `--headless --frames N` for smoke testing and a small SDL window for manual inspection.
 
 ## Current Mini Layers
@@ -26,7 +33,8 @@ The mini target is now split into clearer responsibilities under [`src/mini/`](.
 - [mini_asset_bootstrap.c](../src/mini/mini_asset_bootstrap.c): editor/ROM asset import, Samus visual bootstrap, and mini room sprite setup
 - [mini_ppu_stub.c](../src/mini/mini_ppu_stub.c): mini-owned VRAM/CGRAM/DMA register emulation for rendering and asset uploads
 - [mini_game.c](../src/mini/mini_game.c): gameplay-state setup and per-frame update
-- [stubs_mini.c](../src/mini/stubs_mini.c): parity adapter layer for room/world configuration and remaining legacy globals
+- [mini_content_scope.c](../src/mini/mini_content_scope.c): allowed mini content boundary, currently Landing Site only
+- [stubs_mini.c](../src/mini/stubs_mini.c): parity adapter layer for ROM/editor room selection, remaining legacy globals, and host shims
 
 That split is intentional for future portability work. A Rust or other-language port
 can replace the host loop and renderer independently before touching the gameplay
@@ -42,24 +50,25 @@ macOS:
 
 The existing native macOS path uses SDL2 frameworks and turns on bundled assets by default for the full build. The mini shell does not require a ROM and is the easiest target to validate first on macOS.
 
-## Negative-First Build Shape
+## Landing Site Parity Shape
 
-The initial setup uses exclusion-friendly build flags:
-- `NO_ENEMIES`
-- `NO_BOSSES`
-- `NO_ROOMS`
-- `NO_GAME_SYSTEMS`
-- `NO_SOUND`
+Mini has moved past the first negative-only shell. The target is now:
 
-In mini, `NO_ROOMS` now means "no full room-loading / room-transition systems", not
-"no room geometry at all". The mini runtime owns a small authored room so Samus can
-move inside visible bounds without booting the full game room pipeline.
+- link the shared C gameplay engine
+- default to the original ROM-backed Landing Site runtime when available
+- reject or fall back from non-Landing Site room data
+- keep SDL/headless/editor host code separate from gameplay code
+- keep audio disabled for now with `NO_SOUND`
+
+The editor-export path remains valuable, but it is not the parity authority. It is
+the fast authoring/movement lane. The ROM-backed Landing Site path is the parity
+lane.
 
 ## Forward Plan
 
 1. Keep the host layer thin: `src/mini/mini_main.c` and `src/mini/mini_runtime.c` should stay free of gameplay rules.
-2. Shrink `src/mini/stubs_mini.c` further by peeling room/world bootstrap into narrower mini-owned modules.
-3. Continue moving the gameplay kernel into mini-first files: `physics.c`, `physics_config.c`, `samus_input.c`, `samus_motion.c`, `samus_jump.c`, and `samus_collision.c`.
-4. Add the second Samus slice after link stability: `samus_pose.c`, `samus_runtime.c`, `samus_draw.c`, `samus_speed.c`, and `samus_transition.c`.
-5. Keep `sm_*.c`, room logic, demo flow, enemies, bosses, and audio out of mini until each dependency is either stubbed or split cleanly.
-6. Extend tests from shell smoke to deterministic headless mini-state checks once Samus runtime is actually linked in.
+2. Shrink `src/mini/stubs_mini.c` further by peeling ROM loading, SRAM/save-slot selection, and room boot into narrower modules.
+3. Move remaining mini-only rendering substitutions toward shared original OAM/VRAM paths before expanding beyond Landing Site.
+4. Keep full-build behavior authoritative: shared modules must continue to build and run in `sm_rev`.
+5. Keep non-Landing Site content blocked until each dependency has an intentional parity boundary.
+6. Add deterministic assertions around the ROM-backed Landing Site path once its frame state stabilizes.

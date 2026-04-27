@@ -9,6 +9,7 @@
 #include "enemy_types.h"
 #include "mini_defs.h"
 #include "mini_asset_bootstrap.h"
+#include "mini_content_scope.h"
 #include "mini_editor_bridge.h"
 #include "mini_ppu_stub.h"
 #include "samus_asset_bridge.h"
@@ -46,10 +47,31 @@ int snes_frame_counter;
 SpcPlayer *g_spc_player;
 uint16 currently_installed_bug_fix_counter;
 
+void RtlApuWrite(uint32 adr, uint8 val) {
+  (void)adr;
+  (void)val;
+}
+
+void RtlApuUpload(const uint8 *p) {
+  (void)p;
+}
+
+void RtlWriteSram(void) {
+}
+
+void RtlReadSram(void) {
+}
+
+void Call(uint32 addr) {
+  (void)addr;
+  Die("mini: unsupported raw ASM trampoline in Landing Site runtime\n");
+}
+
 static int g_mini_world_left;
 static int g_mini_world_right;
 static int g_mini_world_ceiling;
 static int g_mini_world_floor;
+static bool g_mini_explicit_room_export_path;
 static MiniRoomInfo g_mini_room_info;
 
 static const char *const kMiniRomCandidates[] = {
@@ -208,6 +230,7 @@ static bool MiniLoadAnySave(void) {
 static void MiniLoadRoomTilemaps(void) {
   LoadLibraryBackground();
   DisplayViewablePartOfRoom();
+  RefreshFxVisualsAfterLoad();
   CalculateLayer2Xpos();
   CalculateLayer2Ypos();
   CalculateBgScrolls();
@@ -219,6 +242,9 @@ static void MiniConfigureRoomInfo(bool booted_from_save_slot, int spawn_x, int s
     .uses_rom_room = true,
     .booted_from_save_slot = booted_from_save_slot,
     .has_editor_room_visuals = false,
+    .uses_original_gameplay_runtime = MiniContentScope_AllowsRoom(room_ptr),
+    .has_original_enemies = num_enemies_in_room != 0,
+    .has_original_plms = (plm_flag & 0x8000) != 0,
     .samus_suit = (equipped_items & 0x20) != 0 ? kMiniSamusSuit_Gravity
                  : (equipped_items & 1) != 0 ? kMiniSamusSuit_Varia
                  : kMiniSamusSuit_Power,
@@ -235,8 +261,8 @@ static void MiniConfigureRoomInfo(bool booted_from_save_slot, int spawn_x, int s
     .spawn_x = spawn_x,
     .spawn_y = spawn_y,
   };
-  MiniSetRoomLabel(&g_mini_room_info, room_ptr == kMiniLandingSiteRoom ? "landingSite" : "romRoom",
-                   room_ptr == kMiniLandingSiteRoom ? "Landing Site" : "ROM Room");
+  MiniSetRoomLabel(&g_mini_room_info, MiniContentScope_RoomHandle(room_ptr),
+                   MiniContentScope_RoomName(room_ptr));
   g_mini_world_left = g_mini_room_info.room_left;
   g_mini_world_right = g_mini_room_info.room_right;
   g_mini_world_ceiling = g_mini_room_info.room_top;
@@ -247,6 +273,12 @@ static bool MiniTryConfigureEditorRoom(void) {
   MiniEditorRoom room;
   if (!MiniEditorBridge_LoadRoom(&room))
     return false;
+  if (!MiniContentScope_AllowsRoom(room.room_id)) {
+    fprintf(stderr, "mini: refusing editor room 0x%04X outside %s scope\n",
+            room.room_id, MiniContentScope_Name());
+    MiniEditorBridge_FreeRoom(&room);
+    return false;
+  }
   if ((size_t)room.width_blocks * room.height_blocks > kMiniLevelDataCapacity) {
     MiniEditorBridge_FreeRoom(&room);
     return false;
@@ -257,6 +289,12 @@ static bool MiniTryConfigureEditorRoom(void) {
   MiniAssetBootstrap_InstallEditorAssets(&room);
   MiniAssetBootstrap_SetSamusSuitState(MiniAssetBootstrap_GetInitialSuit());
   MiniInitializeScrollState(room.width_blocks, room.height_blocks);
+  if (MiniLoadAnyRom()) {
+    MiniAssetBootstrap_PrimeEditorRoomFxAndMissingRomVisuals(
+        &room,
+        !room.has_tileset_assets,
+        !room.has_bg2_assets);
+  }
   MiniTryLoadRoomHeaderMetadata(room.room_id);
   MiniApplyEditorScrollState(&room);
   if (!MiniAssetBootstrap_LoadSamusBaseTilesFromAssets() && MiniLoadAnyRom())
@@ -292,6 +330,9 @@ static bool MiniTryConfigureEditorRoom(void) {
     .uses_rom_room = false,
     .booted_from_save_slot = false,
     .has_editor_room_visuals = MiniAssetBootstrap_HasEditorTilesetAssets(),
+    .uses_original_gameplay_runtime = false,
+    .has_original_enemies = false,
+    .has_original_plms = false,
     .samus_suit = MiniAssetBootstrap_GetInitialSuit(),
     .room_id = room.room_id,
     .room_source = kMiniRoomSource_EditorExport,
@@ -325,6 +366,8 @@ static bool MiniTryConfigureSaveSlotRoom(void) {
 
   selected_save_slot = 0;
   LoadFromLoadStation();
+  if (!MiniContentScope_AllowsRoom(room_ptr))
+    return false;
   if (room_ptr == kMiniLandingSiteRoom) {
     layer1_x_pos = kMiniLandingSiteCameraX;
     layer1_y_pos = kMiniLandingSiteCameraY;
@@ -345,6 +388,8 @@ static bool MiniTryConfigureDemoRoom(void) {
   const uint16 *demo_sets = (const uint16 *)RomFixedPtr(0x82876c);
   DemoRoomData *drd = get_DemoRoomData(demo_sets[0]);
   room_ptr = drd->room_ptr_;
+  if (!MiniContentScope_AllowsRoom(room_ptr))
+    return false;
   layer1_x_pos = drd->screen_x_pos;
   layer1_y_pos = drd->screen_y_pos;
   int spawn_x = layer1_x_pos + 128 + drd->samus_y_offs;
@@ -393,12 +438,17 @@ void MiniStubs_Reset(void) {
 }
 
 void MiniStubs_SetRoomExportPath(const char *path) {
+  g_mini_explicit_room_export_path = path != NULL && path[0] != '\0';
   MiniEditorBridge_SetRoomExportPath(path);
 }
 
 void MiniStubs_ConfigureWorld(int viewport_width, int viewport_height) {
-  if (MiniTryConfigureEditorRoom() || MiniTryConfigureSaveSlotRoom() || MiniTryConfigureDemoRoom())
+  if (g_mini_explicit_room_export_path) {
+    if (MiniTryConfigureEditorRoom() || MiniTryConfigureSaveSlotRoom() || MiniTryConfigureDemoRoom())
+      return;
+  } else if (MiniTryConfigureSaveSlotRoom() || MiniTryConfigureDemoRoom() || MiniTryConfigureEditorRoom()) {
     return;
+  }
 
   g_mini_world_left = kMiniWorldPadding;
   g_mini_world_right = viewport_width - kMiniWorldPadding;
@@ -410,6 +460,9 @@ void MiniStubs_ConfigureWorld(int viewport_width, int viewport_height) {
     .uses_rom_room = false,
     .booted_from_save_slot = false,
     .has_editor_room_visuals = false,
+    .uses_original_gameplay_runtime = false,
+    .has_original_enemies = false,
+    .has_original_plms = false,
     .samus_suit = kMiniSamusSuit_Power,
     .room_id = 0,
     .room_source = kMiniRoomSource_Fallback,

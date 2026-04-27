@@ -52,6 +52,9 @@ answer: "where did this logic live before we split it?"
 | `src/samus_grapple.c` | `../sm/src/sm_9b.c` and `../sm/src/sm_90.c` | Grapple logic was split across Samus banks before extraction; now also owns `Samus_Movement_16_Grappling` from the old `physics.c` dispatch cluster |
 | `src/samus_special_move.c` | `../sm/src/sm_90.c` | Shinespark, bomb-jump, knockback, and related special-movement helpers; now also owns `Samus_Movement_0A_KnockbackOrCrystalFlashEnding` and `Samus_Movement_1B_ShinesparkEtc` from the old `physics.c` dispatch cluster |
 | `src/samus_xray.c` | `../sm/src/sm_91.c` and `../sm/src/sm_88.c` | X-Ray scope state machine, block scan, setup stages, and HDMA runtime |
+| `src/samus_projectile_state.c` | `../sm/src/sm_90.c` | Projectile slot reset/clear/kill lifecycle from `ResetProjectileData` `0x90AD22`, `ClearProjectile` `0x90ADB7`, and `KillProjectile` `0x90AE06` |
+| `src/samus_projectile_weapon.c` | `../sm/src/sm_90.c` | Beam palette/cooldown/fire setup from `Samus_HandleCooldown` `0x90AC1C`, `UpdateBeamTilesAndPalette` `0x90AC8D`, `FireUnchargedBeam` `0x90B8D6`, `FireChargedBeam` `0x90B99E`, `InitProjectilePositionDirection` `0x90BA56`, `FireHyperBeam` `0x90BCD1`, and `ProjectileReflection` `0x90BE00` |
+| `src/samus_projectile_core.c` / `src/samus_projectile_beam.c` / `src/samus_projectile_block.c` / `src/samus_projectile_view.c` | `../sm/src/sm_90.c`, `../sm/src/sm_93.c`, and Bank `$94` code paths | Remaining projectile instruction/pre-instruction runtime, projectile draw/explosion helpers, beam/missile/bomb/SBA HUD behavior, block reactions, and read-only mini projectile views |
 
 ## Enemy / Combat Helpers
 

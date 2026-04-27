@@ -4,6 +4,7 @@
 #include "ida_types.h"
 #include "variables.h"
 #include "funcs.h"
+#include "samus_full_spec.h"
 
 #define kOffsetToSaveSlot ((uint16*)RomFixedPtr(0x81812b))
 #define kPackedBytesPerArea_Count ((uint8*)RomFixedPtr(0x818131))
@@ -99,6 +100,7 @@ uint8 LoadFromSram(uint16 a) {  // 0x818085
     UnpackMapFromSave();
     load_station_index = sram_save_station_index;
     area_index = sram_area_index;
+    SamusFullSpec_ApplyIfEnabled();
     return 0;
   } else {
     r20 = 0;

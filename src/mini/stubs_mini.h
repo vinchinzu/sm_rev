@@ -28,6 +28,9 @@ typedef struct MiniRoomInfo {
   bool uses_rom_room;
   bool booted_from_save_slot;
   bool has_editor_room_visuals;
+  bool uses_original_gameplay_runtime;
+  bool has_original_enemies;
+  bool has_original_plms;
   MiniSamusSuit samus_suit;
   uint16 room_id;
   char room_handle[32];
