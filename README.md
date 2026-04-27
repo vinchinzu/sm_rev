@@ -35,12 +35,40 @@ That means:
 
 ## Current Plan
 
-1. Split startup and shell concerns out of `src/main.c` so mini can reuse input, render, and timing code without full-game boot flow.
-2. Add `stubs_mini.c` for cross-system dependencies that still leak into Samus and physics code.
-3. Move the first mini runtime slice into the target: `physics.c`, `physics_config.c`, `samus_input.c`, `samus_motion.c`, `samus_jump.c`, and `samus_collision.c`.
-4. Add the next Samus slice once links are stable: `samus_pose.c`, `samus_runtime.c`, `samus_draw.c`, `samus_speed.c`, and `samus_transition.c`.
-5. Keep `sm_*.c`, room systems, enemy logic, bosses, demos, and audio excluded from mini until each dependency is split or stubbed cleanly.
-6. Expand tests from build smoke to deterministic headless mini-state checks once the runtime slice is active.
+The project has moved past the first mini-shell milestone. The immediate work is now about proving that the mini gameplay kernel is deterministic enough to survive rollback pressure before widening scope or porting gameplay logic.
+
+### What is already in place
+
+- the mini gameplay API now exposes `MiniInit`, `MiniStep`, `MiniSaveState`, `MiniLoadState`, `MiniStateHash`, `MiniCreate`, and `MiniDestroy`
+- `make mini-test` runs the mini smoke test plus a focused rollback seam check
+- a first Rust headless host exists in `src/mini/mini_rust_host.rs`
+- ROM/save bootstrap and first-pass room FX have been split into mini-specific modules instead of growing `stubs_mini.c` forever like an evil coral reef
+
+### Next workstreams
+
+1. **Rollback driver**
+   - build a headless rollback runner on top of the mini C API
+   - keep a snapshot ring buffer
+   - support rewind + re-simulate from delayed input
+   - emit deterministic hashes for desync detection
+
+2. **Determinism stress tests**
+   - expand beyond the current short rollback seam check
+   - cover longer scripted runs, repeated save/load cycles, projectile progression, and ROM-backed room paths
+   - make CI fail loudly when the same input stream stops producing the same hash
+
+3. **Replay artifact format**
+   - define a minimal replay/checkpoint format for reproducible bug reports and future spectator support
+   - store initial state metadata, frame inputs, and final hash
+
+4. **Rust host evolution**
+   - keep gameplay in C for now
+   - move rollback orchestration, replay driving, and future netcode shell work into Rust
+   - do not port gameplay modules to Rust until the deterministic seam is well tested
+
+5. **Only then widen mini scope**
+   - add more rooms, systems, or gameplay slices only after rollback/replay validation is boring and reliable
+   - continue full-build topical cleanup in parallel where it improves shared code without changing behavior
 
 ## Validation
 
