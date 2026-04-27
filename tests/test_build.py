@@ -304,3 +304,59 @@ class TestBuildMini:
         assert output.stat().st_size > 0
         assert output.stat().st_size <= 10 * 1024 * 1024
         assert '"recording":true' in r.stdout
+
+    def test_mini_replay_artifact_roundtrip_verifies_hash(self, tmp_path: Path):
+        """Mini should write a self-describing replay and reject final hash drift when reading it."""
+        script = tmp_path / "script.txt"
+        script.write_text("RIGHT\nRIGHT JUMP\n.\nSHOOT\n", encoding="utf-8")
+        replay = tmp_path / "mini_replay.json"
+        missing_room = tmp_path / "missing_room.json"
+
+        r_write = run([
+            str(MINI_BINARY),
+            "--headless",
+            "--frames",
+            "4",
+            "--room-export",
+            str(missing_room),
+            "--input-script",
+            str(script),
+            "--replay-out",
+            str(replay),
+        ], cwd=tmp_path)
+        assert r_write.returncode == 0, f"mini replay write failed:\n{r_write.stderr}\n{r_write.stdout}"
+        payload = parse_json_payload(r_write.stdout)
+        artifact = json.loads(replay.read_text(encoding="utf-8"))
+
+        assert artifact["format"] == "sm_rev_mini_replay"
+        assert artifact["version"] == 1
+        assert artifact["frames"] == 4
+        assert artifact["viewport"] == {"width": 256, "height": 224}
+        assert artifact["room"]["source"] == "fallback"
+        assert artifact["room"]["export_path"] == str(missing_room)
+        assert artifact["final_hash"] == payload["state_hash"]
+        assert len(artifact["inputs"]) == 4
+        assert artifact["inputs"][0]["buttons"] != 0
+
+        r_read = run([
+            str(MINI_BINARY),
+            "--headless",
+            "--replay-in",
+            str(replay),
+        ], cwd=tmp_path)
+        assert r_read.returncode == 0, f"mini replay read failed:\n{r_read.stderr}\n{r_read.stdout}"
+        replay_payload = parse_json_payload(r_read.stdout)
+        assert replay_payload["state_hash"] == artifact["final_hash"]
+        assert replay_payload["replay_verified"] is True
+
+        artifact["final_hash"] = "0x0000000000000000"
+        bad_replay = tmp_path / "mini_replay_bad_hash.json"
+        bad_replay.write_text(json.dumps(artifact), encoding="utf-8")
+        r_bad = run([
+            str(MINI_BINARY),
+            "--headless",
+            "--replay-in",
+            str(bad_replay),
+        ], cwd=tmp_path)
+        assert r_bad.returncode != 0, "mini replay accepted a mismatched final hash"
+        assert "replay final hash mismatch" in r_bad.stderr

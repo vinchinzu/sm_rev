@@ -29,6 +29,7 @@ The mini target is now split into clearer responsibilities under [`src/mini/`](.
 - [mini_main.c](../src/mini/mini_main.c): CLI parsing only
 - [mini_runtime.c](../src/mini/mini_runtime.c): SDL/headless host loop and process orchestration
 - [mini_input_script.c](../src/mini/mini_input_script.c): deterministic replay-script parsing
+- [mini_replay.c](../src/mini/mini_replay.c): versioned replay artifact read/write and state-hash verification
 - [mini_renderer.c](../src/mini/mini_renderer.c): software frame rendering and screenshot output
 - [mini_asset_bootstrap.c](../src/mini/mini_asset_bootstrap.c): editor/ROM asset import, Samus visual bootstrap, and mini room sprite setup
 - [mini_ppu_stub.c](../src/mini/mini_ppu_stub.c): mini-owned VRAM/CGRAM/DMA register emulation for rendering and asset uploads
@@ -43,6 +44,10 @@ update path.
 Linux:
 - `make mini`
 - `make mini-test`
+
+Replay artifact smoke:
+- `./sm_rev_mini --headless --frames 4 --input-script path/to/script.txt --replay-out out/mini_replay.json`
+- `./sm_rev_mini --headless --replay-in out/mini_replay.json`
 
 macOS:
 - `make mini-mac`
