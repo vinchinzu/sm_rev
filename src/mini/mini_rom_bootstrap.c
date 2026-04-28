@@ -203,6 +203,7 @@ bool MiniRomBootstrap_TryConfigureDemoRoom(MiniRoomInfo *info) {
   const uint16 *demo_sets = (const uint16 *)RomFixedPtr(kMiniDemoRoomSetTable);
   DemoRoomData *drd = get_DemoRoomData(demo_sets[0]);
   room_ptr = drd->room_ptr_;
+  door_def_ptr = drd->door_ptr;
   if (!MiniContentScope_AllowsRoom(room_ptr))
     return false;
   layer1_x_pos = drd->screen_x_pos;

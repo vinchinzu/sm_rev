@@ -12,7 +12,7 @@
 
 enum {
   kMiniRoomTilesVramSize = 0x5000,
-  kMiniCreTilesVramDst = 0x5000,
+  kMiniCreTilesVramByteDst = 0x5000,
   kMiniStdObjTilesVramDst = 0x6000,
   kMiniStdObjTilesVramSize = 0x2E00,
 };
@@ -301,7 +301,7 @@ void MiniAssetBootstrap_LoadCurrentRoomAssets(void) {
   MiniPpu_CopyVram(0x0000, tilemap_stuff, 0x2000);
   MiniPpu_CopyVram(0x1000, (uint8 *)tilemap_stuff + 0x2000, 0x2000);
   MiniPpu_CopyVram(0x2000, (uint8 *)tilemap_stuff + 0x4000, 0x1000);
-  DecompressToMem(0xb98000, MiniPpu_GetVram() + ((size_t)kMiniCreTilesVramDst << 1));
+  DecompressToMem(0xb98000, MiniPpu_GetVram() + kMiniCreTilesVramByteDst);
   MiniAssetBootstrap_InstallRomSamusBaseTiles();
   LoadColorsForSpritesBeamsAndEnemies();
   LoadEnemies();

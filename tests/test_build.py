@@ -294,6 +294,42 @@ class TestBuildMini:
             f"found {samus_yellow_pixels} yellow pixels"
         )
 
+    def test_mini_rom_runtime_landing_site_loads_door_background_at_start(self, tmp_path: Path):
+        """ROM-backed Landing Site should not start with the uninitialized purple BG tile pattern."""
+        rom_candidates = [
+            SM_REV_DIR / "sm.smc",
+            SM_REV_DIR.parent / "sm" / "sm.smc",
+        ]
+        if not any(path.exists() for path in rom_candidates):
+            return
+        frame = tmp_path / "rom_background.bmp"
+        r = run([
+            str(MINI_BINARY),
+            "--headless",
+            "--frames",
+            "1",
+            "--screenshot",
+            str(frame),
+        ])
+        assert r.returncode == 0, f"mini ROM background screenshot failed:\n{r.stderr}\n{r.stdout}"
+        state = parse_json_payload(r.stdout)
+        assert state["rom_room"] is True
+        assert state["room_source"] == "rom_demo"
+
+        _, _, pixels = read_bmp_argb_pixels(frame)
+        purple_placeholder_pixels = 0
+        for row in pixels:
+            for pixel in row:
+                red = (pixel >> 16) & 0xFF
+                green = (pixel >> 8) & 0xFF
+                blue = pixel & 0xFF
+                if red > 100 and blue > 100 and green < 150:
+                    purple_placeholder_pixels += 1
+        assert purple_placeholder_pixels < 1024, (
+            "expected door-selected Landing Site background, "
+            f"found {purple_placeholder_pixels} purple placeholder pixels"
+        )
+
     def test_mini_basic_shooting_spawns_power_beam(self, tmp_path: Path):
         """Mini should import the basic Samus beam path and expose active projectile state."""
         script = tmp_path / "shoot.txt"
