@@ -65,6 +65,13 @@ enum {
   kGoldTorizoSpaceJumpRandomMask = 0x101,
 };
 
+typedef struct TorizoJumpConfig {
+  int16 x_speed_direction_set;
+  int16 x_speed_direction_clear;
+  int16 y_speed;
+  int16 gravity;
+} TorizoJumpConfig;
+
 static const uint16 g_word_AAB096 = 6;
 static const uint16 g_word_AAB098 = 5;
 static const uint16 g_word_AAB09A = 3;
@@ -102,6 +109,9 @@ static const int16 g_word_AAD59A[20] = {
    0, 7, 17,  18,
 };
 
+static const TorizoJumpConfig kTorizoJump_LongDirectionArc = { 512, -512, -1472, kTorizoFallAcceleration };
+static const TorizoJumpConfig kTorizoJump_ReverseDirectionArc = { -768, 768, -1152, kTorizoFallAcceleration };
+
 static void CallTorizoFunc(uint32 ea, uint16 k);
 
 static bool Torizo_IsNegative(uint16 value) {
@@ -126,6 +136,14 @@ static uint16 Torizo_SelectByParam1Sign(const Enemy_Torizo *E, uint16 sign_set_v
 
 static void Torizo_SetInstruction(Enemy_Torizo *E, uint16 instruction) {
   E->base.current_instruction = instruction;
+  E->base.instruction_timer = 1;
+}
+
+static void Torizo_StartJump(uint16 k, const TorizoJumpConfig *jump) {
+  Enemy_Torizo *E = Get_Torizo(k);
+  E->toriz_var_A = Torizo_SelectByParam1Sign(E, jump->x_speed_direction_set, jump->x_speed_direction_clear);
+  E->toriz_var_B = jump->y_speed;
+  E->toriz_var_C = jump->gravity;
   E->base.instruction_timer = 1;
 }
 
@@ -252,31 +270,11 @@ const uint16 *Torizo_Instr_9(uint16 k, const uint16 *jp) {  // 0xAAB951
 }
 
 void Torizo_C20A(uint16 k) {  // 0xAAC20A
-  int16 v2;
-
-  Enemy_Torizo *E = Get_Torizo(k);
-  if (Torizo_Param1SignSet(E))
-    v2 = 512;
-  else
-    v2 = -512;
-  E->toriz_var_A = v2;
-  E->toriz_var_B = -1472;
-  E->toriz_var_C = kTorizoFallAcceleration;
-  E->base.instruction_timer = 1;
+  Torizo_StartJump(k, &kTorizoJump_LongDirectionArc);
 }
 
 void Torizo_C22D(uint16 k) {  // 0xAAC22D
-  int16 v2;
-
-  Enemy_Torizo *E = Get_Torizo(k);
-  if (Torizo_Param1SignSet(E))
-    v2 = -768;
-  else
-    v2 = 768;
-  E->toriz_var_A = v2;
-  E->toriz_var_B = -1152;
-  E->toriz_var_C = kTorizoFallAcceleration;
-  E->base.instruction_timer = 1;
+  Torizo_StartJump(k, &kTorizoJump_ReverseDirectionArc);
 }
 
 void Torizo_C250(void) {  // 0xAAC250
