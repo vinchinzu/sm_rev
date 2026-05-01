@@ -72,6 +72,11 @@ typedef struct TorizoJumpConfig {
   int16 gravity;
 } TorizoJumpConfig;
 
+typedef struct TorizoFacingIlistPair {
+  uint16 sign_set;
+  uint16 sign_clear;
+} TorizoFacingIlistPair;
+
 static const uint16 g_word_AAB096 = 6;
 static const uint16 g_word_AAB098 = 5;
 static const uint16 g_word_AAB09A = 3;
@@ -112,6 +117,11 @@ static const int16 g_word_AAD59A[20] = {
 static const TorizoJumpConfig kTorizoJump_LongDirectionArc = { 512, -512, -1472, kTorizoFallAcceleration };
 static const TorizoJumpConfig kTorizoJump_ReverseDirectionArc = { -768, 768, -1152, kTorizoFallAcceleration };
 
+static const TorizoFacingIlistPair kBombTorizoBlockedFallIlists = { addr_off_AAC0F2, addr_off_AABC78 };
+static const TorizoFacingIlistPair kBombTorizoNormalRecoveryIlists = { addr_kTorizo_Ilist_B962, addr_kTorizo_Ilist_BDD8 };
+static const TorizoFacingIlistPair kBombTorizoLowHealthRecoveryIlists = { addr_kTorizo_Ilist_BD0E, addr_kTorizo_Ilist_C188 };
+static const TorizoFacingIlistPair kGoldTorizoRecoveryIlists = { addr_kTorizo_Ilist_D203, addr_kTorizo_Ilist_D2BF };
+
 static void CallTorizoFunc(uint32 ea, uint16 k);
 
 static bool Torizo_IsNegative(uint16 value) {
@@ -132,6 +142,10 @@ static void Torizo_SetParam1State(Enemy_Torizo *E, uint16 state) {
 
 static uint16 Torizo_SelectByParam1Sign(const Enemy_Torizo *E, uint16 sign_set_value, uint16 sign_clear_value) {
   return Torizo_Param1SignSet(E) ? sign_set_value : sign_clear_value;
+}
+
+static uint16 Torizo_SelectFacingIlist(const Enemy_Torizo *E, const TorizoFacingIlistPair *ilists) {
+  return Torizo_SelectByParam1Sign(E, ilists->sign_set, ilists->sign_clear);
 }
 
 static void Torizo_SetInstruction(Enemy_Torizo *E, uint16 instruction) {
@@ -172,30 +186,27 @@ static void Torizo_FlashPalettePair(void) {
   }
 }
 
-static uint16 Torizo_ClampedHopFallSpeed(const Enemy_Torizo *E) {
+static bool Torizo_RecoveryDelayElapsed(Enemy_Torizo *E) {
+  if (E->toriz_var_03 == 0)
+    return false;
+  return --E->toriz_var_03 == 0;
+}
+
+static uint16 Torizo_FallProbeSpeed(const Enemy_Torizo *E) {
   uint16 speed = abs16(E->toriz_var_A) + 1;
-  if (speed >= kTorizoHopFallClampThreshold)
-    speed = kTorizoMaxHopFallSpeed;
-  return speed;
+  return speed >= kTorizoHopFallClampThreshold ? kTorizoMaxHopFallSpeed : speed;
 }
 
-static void Torizo_SetLandingInstruction(Enemy_Torizo *E) {
-  Torizo_SetInstruction(E, Torizo_SelectByParam1Sign(E, addr_off_AAC0F2, addr_off_AABC78));
-  E->toriz_var_B = kTorizoLandingYSpeed;
-  E->toriz_var_A = 0;
-}
-
-static void Torizo_UpdateHopFallOrResume(uint16 k, Enemy_Torizo *E, uint16 sign_set_ilist, uint16 sign_clear_ilist) {
-  if (E->toriz_var_03 != 0) {
-    --E->toriz_var_03;
-    if (E->toriz_var_03 == 0) {
-      Torizo_SetInstruction(E, Torizo_SelectByParam1Sign(E, sign_set_ilist, sign_clear_ilist));
-      return;
-    }
+static void Torizo_UpdateJumpLanding(uint16 k, Enemy_Torizo *E, const TorizoFacingIlistPair *recovery_ilists) {
+  if (Torizo_RecoveryDelayElapsed(E)) {
+    Torizo_SetInstruction(E, Torizo_SelectFacingIlist(E, recovery_ilists));
+    return;
   }
-
-  if (!Enemy_MoveDown(k, INT16_SHL16(Torizo_ClampedHopFallSpeed(E))))
-    Torizo_SetLandingInstruction(E);
+  if (!Enemy_MoveDown(k, INT16_SHL16(Torizo_FallProbeSpeed(E)))) {
+    Torizo_SetInstruction(E, Torizo_SelectFacingIlist(E, &kBombTorizoBlockedFallIlists));
+    E->toriz_var_B = kTorizoLandingYSpeed;
+    E->toriz_var_A = 0;
+  }
 }
 
 static bool Torizo_ShouldUseMissileAttack(uint16 min_missiles) {
@@ -613,10 +624,12 @@ void Torizo_Func_1(uint16 k) {  // 0xAAC6FF
 
 void Torizo_Func_5(uint16 k) {  // 0xAAC752
   Enemy_Torizo *E = Get_Torizo(k);
-  if ((E->toriz_parameter_2 & kTorizoParam2_Phase2) != 0)
-    Torizo_UpdateHopFallOrResume(k, E, addr_kTorizo_Ilist_BD0E, addr_kTorizo_Ilist_C188);
-  else
-    Torizo_UpdateHopFallOrResume(k, E, addr_kTorizo_Ilist_B962, addr_kTorizo_Ilist_BDD8);
+  const TorizoFacingIlistPair *recovery_ilists =
+      (E->toriz_parameter_2 & kTorizoParam2_Phase2) != 0
+          ? &kBombTorizoLowHealthRecoveryIlists
+          : &kBombTorizoNormalRecoveryIlists;
+
+  Torizo_UpdateJumpLanding(k, E, recovery_ilists);
 }
 
 void Torizo_Func_6(uint16 k) {  // 0xAAC828
@@ -951,7 +964,7 @@ void Torizo_D5ED(uint16 k) {  // 0xAAD5ED
 
 void Torizo_D5F1(uint16 k) {  // 0xAAD5F1
   Enemy_Torizo *E = Get_Torizo(k);
-  Torizo_UpdateHopFallOrResume(k, E, addr_kTorizo_Ilist_D203, addr_kTorizo_Ilist_D2BF);
+  Torizo_UpdateJumpLanding(k, E, &kGoldTorizoRecoveryIlists);
 }
 
 void Torizo_D658(void) {  // 0xAAD658
