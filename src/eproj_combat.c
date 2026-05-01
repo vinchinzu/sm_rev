@@ -17,7 +17,6 @@
 #define g_word_869059 ((uint16*)RomFixedPtr(0x869059))
 #define off_86A2E2 ((uint16*)RomFixedPtr(0x86a2e2))
 #define kEprojInit_BombTorizoStatueBreaking_InstrList ((uint16*)RomFixedPtr(0x86a7ab))
-#define off_86B209 ((uint16*)RomFixedPtr(0x86b209))
 #define kEprojInit_N00bTubeShards_InstrPtrs ((uint16*)RomFixedPtr(0x86d760))
 #define off_86D96A ((uint16*)RomFixedPtr(0x86d96a))
 #define kSporeMovementData ((uint8*)RomFixedPtr(0x86dd6c))
@@ -35,8 +34,6 @@ void sub_869DA5(uint16 k);
 void sub_86A301(uint16 j);
 void sub_86A887(uint16 k);
 void sub_86A91A(uint16 v0);
-void sub_86B0B9(uint16 k);
-void sub_86B0DD(uint16 k);
 void sub_86BB30(uint16 j);
 void sub_86CFD5(uint16 k);
 void sub_86CFE6(uint16 k);
@@ -1215,9 +1212,6 @@ static const int16 kEprojInit_BombTorizoStatueBreaking_Xpos[16] = { 8, 0x18, -8,
 static const int16 kEprojInit_BombTorizoStatueBreaking_Ypos[8] = { -8, -8, 8, 8, 8, 0x18, 0x18, 0x18 };
 static const int16 kEprojInit_BombTorizoStatueBreaking_Yvel[8] = { 256, 256, 256, 256, 256, 256, 256, 256 };
 static const int16 kEprojInit_BombTorizoStatueBreaking_F[8] = { 16, 16, 16, 16, 16, 16, 16, 16 };
-static const int16 kEprojInit_BombTorizoLowHealthExplode_X[6] = { 0, 12, -12, 0, 16, -16 };
-static const int16 kEprojInit_BombTorizoLowHealthExplode_Y[6] = { -8, -8, -8, -20, -20, -20 };
-
 static void EprojInit_BombTorizoExplosiveSwipe(uint16 j) {  // 0x86A6F6
   EnemyData *v1 = gEnemyData(cur_enemy_index);
   if ((v1->parameter_1 & 0x8000) != 0) {
@@ -1247,34 +1241,6 @@ static void EprojInit_BombTorizoStatueBreaking(uint16 j) {  // 0x86A764
   eproj_y_vel[v3] = kEprojInit_BombTorizoStatueBreaking_Yvel[v4];
   eproj_F[v3] = kEprojInit_BombTorizoStatueBreaking_F[v4];
   eproj_properties[v3] |= 0x1000;
-}
-
-static void EprojInit_BombTorizoLowHealthExplode(uint16 j) {  // 0x86A81B
-  EnemyData *v1 = gEnemyData(cur_enemy_index);
-  int v2 = j >> 1;
-  eproj_x_pos[v2] = v1->x_pos;
-  eproj_y_pos[v2] = v1->y_pos;
-  if ((v1->parameter_1 & 0x8000) == 0)
-    eproj_init_param_1 += 2;
-  eproj_init_param_1 += 2;
-  int v3 = eproj_init_param_1 >> 1;
-  uint16 v4 = kEprojInit_BombTorizoLowHealthExplode_X[v3] + eproj_x_pos[v2];
-  eproj_x_pos[v2] = v4;
-  eproj_E[v2] = v4;
-  uint16 v5 = kEprojInit_BombTorizoLowHealthExplode_Y[v3] + eproj_y_pos[v2];
-  eproj_y_pos[v2] = v5;
-  eproj_F[v2] = v5;
-}
-
-static void EprojInit_BombTorizoDeathExplosion(uint16 j) {  // 0x86A871
-  EnemyData *v1 = gEnemyData(cur_enemy_index);
-  uint16 x_pos = v1->x_pos;
-  int v3 = j >> 1;
-  eproj_x_pos[v3] = x_pos;
-  eproj_E[v3] = x_pos;
-  uint16 y_pos = v1->y_pos;
-  eproj_y_pos[v3] = y_pos;
-  eproj_F[v3] = y_pos;
 }
 
 void sub_86A887(uint16 v0) {  // 0x86A887
@@ -1379,116 +1345,6 @@ const uint8 *EprojInstr_SpawnEnemyDrops(uint16 k, const uint8 *epjp) {  // 0x86A
   return epjp + 4;
 }
 
-static void Eproj_InitXYVelRandom(uint16 j, uint16 k, Point16U pt) {  // 0x86ABAE
-  const uint16 *v2 = (const uint16 *)RomPtr_86(k);
-  int v3 = j >> 1;
-  eproj_instr_list_ptr[v3] = *v2;
-  eproj_x_pos[v3] = v2[1] + pt.x;
-  eproj_x_vel[v3] = v2[2] + (uint8)NextRandom() - 128;
-  eproj_y_pos[v3] = v2[3] + pt.y;
-  eproj_y_vel[v3] = v2[4] + (uint8)NextRandom() - 128;
-}
-
-static void EprojInit_BombTorizosChozoOrbs(uint16 j) {  // 0x86ABEB
-  EnemyData *E = gEnemyData(cur_enemy_index);
-  uint16 v2 = ((E->parameter_1 & 0x8000) != 0) ? addr_kEprojInit_BombTorizosChozoOrbs_init0 : addr_kEprojInit_BombTorizosChozoOrbs_init1;
-  Eproj_InitXYVelRandom(j, v2, (Point16U) { E->x_pos, E->y_pos });
-}
-
-static void EprojInit_GoldenTorizosChozoOrbs(uint16 j) {  // 0x86AC7C
-  EnemyData *E = gEnemyData(cur_enemy_index);
-  uint16 v2 = ((E->parameter_1 & 0x8000) != 0) ? addr_kEprojInit_GoldenTorizosChozoOrbs_init0 : addr_kEprojInit_GoldenTorizosChozoOrbs_init1;
-  Eproj_InitXYVelRandom(j, v2, (Point16U) { E->x_pos, E->y_pos });
-}
-
-void EprojPreInstr_BombTorizosChozoOrbs(uint16 k) {  // 0x86ACAD
-  if (EprojBlockCollisition_Horiz(k)) {
-    int v3 = k >> 1;
-    eproj_instr_list_ptr[v3] = addr_off_86AB25;
-    eproj_instr_timers[v3] = 1;
-  } else {
-    uint8 carry = EprojBlockCollisition_Vertical(k);
-    int v1 = k >> 1;
-    if ((eproj_y_vel[v1] & 0x8000) != 0 || !carry) {
-      uint16 v2 = eproj_y_vel[v1] + 18;
-      eproj_y_vel[v1] = v2;
-      if ((v2 & 0xF000) == 4096)
-        eproj_id[v1] = 0;
-    } else {
-      int v4 = k >> 1;
-      eproj_y_pos[v4] = (eproj_y_pos[v4] & 0xFFF0 | 8) - 2;
-      eproj_instr_list_ptr[v4] = addr_off_86AB41;
-      eproj_instr_timers[v4] = 1;
-    }
-  }
-}
-
-void EprojPreInstr_GoldenTorizosChozoOrbs(uint16 k) {  // 0x86ACFA
-  int v1;
-  int16 v2;
-  uint16 v3;
-  uint16 v4;
-
-  if (EprojBlockCollisition_Horiz(k) & 1)
-    eproj_x_vel[k >> 1] = -eproj_x_vel[k >> 1];
-  if (EprojBlockCollisition_Vertical(k) & 1
-      && (v1 = k >> 1, (eproj_y_vel[v1] & 0x8000) == 0)
-      && ((v2 = eproj_x_vel[v1], v2 >= 0) ? (v3 = v2 - 64) : (v3 = v2 + 64),
-          eproj_x_vel[v1] = v3,
-          v4 = -(eproj_y_vel[v1] >> 1),
-          eproj_y_vel[v1] = v4,
-          (v4 & 0xFF80) == 0xFF80)) {
-    int v5 = k >> 1;
-    eproj_y_pos[v5] = (eproj_y_pos[v5] & 0xFFF0 | 8) - 2;
-    eproj_instr_list_ptr[v5] = addr_off_86AB41;
-    eproj_instr_timers[v5] = 1;
-  } else {
-    eproj_y_vel[k >> 1] += 24;
-  }
-}
-
-const uint8 *EprojInstr_GotoDependingOnXDirection(uint16 k, const uint8 *epjp) {  // 0x86AD92
-  int v2 = k >> 1;
-  int32 amt = INT16_SHL8(eproj_x_vel[v2]);
-  AddToHiLo(&eproj_x_pos[v2], &eproj_x_subpos[v2], amt);
-  if ((eproj_x_vel[v2] & 0x8000) == 0)
-    return INSTRB_RETURN_ADDR(GET_WORD(epjp + 2));
-  else
-    return INSTRB_RETURN_ADDR(GET_WORD(epjp));
-}
-
-static void EprojInit_TorizoSonicBoom(uint16 j) {  // 0x86AE15
-  int v1 = ((NextRandom() & 1) != 0) ? -12 : 20;
-  EnemyData *v2 = gEnemyData(cur_enemy_index);
-  int v3 = j >> 1;
-  eproj_y_pos[v3] = v2->y_pos + v1;
-  eproj_y_vel[v3] = 0;
-  if ((v2->parameter_1 & 0x8000) != 0) {
-    eproj_x_pos[v3] = v2->x_pos + 32;
-    eproj_x_vel[v3] = 624;
-    eproj_instr_list_ptr[v3] = addr_off_86ADD2;
-  } else {
-    eproj_x_pos[v3] = v2->x_pos - 32;
-    eproj_x_vel[v3] = -624;
-    eproj_instr_list_ptr[v3] = addr_off_86ADBF;
-  }
-}
-
-void EprojPreInstr_TorizoSonicBoom(uint16 k) {  // 0x86AE6C
-  if (EprojBlockCollisition_Horiz(k) & 1) {
-    int v4 = k >> 1;
-    eproj_instr_list_ptr[v4] = addr_off_86ADE5;
-    eproj_instr_timers[v4] = 1;
-    eproj_E[v4] = eproj_x_pos[v4];
-    eproj_F[v4] = eproj_y_pos[v4];
-  } else {
-    int v1 = k >> 1;
-    eproj_x_vel[v1] += sign16(eproj_x_vel[v1]) ? -16 : 16;
-    if ((eproj_x_vel[v1] & 0xF000) == 4096)
-      eproj_id[v1] = 0;
-  }
-}
-
 static void EprojInit_WreckedShipChozoSpikeFootsteps(uint16 j) {  // 0x86AEFC
   EnemyData *v1 = gEnemyData(cur_enemy_index);
   int v2 = j >> 1;
@@ -1519,156 +1375,6 @@ static void EprojInit_TourianLandingDustCloudsRightFoot(uint16 j) {  // 0x86AF50
 const uint8 *EprojInstr_MoveY_Minus4(uint16 k, const uint8 *epjp) {  // 0x86AF92
   eproj_y_pos[k >> 1] -= 4;
   return epjp;
-}
-
-static void EprojInit_TorizoLandingDustCloudLeftFoot(uint16 j) {  // 0x86AFCD
-  EnemyData *v1 = gEnemyData(cur_enemy_index);
-  int v2 = j >> 1;
-  eproj_y_pos[v2] = v1->y_pos + 48;
-  eproj_x_pos[v2] = v1->x_pos - 24;
-}
-
-static void EprojInit_GoldenTorizoEgg(uint16 j) {  // 0x86B001
-  EnemyData *v1 = gEnemyData(cur_enemy_index);
-  int v2 = j >> 1;
-  eproj_F[v2] = (0xe2 & 0x1F) + 64;  //  bug
-  eproj_E[v2] = v1->parameter_1;
-  uint16 v4 = sign16(v1->parameter_1) ? addr_kEprojInit_GoldenTorizoEgg0 : addr_kEprojInit_GoldenTorizoEgg1;
-  Eproj_InitXYVelRandom(j, v4, (Point16U) { v1->x_pos, v1->y_pos });
-}
-
-void EprojPreInstr_GoldenTorizoEgg(uint16 k) {  // 0x86B043
-  int v1 = k >> 1;
-  if ((--eproj_F[v1] & 0x8000) != 0) {
-    eproj_instr_list_ptr[v1] += 2;
-    eproj_instr_timers[v1] = 1;
-    eproj_x_vel[v1] = ((eproj_E[v1] & 0x8000) != 0) ? 256 : -256;
-  } else {
-    if (EprojBlockCollisition_Horiz(k) & 1) {
-      eproj_x_vel[v1] = -eproj_x_vel[v1];
-      eproj_E[v1] ^= 0x8000;
-    }
-    if (EprojBlockCollisition_Vertical(k) & 1 && (eproj_y_vel[v1] & 0x8000) == 0) {
-      eproj_x_vel[v1] += sign16(eproj_x_vel[v1]) ? 32 : -32;
-      eproj_y_vel[v1] = -eproj_y_vel[v1];
-    }
-    eproj_y_vel[v1] += 48;
-    if ((eproj_y_vel[v1] & 0xF000) == 4096)
-      eproj_id[v1] = 0;
-  }
-}
-
-void sub_86B0B9(uint16 k) {  // 0x86B0B9
-  int16 v2;
-
-  if (EprojBlockCollisition_Horiz(k) & 1) {
-    int v3 = k >> 1;
-    eproj_pre_instr[v3] = 0xB0DD;
-    eproj_y_vel[v3] = 0;
-  } else {
-    int v1 = k >> 1;
-    if ((eproj_E[v1] & 0x8000) != 0)
-      v2 = 48;
-    else
-      v2 = -48;
-    eproj_x_vel[v1] += v2;
-  }
-}
-
-void sub_86B0DD(uint16 k) {  // 0x86B0DD
-  if (EprojBlockCollisition_Vertical(k) & 1) {
-    int v1 = k >> 1;
-    eproj_instr_list_ptr[v1] = ((eproj_E[v1] & 0x8000) != 0) ? addr_off_86B1A8 : addr_off_86B190;
-    eproj_instr_timers[v1] = 1;
-  } else {
-    eproj_y_vel[k >> 1] += 48;
-  }
-}
-
-const uint8 *sub_86B13E(uint16 k, const uint8 *epjp) {  // 0x86B13E
-  return INSTRB_RETURN_ADDR(((eproj_E[k >> 1] & 0x8000) != 0) ? addr_off_86B166 : addr_off_86B14B);
-}
-
-static const int16 word_86B205[2] = { -0x1e, 0x1e };
-
-static void EprojInit_GoldenTorizoSuperMissile(uint16 j) {  // 0x86B1CE
-  int v2 = j >> 1;
-  eproj_E[v2] = cur_enemy_index;
-  EnemyData *v3 = gEnemyData(cur_enemy_index);
-  int v4 = ((v3->parameter_1 & 0x8000) != 0) ? 1 : 0;
-  eproj_x_pos[v2] = v3->x_pos + word_86B205[v4];
-  eproj_y_pos[v2] = v3->y_pos - 52;
-  eproj_instr_list_ptr[v2] = off_86B209[v4];
-}
-
-void EprojPreInstr_GoldenTorizoSuperMissile(uint16 k) {  // 0x86B20D
-  int v1 = k >> 1;
-  EnemyData *v2 = gEnemyData(eproj_E[v1]);
-  int v3 = ((v2->parameter_1 & 0x8000) != 0) ? 32 : -32;
-  eproj_x_pos[v1] = v2->x_pos + v3;
-  eproj_y_pos[v1] = v2->y_pos - 52;
-}
-
-void EprojPreInstr_B237(uint16 k) {  // 0x86B237
-  int v1;
-  uint8 carry;
-
-  if (EprojBlockCollisition_Horiz(k)
-      || (carry = EprojBlockCollisition_Vertical(k), v1 = k >> 1, (eproj_y_vel[v1] & 0x8000) == 0)
-      && carry) {
-    int v3 = k >> 1;
-    eproj_instr_list_ptr[v3] = addr_off_86B2EF;
-    eproj_instr_timers[v3] = 1;
-  } else {
-    uint16 v2 = eproj_y_vel[v1] + 16;
-    eproj_y_vel[v1] = v2;
-    if ((v2 & 0xF000) == 4096)
-      eproj_id[v1] = 0;
-  }
-}
-
-static void sub_86B279(uint16 k, uint16 a) {  // 0x86B279
-  int v3 = k >> 1;
-  eproj_x_vel[v3] = 4 * kSinCosTable8bit_Sext[a + 64];
-  eproj_y_vel[v3] = 4 * kSinCosTable8bit_Sext[a];
-}
-
-const uint8 *EprojInstr_SetVelTowardsSamus1(uint16 k, const uint8 *epjp) {  // 0x86B269
-  sub_86B279(k, CalculateAngleOfSamusFromEproj(k) & 0x7F);
-  return epjp;
-}
-
-const uint8 *EprojInstr_SetVelTowardsSamus2(uint16 k, const uint8 *epjp) {  // 0x86B272
-  sub_86B279(k, CalculateAngleOfSamusFromEproj(k) | 0x80);
-  return epjp;
-}
-
-static void EprojInit_GoldenTorizoEyeBeam(uint16 j) {  // 0x86B328
-  EnemyData *E = gEnemyData(cur_enemy_index);
-  uint16 v2 = ((E->parameter_1 & 0x8000) != 0) ? addr_stru_86B376 : addr_stru_86B380;
-  Eproj_InitXYVelRandom(j, v2, (Point16U) { E->x_pos, E->y_pos });
-  uint16 v3 = (NextRandom() & 0x1E) - 16 + 192;
-  if ((E->parameter_1 & 0x8000) == 0)
-    v3 += 128;
-  int v4 = v3 >> 1;
-  int v5 = j >> 1;
-  eproj_x_vel[v5] = 8 * kSinCosTable8bit_Sext[v4 + 64];
-  eproj_y_vel[v5] = 8 * kSinCosTable8bit_Sext[v4];
-}
-
-void EprojPreInstr_GoldenTorizoEyeBeam(uint16 k) {  // 0x86B38A
-  if (EprojBlockCollisition_Horiz(k) & 1) {
-    eproj_instr_list_ptr[k >> 1] = addr_off_86B3CD;
-    eproj_instr_timers[k >> 1] = 1;
-    return;
-  }
-  if (EprojBlockCollisition_Vertical(k) & 1) {
-    int v1 = k >> 1;
-    eproj_y_pos[v1] = (eproj_y_pos[v1] & 0xFFF0 | 8) - 2;
-    eproj_instr_list_ptr[v1] = addr_off_86B3E5;
-    eproj_instr_timers[v1] = 1;
-    return;
-  }
 }
 
 const uint8 *EprojInstr_GotoIfFunc1(uint16 k, const uint8 *epjp) {  // 0x86B3B8

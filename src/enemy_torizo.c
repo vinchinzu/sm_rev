@@ -3,6 +3,8 @@
 #include "variables.h"
 #include "funcs.h"
 #include "enemy_types.h"
+#include "enemy_torizo_attacks.h"
+#include "torizo_config.h"
 
 #define g_off_AAC967 ((uint16*)RomFixedPtr(0xaac967))
 
@@ -23,6 +25,7 @@ enum {
   kTorizoParam1_Bit4000 = 0x4000,
   kTorizoParam1_Bit8000 = 0x8000,
   kTorizoParam1_BitsA000 = 0xa000,
+  kTorizoParam1_FacingLeft = 0,
   kTorizoParam2_CaughtSuperMissile = 0x1000,
   kTorizoParam2_NonMissileHitPending = 0x2000,
   kTorizoParam2_Phase2 = 0x4000,
@@ -42,7 +45,6 @@ enum {
   kTorizoMaxHopFallSpeed = 15,
   kTorizoHopFallClampThreshold = kTorizoMaxHopFallSpeed + 1,
   kTorizoLastPlmHeaderOffset = 78,
-  kTorizoExplosionFlashFrames = 40,
 
   kBombTorizoLowHealthThreshold = 0x15e,
   kBombTorizoVeryLowHealthThreshold = 0x64,
@@ -214,6 +216,11 @@ static bool Torizo_ShouldUseMissileAttack(uint16 min_missiles) {
       && ((nmi_frame_counter_word + (samus_x_pos & 1) + (samus_x_pos >> 1)) & kTorizoMissileAttackFrameMask) == 0;
 }
 
+static void Torizo_SpawnEprojBurst(uint16 k, uint16 projectile_id, uint16 count) {
+  for (uint16 i = 0; i < count; i++)
+    SpawnEprojWithGfx(0, k, projectile_id);
+}
+
 const uint16 *Torizo_Instr_3(uint16 k, const uint16 *jp) {  // 0xAAB09C
   Get_Torizo(k)->toriz_var_E = jp[0];
   return jp + 1;
@@ -346,32 +353,8 @@ const uint16 *Torizo_Instr_22(uint16 k, const uint16 *jp) {  // 0xAAC2ED
   return jp + 1;
 }
 
-const uint16 *Torizo_Instr_19(uint16 k, const uint16 *jp) {  // 0xAAC2F7
-  return INSTR_RETURN_ADDR(Get_Torizo(k)->toriz_var_00);
-}
-
 const uint16 *Torizo_Instr_32(uint16 k, const uint16 *jp) {  // 0xAAC2FD
   return INSTR_RETURN_ADDR(Get_Torizo(k)->toriz_var_01);
-}
-
-const uint16 *Torizo_Instr_30(uint16 k, const uint16 *jp) {  // 0xAAC303
-  uint16 a = jp[0];
-  for (int i = 5; i >= 0; --i)
-    SpawnEprojWithRoomGfx(addr_kEproj_BombTorizoLowHealthExplode, a);
-  Enemy_Torizo *E = Get_Torizo(k);
-  E->base.current_instruction = INSTR_ADDR_TO_PTR(k, jp + 1);
-  E->base.flash_timer = kTorizoExplosionFlashFrames;
-  E->base.instruction_timer = kTorizoExplosionFlashFrames;
-  return 0;
-}
-
-const uint16 *Torizo_Instr_34(uint16 k, const uint16 *jp) {  // 0xAAC32F
-  SpawnEprojWithRoomGfx(addr_kEproj_BombTorizoDeathExplosion, 0);
-  Enemy_Torizo *E = Get_Torizo(k);
-  E->base.current_instruction = INSTR_ADDR_TO_PTR(k, jp);
-  E->base.flash_timer = 1;
-  E->base.instruction_timer = 1;
-  return 0;
 }
 
 const uint16 *Torizo_Instr_24(uint16 k, const uint16 *jp) {  // 0xAAC34A
@@ -496,13 +479,6 @@ const uint16 *Torizo_Instr_26(uint16 k, const uint16 *jp) {  // 0xAAC5A4
     return INSTR_RETURN_ADDR(jp[1]);
 }
 
-const uint16 *Torizo_Instr_18(uint16 k, const uint16 *jp) {  // 0xAAC5CB
-  SpawnEprojWithGfx(0, k, addr_kEproj_BombTorizosChozoOrbs);
-  SpawnEprojWithGfx(0, k, addr_kEproj_BombTorizosChozoOrbs);
-  SpawnEprojWithGfx(0, k, addr_kEproj_BombTorizosChozoOrbs);
-  return jp;
-}
-
 const uint16 *Torizo_Instr_20(uint16 k, const uint16 *jp) {  // 0xAAC5E3
   SpawnEprojWithGfx(jp[0], k, addr_kEproj_BombTorizoSonicBoom);
   return jp + 1;
@@ -609,6 +585,9 @@ void Torizo_Func_1(uint16 k) {  // 0xAAC6FF
   Enemy_Torizo *E = Get_Torizo(k);
   if ((E->toriz_parameter_2 & kTorizoParam2_LowHealthIntroDone) != 0 || E->base.health >= kBombTorizoLowHealthThreshold) {
     if ((E->toriz_parameter_2 & kTorizoParam2_Phase2) != 0 || E->base.health >= kBombTorizoVeryLowHealthThreshold) {
+      if (TorizoAttacks_TryStartBombOpeningChozoOrbAttack(k, E))
+        return;
+      TorizoAttacks_RunScheduledOpeningChozoOrbWaves(k, E);
       CallEnemyPreInstr(E->toriz_var_F | kTorizoFunctionBank);
     } else {
       E->toriz_var_00 = Torizo_SelectByParam1Sign(E, addr_kTorizo_Ilist_BD0E, addr_kTorizo_Ilist_C188);
@@ -672,6 +651,9 @@ void Torizo_Init(void) {  // 0xAAC87F
     E->base.y_pos = g_word_AAC963[v2];
     E->toriz_var_A = 0;
     E->toriz_var_B = kTorizoLandingYSpeed;
+    E->toriz_var_08 = 0;
+    E->toriz_var_0A = 0;
+    E->toriz_var_0B = 0;
     Torizo_CopyPalettePair(target_palettes,
                            kTorizoPaletteIndex_GoldAlternate, kTorizo_Palettes_1,
                            kTorizoPaletteIndex_GoldBase, kTorizo_Palette);
@@ -903,7 +885,7 @@ const uint16 *Torizo_Instr_50(uint16 k, const uint16 *jp) {  // 0xAAD4BA
 }
 
 const uint16 *Torizo_Instr_43(uint16 k, const uint16 *jp) {  // 0xAAD4F3
-  SpawnEprojWithGfx(0, k, addr_kEproj_GoldenTorizosChozoOrbs);
+  Torizo_SpawnEprojBurst(k, addr_kEproj_GoldenTorizosChozoOrbs, TorizoConfig_GoldenChozoOrbBurstCount());
   return jp;
 }
 

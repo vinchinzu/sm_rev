@@ -1,0 +1,27 @@
+{
+  "chozo_orbs": {
+    "spawn_multiplier": 10,
+    "contact_damage_multiplier": 2,
+    "palette": "blue",
+    "freeze_samus_frames": 0,
+    "spawn_jitter_pixels": 14,
+    "bomb_burst_count": -1,
+    "golden_burst_count": -1,
+    "max_per_burst": 18
+  },
+  "attack_order": {
+    "bomb_opening_attack": "chozo_orbs",
+    "bomb_opening_chozo_orb_burst_count": 18,
+    "bomb_opening_chozo_orb_wave_count": 5,
+    "bomb_opening_chozo_orb_wave_interval_frames": 10
+  },
+  "finish_explosion": {
+    "body_burst_multiplier": 3,
+    "body_burst_count": -1,
+    "final_burst_multiplier": 3,
+    "final_burst_count": -1,
+    "flash_frames": 40,
+    "position_jitter_pixels": 6,
+    "max_per_burst": 18
+  }
+}

@@ -25,7 +25,9 @@
 #include "spc_player.h"
 #include "funcs.h"
 #include "variables.h"
+#include "enemy_types.h"
 #include "physics_config.h"
+#include "torizo_config.h"
 #include "multi_samus.h"
 #include "sm_dispatcher.h"
 
@@ -92,6 +94,53 @@ static struct RendererFuncs g_renderer_funcs;
 static uint32 g_gamepad_modifiers;
 static uint16 g_gamepad_last_cmd[kGamepadBtn_Count];
 extern Snes *g_snes;
+
+enum {
+  kMainEnemyDataBytes = 2048,
+  kMainEnemyDataStride = 64,
+  kMainTorizoEnemyBank = 0xaa,
+  kMainEprojSlotCount = 18,
+};
+
+typedef struct TorizoDumpFields {
+  uint16 enemy_count;
+  uint16 opening_flags;
+  uint16 opening_waves_remaining;
+  uint16 opening_wave_timer;
+  uint16 chozo_orb_count;
+  uint16 active_eproj_count;
+} TorizoDumpFields;
+
+static TorizoDumpFields GetTorizoDumpFields(void) {
+  TorizoDumpFields fields = { 0 };
+  bool found_first_torizo = false;
+
+  for (uint16 enemy_offset = 0; enemy_offset < kMainEnemyDataBytes; enemy_offset += kMainEnemyDataStride) {
+    EnemyData *enemy = gEnemyData(enemy_offset);
+    if (enemy->enemy_ptr == 0 || enemy->bank != kMainTorizoEnemyBank)
+      continue;
+    ++fields.enemy_count;
+    if (found_first_torizo)
+      continue;
+
+    Enemy_Torizo *torizo = Get_Torizo(enemy_offset);
+    found_first_torizo = true;
+    fields.opening_flags = torizo->toriz_var_08;
+    fields.opening_waves_remaining = torizo->toriz_var_0A;
+    fields.opening_wave_timer = torizo->toriz_var_0B;
+  }
+
+  for (uint16 i = 0; i < kMainEprojSlotCount; i++) {
+    uint16 projectile_id = eproj_id[i];
+    if (projectile_id == 0)
+      continue;
+    ++fields.active_eproj_count;
+    if (TorizoConfig_IsChozoOrbEproj(projectile_id))
+      ++fields.chozo_orb_count;
+  }
+
+  return fields;
+}
 
 static bool PhysicsModsActive(void) {
   return g_physics_mods.gravity_scale_percent != 100 ||
@@ -377,6 +426,7 @@ int main(int argc, char** argv) {
   int g_headless_frames = 0;
   const char *g_headless_dump = NULL;
   const char *g_headless_frame_dump = NULL;
+  const char *g_headless_save_state = NULL;
   const char *g_load_state_path = NULL;
   int g_fixed_inputs = 0;
   uint16 *g_input_list = NULL;
@@ -403,6 +453,9 @@ int main(int argc, char** argv) {
       argc -= 2, argv += 2;
     } else if (strcmp(argv[0], "--dump-frame") == 0 && argc >= 2) {
       g_headless_frame_dump = argv[1];
+      argc -= 2, argv += 2;
+    } else if (strcmp(argv[0], "--save-state") == 0 && argc >= 2) {
+      g_headless_save_state = argv[1];
       argc -= 2, argv += 2;
     } else if (strcmp(argv[0], "--load-state") == 0 && argc >= 2) {
       g_load_state_path = argv[1];
@@ -552,13 +605,14 @@ int main(int argc, char** argv) {
   RtlReadSram();
   LoadPhysicsConfig();
   LoadEnemyConfig();
+  LoadTorizoConfig();
 
   // Fun-build mods only take effect when the C port is the source of truth.
   // Default RM_BOTH runs emulator + port and reconciles to the emulator on
   // divergence, which silently undoes modded physics every frame.
-  if (!runmode_explicit && PhysicsModsActive()) {
+  if (!runmode_explicit && (PhysicsModsActive() || TorizoModsActive())) {
     g_runmode = RM_MINE;
-    printf("[physics] mods active — forcing RM_MINE (C port only, no emulator reconcile)\n");
+    printf("[mods] active — forcing RM_MINE (C port only, no emulator reconcile)\n");
   }
 
   if (g_load_state_path) {
@@ -668,7 +722,13 @@ int main(int argc, char** argv) {
     }
     int inputs2 = g_input2_state;
 
+    if (TorizoConfig_SamusFreezeActive()) {
+      inputs = 0;
+      inputs2 = 0;
+    }
+
     uint8 is_replay = RtlRunFrame(inputs, inputs2);
+    TorizoConfig_TickSamusFreeze();
 
     frameCtr++;
     if (g_headless_frames > 0 && (int)frameCtr >= g_headless_frames)
@@ -712,11 +772,15 @@ int main(int argc, char** argv) {
     if ((frameCtr % 60) == 0) {
       CheckPhysicsConfigReload();
       CheckEnemyConfigReload();
+      CheckTorizoConfigReload();
     }
   }
 
   if (g_config.autosave)
     HandleCommand(kKeys_Save + 0, true);
+
+  if (g_headless_save_state)
+    RtlSaveSnapshot(g_headless_save_state, false);
 
   if (g_headless_dump) {
     FILE *f = strcmp(g_headless_dump, "-") == 0 ? stdout : fopen(g_headless_dump, "w");
@@ -731,6 +795,7 @@ int main(int argc, char** argv) {
       uint16 scroll_below_right = camera_scroll_index + room_width_in_scrolls + 1 < room_scroll_count
           ? scrolls[camera_scroll_index + room_width_in_scrolls + 1] : 0xffff;
       uint16 scroll_6 = room_scroll_count > 6 ? scrolls[6] : 0xffff;
+      TorizoDumpFields torizo_dump = GetTorizoDumpFields();
       uint16 active_plm_count = 0;
       char plm_debug[1024];
       size_t plm_debug_len = 0;
@@ -791,6 +856,11 @@ int main(int argc, char** argv) {
         "  \"spc_0be3\": %u,\n"
         "  \"spc_0be4\": %u,\n"
         "  \"samus_health\": %u,\n"
+        "  \"samus_max_health\": %u,\n"
+        "  \"samus_missiles\": %u,\n"
+        "  \"samus_max_missiles\": %u,\n"
+        "  \"equipped_items\": %u,\n"
+        "  \"collected_items\": %u,\n"
         "  \"samus_x_pos\": %u,\n"
         "  \"samus_y_pos\": %u,\n"
         "  \"layer1_x_pos\": %u,\n"
@@ -820,6 +890,12 @@ int main(int argc, char** argv) {
         "  \"boss_bits_area0\": %u,\n"
         "  \"event_byte_0\": %u,\n"
         "  \"bug_fix_counter\": %u,\n"
+        "  \"torizo_enemy_count\": %u,\n"
+        "  \"torizo_opening_flags\": %u,\n"
+        "  \"torizo_opening_waves_remaining\": %u,\n"
+        "  \"torizo_opening_wave_timer\": %u,\n"
+        "  \"torizo_chozo_orb_count\": %u,\n"
+        "  \"active_eproj_count\": %u,\n"
         "  \"inputs\": %u\n"
         "}\n",
         GetRunModeName(g_runmode),
@@ -849,6 +925,11 @@ int main(int argc, char** argv) {
         (unsigned)g_spc_player->ram[0x0be3],
         (unsigned)g_spc_player->ram[0x0be4],
         (unsigned)(*(uint16 *)(g_ram + 0x9C2)),
+        (unsigned)(*(uint16 *)(g_ram + 0x9C4)),
+        (unsigned)(*(uint16 *)(g_ram + 0x9C6)),
+        (unsigned)(*(uint16 *)(g_ram + 0x9C8)),
+        (unsigned)(*(uint16 *)(g_ram + 0x9A2)),
+        (unsigned)(*(uint16 *)(g_ram + 0x9A4)),
         (unsigned)(*(uint16 *)(g_ram + 0xAF6)),
         (unsigned)(*(uint16 *)(g_ram + 0xAFA)),
         (unsigned)layer1_x_pos,
@@ -878,6 +959,12 @@ int main(int argc, char** argv) {
         (unsigned)g_ram[0xD828],
         (unsigned)g_ram[0xD820],
         (unsigned)(*(uint16 *)(g_ram + 0xC2)),
+        (unsigned)torizo_dump.enemy_count,
+        (unsigned)torizo_dump.opening_flags,
+        (unsigned)torizo_dump.opening_waves_remaining,
+        (unsigned)torizo_dump.opening_wave_timer,
+        (unsigned)torizo_dump.chozo_orb_count,
+        (unsigned)torizo_dump.active_eproj_count,
         (unsigned)(*(uint16 *)(g_ram + 0x8B))); // joypad1_lastkeys is at 0x8B? No, check variables.h
       if (f != stdout) fclose(f);
     }

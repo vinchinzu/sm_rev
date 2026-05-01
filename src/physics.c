@@ -3,6 +3,7 @@
 #include "variables.h"
 #include "funcs.h"
 #include "sm_rtl.h"
+#include "torizo_config.h"
 
 typedef void HandlerFunc(void);
 
@@ -38,7 +39,7 @@ static HandlerFunc *const kSamusMovementHandlers[28] = {
 };
 
 void Samus_MovementHandler_Normal(void) {
-  if (!time_is_frozen_flag) {
+  if (!time_is_frozen_flag && !TorizoConfig_SamusFreezeActive()) {
     kSamusMovementHandlers[samus_movement_type]();
     Samus_UpdateSpeedEchoPos();
   }

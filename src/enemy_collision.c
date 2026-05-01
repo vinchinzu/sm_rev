@@ -5,6 +5,7 @@
 #include "variables.h"
 #include "funcs.h"
 #include "enemy_types.h"
+#include "torizo_config.h"
 
 #define g_off_A0C2DA ((uint16*)RomFixedPtr(0xa0c2da))
 #define CHECK_locret_A0C434(Ek) (byte_A0C435[Ek] & 0x80 ? -1 : 0)
@@ -218,17 +219,20 @@ void EprojSamusCollDetect(void) {  // 0xA09894
 void HandleEprojCollWithSamus(uint16 k) {  // 0xA09923
   samus_invincibility_timer = 96;
   samus_knockback_timer = 5;
+  int v3 = k >> 1;
+  uint16 eproj_def = eproj_id[v3];
   uint16 v1 = *((uint16 *)RomPtr_86(*(uint16 *)((uint8 *)eproj_id + k)) + 5);
   if (v1) {
     int v2 = k >> 1;
     eproj_instr_list_ptr[v2] = v1;
     eproj_instr_timers[v2] = 1;
   }
-  int v3 = k >> 1;
   if ((eproj_properties[v3] & 0x4000) == 0)
     *(uint16 *)((uint8 *)eproj_id + k) = 0;
   Samus_DealDamage(SuitDamageDivision(eproj_properties[v3] & 0xFFF));
   knockback_x_dir = (int16)(samus_x_pos - eproj_x_pos[v3]) >= 0;
+  if (TorizoConfig_IsChozoOrbEproj(eproj_def))
+    TorizoConfig_OnChozoOrbHitSamus();
 }
 
 void EprojProjCollDet(void) {  // 0xA0996C
