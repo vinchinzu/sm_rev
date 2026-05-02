@@ -53,9 +53,9 @@ static const uint16 kBlockColl_Horiz_Slope_NonSquare_Tab[64] = {
 };
 
 static uint8 BlockColl_Horiz_Slope_NonSquare(CollInfo *ci) {  // 0x9484D6
-  if ((current_slope_bts & 0x80) != 0 || __PAIR32__(samus_y_speed, samus_y_subspeed))
+  if ((current_slope_bts & kSlopeBts_Ceiling) != 0 || __PAIR32__(samus_y_speed, samus_y_subspeed))
     return 0;
-  uint16 v1 = 4 * (current_slope_bts & 0x1F);
+  uint16 v1 = 4 * (current_slope_bts & kSlopeBts_ShapeMask);
   uint16 v2 = ci->ci_r18_r20 >> 8;
   if (ci->ci_r18_r20 >= 0) {
     ci->ci_r18_r20 = Multiply16x16(v2, kBlockColl_Horiz_Slope_NonSquare_Tab[(v1 >> 1) + 1]);
@@ -67,13 +67,14 @@ static uint8 BlockColl_Horiz_Slope_NonSquare(CollInfo *ci) {  // 0x9484D6
 
 static uint8 BlockColl_Vert_Slope_NonSquare(CollInfo *ci, uint16 k) {  // 0x9486FE
   if (samus_collision_direction & 1) {
-    if ((samus_x_pos >> 4) != SnesModulus(cur_block_index, room_width_in_blocks))
+    if ((samus_x_pos >> kBlockPixelShift) != SnesModulus(cur_block_index, room_width_in_blocks))
       return 0;
-    if (BTS[k] & 0x80)
+    if (BTS[k] & kSlopeBts_Ceiling)
       return 0;
-    uint16 v10 = (BTS[k] & 0x40) != 0 ? samus_x_pos ^ 0xF : samus_x_pos;
-    uint16 v11 = 16 * (BTS[k] & 0x1F) + (v10 & 0xF);
-    int16 v12 = (kAlignYPos_Tab0[v11] & 0x1F) - ((samus_y_radius + ci->ci_r24 - 1) & 0xF) - 1;
+    uint16 v10 = (BTS[k] & kSlopeBts_MirrorX) != 0 ? samus_x_pos ^ kBlockPixelMask : samus_x_pos;
+    uint16 v11 = kBlockPixelSize * (BTS[k] & kSlopeBts_ShapeMask) + (v10 & kBlockPixelMask);
+    int16 v12 = (kAlignYPos_Tab0[v11] & kSlopeBts_ShapeMask)
+              - ((samus_y_radius + ci->ci_r24 - 1) & kBlockPixelMask) - 1;
     if (v12 <= 0) {
       int16 v13 = (ci->ci_r18_r20 >> 16) + v12;
       if (v13 < 0)
@@ -84,13 +85,14 @@ static uint8 BlockColl_Vert_Slope_NonSquare(CollInfo *ci, uint16 k) {  // 0x9486
     return 0;
   }
 
-  if ((samus_x_pos >> 4) != SnesModulus(cur_block_index, room_width_in_blocks))
+  if ((samus_x_pos >> kBlockPixelShift) != SnesModulus(cur_block_index, room_width_in_blocks))
     return 0;
-  if (!(BTS[k] & 0x80))
+  if (!(BTS[k] & kSlopeBts_Ceiling))
     return 0;
-  uint16 v4 = (BTS[k] & 0x40) != 0 ? (samus_x_pos ^ 0xF) : (samus_x_pos);
-  uint16 v5 = 16 * (BTS[k] & 0x1F) + (v4 & 0xF);
-  int16 v6 = (kAlignYPos_Tab0[v5] & 0x1F) - ((ci->ci_r24 - samus_y_radius) & 0xF ^ 0xF) - 1;
+  uint16 v4 = (BTS[k] & kSlopeBts_MirrorX) != 0 ? (samus_x_pos ^ kBlockPixelMask) : samus_x_pos;
+  uint16 v5 = kBlockPixelSize * (BTS[k] & kSlopeBts_ShapeMask) + (v4 & kBlockPixelMask);
+  int16 v6 = (kAlignYPos_Tab0[v5] & kSlopeBts_ShapeMask)
+            - (((ci->ci_r24 - samus_y_radius) & kBlockPixelMask) ^ kBlockPixelMask) - 1;
   if (v6 <= 0) {
     int16 v7 = (ci->ci_r18_r20 >> 16) + v6;
     if (v7 < 0)
@@ -218,16 +220,16 @@ static uint8 BlockColl_Vert_SolidShootGrappleBlock(CollInfo *ci) {  // 0x948F82
 }
 
 static uint8 BlockColl_Horiz_Slope(CollInfo *ci) {  // 0x948FBB
-  uint16 v0 = BTS[cur_block_index] & 0x1F;
-  if (v0 < 5)
+  uint16 v0 = BTS[cur_block_index] & kSlopeBts_ShapeMask;
+  if (v0 < kSlopeBts_FirstAlignedShape)
     return BlockColl_Horiz_Slope_Square(ci, v0, cur_block_index);
   current_slope_bts = BTS[cur_block_index];
   return BlockColl_Horiz_Slope_NonSquare(ci);
 }
 
 static uint8 BlockColl_Vert_Slope(CollInfo *ci) {  // 0x948FDA
-  uint16 v0 = BTS[cur_block_index] & 0x1F;
-  if (v0 < 5)
+  uint16 v0 = BTS[cur_block_index] & kSlopeBts_ShapeMask;
+  if (v0 < kSlopeBts_FirstAlignedShape)
     return BlockColl_Vert_Slope_Square(ci, v0, cur_block_index);
   current_slope_bts = BTS[cur_block_index];
   return BlockColl_Vert_Slope_NonSquare(ci, cur_block_index);
@@ -469,7 +471,7 @@ static uint8 BlockColl_Horiz_CheckColl(CollInfo *ci, uint16 k) {
   cur_block_index = k >> 1;
   cur_coll_amt32 = &ci->ci_r18_r20;
   do {
-    rv = kBlockColl_Horiz_CheckColl[(level_data[cur_block_index] & 0xF000) >> 12](ci);
+    rv = kBlockColl_Horiz_CheckColl[BlockTypeIndexFromTile(level_data[cur_block_index])](ci);
   } while (rv & 0x80);
   cur_coll_amt32 = NULL;
   return rv;
@@ -480,7 +482,7 @@ static uint8 BlockColl_Vert_CheckColl(CollInfo *ci, uint16 k) {  // 0x94952C
   cur_block_index = k >> 1;
   cur_coll_amt32 = &ci->ci_r18_r20;
   do {
-    rv = kBlockColl_Vert_CheckColl[(level_data[cur_block_index] & 0xF000) >> 12](ci);
+    rv = kBlockColl_Vert_CheckColl[BlockTypeIndexFromTile(level_data[cur_block_index])](ci);
   } while (rv & 0x80);
   cur_coll_amt32 = NULL;
   return rv;

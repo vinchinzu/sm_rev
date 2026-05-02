@@ -10,10 +10,15 @@ It is **not** a plan to clean the largest `*_core.c` files first. In this repo,
 2. What geometry can she collide with?
 3. What minimal map/nav data is needed to simulate traversal?
 
-Current baseline on 2026-04-20:
-- `make mini-test` passes.
-- `sm_rev_mini` is still a shell binary in [src/mini/mini_main.c](../src/mini/mini_main.c)
-- Physics tuning already has a data seam in [src/physics_config.c]
+Current baseline on 2026-05-02:
+- `sm_rev_mini` has moved past the shell milestone.
+- [`src/mini/mini_main.c`](../src/mini/mini_main.c) is CLI parsing only.
+- [`src/mini/mini_runtime.c`](../src/mini/mini_runtime.c) owns the SDL/headless host loop.
+- [`src/mini/mini_game.c`](../src/mini/mini_game.c) exposes deterministic create,
+  step, save/load, and hash seams for replay/rollback.
+- The default mini path can boot a ROM-backed Landing Site slice when compatible
+  assets are present; explicit editor exports remain the fast authoring path.
+- Physics tuning already has a data seam in [src/physics_config.c](../src/physics_config.c).
 
 ## Target Shape
 
@@ -53,6 +58,8 @@ movement sandbox.
 ## Phase 1: Define The Mini-Core Boundary
 
 First milestone: explicitly define which files are part of the mini gameplay kernel.
+That boundary now exists, but it still needs tightening as more globals become
+typed mini-facing state.
 
 Adapter layer, not core:
 - `samus_input.c`
@@ -141,7 +148,7 @@ This prevents the mini path from being blocked on the entire room system.
 already exposes a strong seam for numeric tuning. Use that as the template for
 broader modability.
 
-After basic movement is linked into mini, extend config/data control to cover:
+As mini movement and room paths stabilize, extend config/data control to cover:
 - movement presets
 - friction / acceleration families
 - jump families
@@ -173,52 +180,44 @@ Tests should assert world-state outcomes, not just "program exits 0".
 [src/features.h](/
 already reserves `BUILD_MODDABLE`.
 
-Use it only after the mini kernel is real. Suggested meaning:
-- `BUILD_MINI`: shell / bring-up / narrow smoke harness
+Use it only after the mini kernel is stable enough to be a user-facing sandbox.
+Suggested meaning:
+- `BUILD_MINI`: scoped parity/bring-up harness
 - `BUILD_MODDABLE`: actual movement sandbox with authored maps and stable gameplay contracts
 - `BUILD_FULL`: full ROM-parity game
 
-That keeps experimentation separate from the current shell while preserving the full build.
+That keeps experimentation separate from the current parity harness while preserving the full build.
 
 ## Recommended Execution Order
 
-1. Extract startup/shared app code out of `src/mini/mini_main.c` so mini can host a real runtime loop.
-2. Add `src/mini/stubs_mini.c` for non-core calls that still leak into the Samus slice.
-3. Link first movement slice:
-   - `physics.c`
-   - `physics_config.c`
-   - `samus_motion.c`
-   - `samus_jump.c`
-   - `samus_collision.c`
-   - if `samus_collision.c` still mixes movement-facing wrappers with block-map / pose-change logic, peel that heavy substrate into `samus_collision_advanced.c` before pulling more collision into mini
-4. Clean magic values only in that slice.
-5. Add minimal authored collision-map format for mini.
-   - before pulling more of `samus_collision_advanced.c`, peel shared map helpers such as `CalculateBlockAt` into reusable files and let mini seed `level_data` / `BTS` with a hand-authored block map
-   - next peel the block-dispatch / block-handle cluster into its own file so mini can link real movement-facing block collision while stubbing only exotic block reactions when necessary
-6. Link second behavior slice:
-   - `samus_pose.c`
-   - `samus_transition.c`
-   - `samus_speed.c`
-   - `samus_camera_map.c`
-7. Add deterministic traversal tests.
-8. Only then decide whether `samus_runtime.c` should be adapted or partially replaced for mini.
+1. Keep `src/mini/mini_runtime.c` and `src/mini/mini_main.c` host-only.
+2. Shrink `src/mini/stubs_mini.c` by moving stable ROM bootstrap, room scope,
+   rendering, and editor bridge responsibilities into named mini modules.
+3. Clean magic values only in the active movement/collision slice:
+   - movement-state and pose constants
+   - collision material and slope flags
+   - camera/nav mode flags
+4. Add deterministic traversal assertions beyond smoke tests.
+5. Promote editor-export data from "fallback room source" toward the authored
+   mini content surface.
+6. Add or widen mod config only after the target behavior has deterministic
+   save/load coverage.
 
-## First Three Concrete Tasks
+## Next Three Concrete Tasks
 
-If starting immediately, do these in order:
+1. **Name more collision semantics**
+   - continue replacing proven block/slope/material masks with
+     [`src/block_reaction.h`](../src/block_reaction.h) constants and helpers
+   - keep unsigned SNES-era arithmetic intact while naming the rule being applied
 
-1. **Create the mini runtime seam**
-   - split reusable loop/input/timing code out of `src/mini/mini_main.c`
-   - add a tiny `MiniGameState` and `MiniUpdate()` entry point
+2. **Type the mini-facing state boundary**
+   - add narrow snapshots for Samus state, controls, projectiles, and room
+     collision where mini currently reads broad globals
+   - keep full-build adapters beside existing globals until parity is proven
 
-2. **Link movement without room systems**
-   - introduce `src/mini/stubs_mini.c`
-   - get `physics.c`, `physics_config.c`, `samus_motion.c`, `samus_jump.c`, and the smallest safe part of `samus_collision.c` building under mini
-   - split `samus_collision.c` when needed so the movement-facing layer stays separable from room/block collision substrate
-
-3. **Begin semantic cleanup where it matters**
-   - replace the first wave of movement/collision magic values with named enums and constants
-   - do not do file-wide cosmetic sweeps outside the linked mini slice
+3. **Make authored rooms less ROM-shaped**
+   - load spawn/camera/material metadata from editor export data
+   - keep the ROM-backed Landing Site path as the parity reference
 
 ## Success Criteria
 

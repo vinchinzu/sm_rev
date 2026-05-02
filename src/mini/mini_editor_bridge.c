@@ -9,6 +9,8 @@
 
 #include "third_party/cJSON.h"
 
+#include "block_reaction.h"
+
 enum {
   kMiniLandingSiteCameraX = 1024,
   kMiniLandingSiteCameraY = 976,
@@ -762,7 +764,7 @@ static bool MiniParseRoomJson(const char *path, MiniEditorRoom *room) {
     ok = false;
   if (ok && !cJSON_IsArray(block_words)) {
     for (size_t i = 0; i < block_count; i++)
-      room->block_words[i] = (uint16)room->collision_types[i] << 12;
+      room->block_words[i] = BlockTileWithTypeIndex(0, room->collision_types[i]);
   }
   if (ok && !cJSON_IsObject(camera))
     MiniAssignLandingSiteDefaults(room);

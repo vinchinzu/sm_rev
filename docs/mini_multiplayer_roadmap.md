@@ -1,6 +1,6 @@
 # Mini Multiplayer Roadmap
 
-This roadmap is for the long path from the current `mini` shell to a
+This roadmap is for the long path from the current `mini` runtime to a
 deterministic, reusable, multiplayer-friendly Samus runtime.
 
 It is intentionally staged:

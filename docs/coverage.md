@@ -106,5 +106,6 @@ optional and lower priority than the bank-retirement campaign that is now done.
    motion variables are exposed yet (beads `sm_rev-w93.6/7`).
 3. **Headless test coverage** — tests use cold-boot RAM (title screen). No save-state
    loading, so physics/enemy regressions can't be caught yet (bead `sm_rev-w93.3`).
-4. **Mini build link-up** — `samus_*.c` / `physics.c` / `physics_config.c` still not
-   linked into `sm_rev_mini`. Needs `src/mini/stubs_mini.c` scaffolding first.
+4. **Mini state boundary** — `sm_rev_mini` now links shared gameplay modules
+   under a Landing Site scope. The remaining work is to replace broad global
+   reads with typed mini-facing snapshots and deterministic traversal assertions.

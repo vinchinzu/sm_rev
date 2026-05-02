@@ -3,11 +3,12 @@
 
 #include <stddef.h>
 
+#include "block_reaction.h"
 #include "types.h"
 
 enum {
-  kMiniBlockSize = 16,
-  kMiniSolidBlock = 0x8000,
+  kMiniBlockSize = kBlockPixelSize,
+  kMiniSolidBlock = kBlockType_Solid,
 };
 
 typedef enum MiniRoomSource {

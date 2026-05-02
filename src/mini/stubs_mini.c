@@ -187,7 +187,7 @@ static bool MiniTryConfigureEditorRoom(void) {
     for (int x = 0; x < room.width_blocks; x++) {
       size_t index = (size_t)y * room.width_blocks + x;
       uint16 level = room.block_words != NULL ? room.block_words[index]
-                                              : (uint16)room.collision_types[index] << 12;
+                                              : BlockTileWithTypeIndex(0, room.collision_types[index]);
       MiniWriteBlock(x, y, level, room.bts[index]);
     }
   }

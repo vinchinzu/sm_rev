@@ -32,17 +32,22 @@ ifeq ($(BUNDLE_ASSETS),1)
   EMBEDDED_OBJS := $(EMBEDDED_SRCS:%.c=%.o)
 endif
 
-FULL_SRCS := $(wildcard src/*.c) \
-             $(wildcard src/snes/*.c) \
-             third_party/gl_core/gl_core_3_1.c \
-             third_party/cJSON.c \
+CORE_SRCS := $(wildcard src/*.c)
+HOST_SRCS := $(wildcard src/host/*.c)
+SNES_SRCS := $(wildcard src/snes/*.c)
+FULL_THIRD_PARTY_SRCS := third_party/gl_core/gl_core_3_1.c third_party/cJSON.c
+
+FULL_SRCS := $(CORE_SRCS) \
+             $(HOST_SRCS) \
+             $(SNES_SRCS) \
+             $(FULL_THIRD_PARTY_SRCS) \
              $(EMBEDDED_SRCS)
 OBJS := $(FULL_SRCS:%.c=%.o)
 
 MINI_RUNTIME_SRCS := $(wildcard src/mini/*.c)
 # Mini now links the shared gameplay engine and constrains content at runtime to
-# Landing Site. Keep only the full host, emulator bridge, and GL frontend out.
-MINI_SHARED_ENGINE_SRCS := $(filter-out src/main.c src/opengl.c src/glsl_shader.c src/sm_cpu_infra.c src/sm_rtl.c,$(wildcard src/*.c))
+# Landing Site. Keep only the full host and emulator bridge out.
+MINI_SHARED_ENGINE_SRCS := $(filter-out src/main.c src/sm_cpu_infra.c src/sm_rtl.c,$(CORE_SRCS))
 MINI_EXTRA_SRCS := third_party/cJSON.c
 MINI_SRCS := $(MINI_RUNTIME_SRCS) $(MINI_SHARED_ENGINE_SRCS) $(MINI_EXTRA_SRCS)
 MINI_KERNEL_RUNTIME_SRCS := $(filter-out src/mini/mini_main.c src/mini/mini_runtime.c src/mini/mini_renderer.c src/mini/mini_record.c src/mini/mini_input_script.c src/mini/mini_backdrop.c,$(MINI_RUNTIME_SRCS))

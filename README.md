@@ -2,16 +2,18 @@
 
 `sm_rev` is a reverse-engineered C port of Super Metroid with two active goals:
 - preserve full-game behavior in the main build
-- carve out a subtractive `mini` build focused on Samus and physics as a small refactor sandbox
+- grow a scoped `mini` build into a deterministic Samus / physics / modding sandbox
 
-The mini build is intentionally exclusion-based. We keep the full build intact, then remove enemies, bosses, rooms, audio, and other heavy systems from the mini target until a compact Samus-runtime shell remains.
+The mini build is intentionally scoped. The full build stays the parity target,
+while mini constrains content and host behavior around a small, testable
+gameplay surface.
 
 ## Build Targets
 
 Full build:
 - `make`
 
-Mini shell:
+Mini:
 - `make mini`
 - `make mini-test`
 
@@ -20,7 +22,9 @@ Native macOS:
 - `make mini-mac`
 - `make mini NATIVE_MAC=1`
 
-The current `sm_rev_mini` binary is only a verified shell. It supports `--headless --frames N` for smoke tests and a small SDL window for manual inspection. It does not yet link the full Samus/physics runtime.
+The current `sm_rev_mini` binary supports headless smoke tests, deterministic
+replay/rollback checks, editor-export rooms, and a ROM-backed Landing Site path
+when compatible assets are available.
 
 ## Mission
 
@@ -35,14 +39,14 @@ That means:
 
 ## Current Plan
 
-The project has moved past the first mini-shell milestone. The immediate work is now about proving that the mini gameplay kernel is deterministic enough to survive rollback pressure before widening scope or porting gameplay logic.
+The project has moved past the first mini bring-up milestone. The immediate work is now about proving that the mini gameplay kernel is deterministic enough to survive rollback pressure before widening scope or porting gameplay logic.
 
 ### What is already in place
 
 - the mini gameplay API now exposes `MiniInit`, `MiniStep`, `MiniSaveState`, `MiniLoadState`, `MiniStateHash`, `MiniCreate`, and `MiniDestroy`
 - `make mini-test` runs the mini smoke test plus a focused rollback seam check
 - the Rust headless host in `src/mini/mini_rust_host.rs` can now run a rollback simulation over the C gameplay API
-- ROM/save bootstrap and first-pass room FX have been split into mini-specific modules instead of growing `stubs_mini.c` forever like an evil coral reef
+- ROM/save bootstrap and first-pass room FX have been split into mini-specific modules instead of continuing to grow `stubs_mini.c`
 
 ### Next workstreams
 
@@ -74,9 +78,12 @@ The project has moved past the first mini-shell milestone. The immediate work is
 Use the smallest test that matches the change:
 - full build integrity: `python3 -m pytest tests/test_build.py -q`
 - full runtime smoke: `python3 tests/run_tests.py -v`
-- mini shell smoke: `make mini-test`
+- mini smoke: `make mini-test`
 
 ## Docs
 
+- Active roadmap: [docs/roadmap.md](docs/roadmap.md)
+- Source layout: [docs/source_layout.md](docs/source_layout.md)
 - Mini build notes: [docs/mini_build.md](docs/mini_build.md)
+- Mini modability plan: [docs/mini_modability_plan.md](docs/mini_modability_plan.md)
 - Refactor guide and standing instructions: [AGENTS.md](AGENTS.md)

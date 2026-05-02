@@ -4,6 +4,7 @@
 
 #include <SDL.h>
 
+#include "block_reaction.h"
 #include "funcs.h"
 #include "ida_types.h"
 #include "mini_defs.h"
@@ -174,13 +175,13 @@ static void MiniRenderEditorRoomTiles(uint32_t *pixels, int pitch_pixels, const 
   for (int block_y = first_block_y; block_y <= last_block_y; block_y++) {
     for (int block_x = first_block_x; block_x <= last_block_x; block_x++) {
       uint16 level = MiniStubs_GetLevelBlock(block_x, block_y);
-      int metatile_index = level & 0x3FF;
+      int metatile_index = BlockTileMetatileIndex(level);
       if ((unsigned)metatile_index >= 1024)
         continue;
       if (metatile_index == kMiniEditorAirMetatile)
         continue;
-      bool metatile_hflip = (level & 0x400) != 0;
-      bool metatile_vflip = (level & 0x800) != 0;
+      bool metatile_hflip = BlockTileHasHFlip(level);
+      bool metatile_vflip = BlockTileHasVFlip(level);
       const uint16 *metatile = view.metatile_words + metatile_index * 4;
       int screen_left = block_x * kMiniBlockSize - state->camera_x;
       int screen_top = block_y * kMiniBlockSize - state->camera_y;
@@ -345,11 +346,11 @@ static void MiniRenderRoom(uint32_t *pixels, int pitch_pixels, const MiniGameSta
     for (int block_y = first_block_y; block_y <= last_block_y; block_y++) {
       for (int block_x = first_block_x; block_x <= last_block_x; block_x++) {
         uint16 level = MiniStubs_GetLevelBlock(block_x, block_y);
-        uint8 collision_type = level >> 12;
-        if (collision_type == 0)
+        uint16 block_type = BlockTypeFromTile(level);
+        if (block_type == kBlockType_Air)
           continue;
         uint8 bts = MiniStubs_GetBts(block_x, block_y);
-        uint32_t color = MiniConvertBgr555(kCollisionPalette[collision_type & 0xF]);
+        uint32_t color = MiniConvertBgr555(kCollisionPalette[BlockTypeIndexFromTile(level)]);
         uint32_t shade = MiniBlendColor(color, 0xFF000000u, 1, 4);
         uint32_t hilite = MiniBlendColor(color, 0xFFFFFFFFu, 1, 5);
         int screen_left = block_x * kMiniBlockSize - state->camera_x;
@@ -368,14 +369,14 @@ static void MiniRenderRoom(uint32_t *pixels, int pitch_pixels, const MiniGameSta
             if ((unsigned)out_x >= kMiniGameWidth)
               continue;
             bool draw = false;
-            switch (collision_type) {
-            case 1:
+            switch (block_type) {
+            case kBlockType_Slope:
               draw = ((px + py + bts) & 7) == 0;
               break;
-            case 8:
+            case kBlockType_Solid:
               draw = ((px + (15 - py) + (bts >> 1)) & 7) <= 1;
               break;
-            case 9:
+            case kBlockType_Door:
               draw = px == py || px == 15 - py || px == 7 || py == 7;
               break;
             default:

@@ -1,4 +1,5 @@
 // PLM block/door/gate setup handlers.
+#include "block_reaction.h"
 #include "ida_types.h"
 #include "variables.h"
 #include "sm_rtl.h"
@@ -132,7 +133,7 @@ uint8 PlmSetup_ReturnCarrySet(uint16 j) {  // 0x84B3D2
 
 uint8 PlmSetup_D094_EnemyBreakableBlock(uint16 j) {  // 0x84B3D4
   int v1 = plm_block_indices[j >> 1] >> 1;
-  level_data[v1] &= 0xFFF;
+  level_data[v1] = BlockTileMakeAir(level_data[v1]);
   return 0;
 }
 
@@ -444,7 +445,7 @@ uint8 PlmSetup_Door_Blue(uint16 j) {  // 0x84C7BB
     plm_header_ptr[j >> 1] = 0;
   } else {
     uint16 v1 = plm_block_indices[j >> 1];
-    level_data[v1 >> 1] = level_data[v1 >> 1] & 0xFFF | 0x8000;
+    level_data[v1 >> 1] = BlockTileMakeSolid(level_data[v1 >> 1]);
   }
   return 0;
 }
@@ -469,7 +470,7 @@ uint8 PlmSetup_D028_D02C_Unused(uint16 j) {  // 0x84CDC2
     int v2 = plm_block_indices[v1] >> 1;
     uint16 v3 = level_data[v2];
     plm_variable[v1] = v3;
-    level_data[v2] = v3 & 0xFFF;
+    level_data[v2] = BlockTileMakeAir(v3);
     return 0;
   } else {
     plm_header_ptr[j >> 1] = 0;
@@ -487,9 +488,9 @@ uint8 PlmSetup_RespawningSpeedBoostBlock(uint16 j) {  // 0x84CDEA
       || samus_pose == kPose_CE_FaceL_Shinespark_Diag) {
     int v1 = j >> 1;
     int v2 = plm_block_indices[v1] >> 1;
-    uint16 v3 = level_data[v2] & 0xF000 | 0xB6;
+    uint16 v3 = BlockTypeFromTile(level_data[v2]) | 0xB6;
     plm_variable[v1] = v3;
-    level_data[v2] = v3 & 0xFFF;
+    level_data[v2] = BlockTileMakeAir(v3);
     return 0;
   } else {
     plm_header_ptr[j >> 1] = 0;
@@ -501,7 +502,7 @@ uint8 PlmSetup_RespawningCrumbleBlock(uint16 j) {  // 0x84CE37
   if ((samus_collision_direction & 0xF) == 3) {
     int v1 = j >> 1;
     int v2 = plm_block_indices[v1] >> 1;
-    uint16 v3 = level_data[v2] & 0xF000 | 0xBC;
+    uint16 v3 = BlockTypeFromTile(level_data[v2]) | 0xBC;
     plm_variable[v1] = v3;
     level_data[v2] = v3 & 0x8FFF;
     plm_instruction_timer[v1] = 4;
@@ -514,7 +515,7 @@ uint8 PlmSetup_RespawningCrumbleBlock(uint16 j) {  // 0x84CE37
 uint8 PlmSetup_RespawningShotBlock(uint16 j) {  // 0x84CE6B
   int v1 = j >> 1;
   int v2 = plm_block_indices[v1] >> 1;
-  uint16 v3 = level_data[v2] & 0xF000 | 0x52;
+  uint16 v3 = BlockTypeFromTile(level_data[v2]) | 0x52;
   plm_variable[v1] = v3;
   level_data[v2] = v3 & 0x8FFF;
   return 0;
@@ -532,9 +533,9 @@ uint8 PlmSetup_RespawningBombBlock(uint16 j) {  // 0x84CE83
       || samus_pose == kPose_CE_FaceL_Shinespark_Diag) {
     int v2 = j >> 1;
     int v3 = plm_block_indices[v2] >> 1;
-    uint16 v4 = level_data[v3] & 0xF000 | 0x58;
+    uint16 v4 = BlockTypeFromTile(level_data[v3]) | 0x58;
     plm_variable[v2] = v4;
-    level_data[v3] = v4 & 0xFFF;
+    level_data[v3] = BlockTileMakeAir(v4);
     return 0;
   } else {
     plm_header_ptr[j >> 1] = 0;
@@ -550,13 +551,13 @@ uint8 PlmSetup_RespawningBombBlock2(uint16 j) {  // 0x84CEDA
     int v5 = j >> 1;
     plm_instr_list_ptrs[v5] += 3;
     int v6 = plm_block_indices[v5] >> 1;
-    uint16 v7 = level_data[v6] & 0xF000 | 0x58;
+    uint16 v7 = BlockTypeFromTile(level_data[v6]) | 0x58;
     plm_variable[v5] = v7;
     level_data[v6] = v7 & 0x8FFF;
   } else if (v1 == 768) {
     int v2 = j >> 1;
     int v3 = plm_block_indices[v2] >> 1;
-    uint16 v4 = level_data[v3] & 0xF000 | 0x58;
+    uint16 v4 = BlockTypeFromTile(level_data[v3]) | 0x58;
     plm_variable[v2] = v4;
     level_data[v3] = v4 & 0x8FFF;
   } else {
@@ -574,7 +575,7 @@ uint8 PlmSetup_RespawningPowerBombBlock(uint16 j) {  // 0x84CF2E
   } else if (v1 == 768) {
     int v2 = j >> 1;
     int v3 = plm_block_indices[v2] >> 1;
-    uint16 v4 = level_data[v3] & 0xF000 | 0x57;
+    uint16 v4 = BlockTypeFromTile(level_data[v3]) | 0x57;
     plm_variable[v2] = v4;
     level_data[v3] = v4 & 0x8FFF;
   } else {
@@ -592,7 +593,7 @@ uint8 PlmSetup_D08C_SuperMissileBlockRespawning(uint16 j) {  // 0x84CF67
   } else if (v1 == 512) {
     int v2 = j >> 1;
     int v3 = plm_block_indices[v2] >> 1;
-    uint16 v4 = level_data[v3] & 0xF000 | 0x9F;
+    uint16 v4 = BlockTypeFromTile(level_data[v3]) | 0x9F;
     plm_variable[v2] = v4;
     level_data[v3] = v4 & 0x8FFF;
   } else {
@@ -630,7 +631,7 @@ uint8 PlmSetup_D0E8_GiveSamusDamage(uint16 j) {  // 0x84CFD5
 
 uint8 PlmSetup_D113_LowerNorfairChozoRoomPlug(uint16 j) {  // 0x84D108
   uint16 a = 0; // a undefined
-  level_data[plm_block_indices[j >> 1] >> 1] = a & 0xFFF;
+  level_data[plm_block_indices[j >> 1] >> 1] = BlockTileMakeAir(a);
   return 0;
 }
 
@@ -643,4 +644,3 @@ uint8 PlmSetup_D138(uint16 j) {  // 0x84D12B
   WriteLevelDataBlockTypeAndBts(plm_block_indices[j >> 1], 0xE000);
   return 0;
 }
-

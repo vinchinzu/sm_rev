@@ -1,3 +1,4 @@
+#include "block_reaction.h"
 #include "sm_rtl.h"
 #include "ida_types.h"
 #include "variables.h"
@@ -455,7 +456,7 @@ void LoadLevelDataAndOtherThings(void) {  // 0x82E7D3
   uint16 n;
 
   for (int i = 25598; i >= 0; i -= 2)
-    level_data[i >> 1] = 0x8000;
+    level_data[i >> 1] = kBlockType_Solid;
 
   DecompressToMem(Load24(&room_compr_level_data_ptr), (uint8 *)&ram7F_start);
 
@@ -723,10 +724,10 @@ void LoadLevelScrollAndCre(void) {  // 0x82EA73
   int8 v12;
 
   for (int i = 6398; i >= 0; i -= 2) {
-    level_data[i >> 1] = 0x8000;
-    level_data[(i >> 1) + 3200 * 1] = 0x8000;
-    level_data[(i >> 1) + 3200 * 2] = 0x8000;
-    level_data[(i >> 1) + 3200 * 3] = 0x8000;
+    level_data[i >> 1] = kBlockType_Solid;
+    level_data[(i >> 1) + 3200 * 1] = kBlockType_Solid;
+    level_data[(i >> 1) + 3200 * 2] = kBlockType_Solid;
+    level_data[(i >> 1) + 3200 * 3] = kBlockType_Solid;
   }
 
   DecompressToMem(Load24(&room_compr_level_data_ptr), (uint8 *)&ram7F_start);

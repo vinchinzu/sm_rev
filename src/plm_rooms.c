@@ -1,4 +1,5 @@
 // PLM set-piece room handlers (stations, escapes, Mother Brain, Draygon, etc.).
+#include "block_reaction.h"
 #include "ida_types.h"
 #include "variables.h"
 #include "sm_rtl.h"
@@ -49,7 +50,7 @@ LABEL_7:
 uint8 PlmSetup_B6D3_MapStation(uint16 j) {  // 0x84B18B
   int v1 = j >> 1;
   int v2 = plm_block_indices[v1] >> 1;
-  level_data[v2] = level_data[v2] & 0xFFF | 0x8000;
+  level_data[v2] = BlockTileMakeSolid(level_data[v2]);
   if (map_station_byte_array[area_index]) {
     plm_instr_list_ptrs[v1] = addr_word_84AD76;
   } else {
@@ -76,7 +77,7 @@ uint8 PlmSetup_Bts4_MapStationLeftAccess(uint16 j) {  // 0x84B1F0
 uint8 PlmSetup_PlmB6DF_EnergyStation(uint16 j) {  // 0x84B21D
   int v1 = j >> 1;
   int v2 = plm_block_indices[v1] >> 1;
-  level_data[v2] = level_data[v2] & 0xFFF | 0x8000;
+  level_data[v2] = BlockTileMakeSolid(level_data[v2]);
   WriteLevelDataBlockTypeAndBts(plm_block_indices[v1] + 2, 0xB049);
   WriteLevelDataBlockTypeAndBts(plm_block_indices[v1] - 2, FUNC16(PlmSetup_SetrupWreckedShipEntrance));
   return 0;
@@ -85,7 +86,7 @@ uint8 PlmSetup_PlmB6DF_EnergyStation(uint16 j) {  // 0x84B21D
 uint8 PlmSetup_PlmB6EB_EnergyStation(uint16 j) {  // 0x84B245
   int v1 = j >> 1;
   int v2 = plm_block_indices[v1] >> 1;
-  level_data[v2] = level_data[v2] & 0xFFF | 0x8000;
+  level_data[v2] = BlockTileMakeSolid(level_data[v2]);
   WriteLevelDataBlockTypeAndBts(plm_block_indices[v1] + 2, 0xB04B);
   WriteLevelDataBlockTypeAndBts(plm_block_indices[v1] - 2, 0xB04C);
   return 0;
@@ -147,7 +148,7 @@ uint8 PlmSetup_ClearShitroidInvisibleWall(uint16 j) {  // 0x84B551
   uint16 v1 = plm_block_indices[j >> 1];
   v2 = 10;
   do {
-    level_data[v1 >> 1] &= 0xFFF;
+    level_data[v1 >> 1] = BlockTileMakeAir(level_data[v1 >> 1]);
     v1 += room_width_in_blocks * 2;
     --v2;
   } while (v2);
@@ -160,7 +161,7 @@ uint8 PlmSetup_B767_ClearShitroidInvisibleWall(uint16 j) {  // 0x84B56F
   uint16 v1 = plm_block_indices[j >> 1];
   v2 = 10;
   do {
-    level_data[v1 >> 1] = level_data[v1 >> 1] & 0xFFF | 0x8000;
+    level_data[v1 >> 1] = BlockTileMakeSolid(level_data[v1 >> 1]);
     v1 += room_width_in_blocks * 2;
     --v2;
   } while (v2);
@@ -244,7 +245,7 @@ uint8 PlmSetup_B9C1_CrittersEscapeBlock(uint16 j) {  // 0x84B978
   if (projectile_type[projectile_index >> 1]) {
     int v1 = j >> 1;
     int v2 = plm_block_indices[v1] >> 1;
-    uint16 v3 = level_data[v2] & 0xF000 | 0x9F;
+    uint16 v3 = BlockTypeFromTile(level_data[v2]) | 0x9F;
     plm_variable[v1] = v3;
     level_data[v2] = v3 & 0x8FFF;
   } else {
@@ -264,13 +265,13 @@ uint8 PlmSetup_B9ED_CrittersEscapeBlock(uint16 j) {  // 0x84B9C5
 
 uint8 sub_84B9F1(uint16 j) {  // 0x84B9F1
   uint16 v1 = plm_block_indices[j >> 1];
-  level_data[v1 >> 1] = level_data[v1 >> 1] & 0xFFF | 0x8000;
+  level_data[v1 >> 1] = BlockTileMakeSolid(level_data[v1 >> 1]);
   uint16 v2 = room_width_in_blocks * 2 + v1;
-  level_data[v2 >> 1] = level_data[v2 >> 1] & 0xFFF | 0x8000;
+  level_data[v2 >> 1] = BlockTileMakeSolid(level_data[v2 >> 1]);
   uint16 v3 = room_width_in_blocks + room_width_in_blocks + v2;
-  level_data[v3 >> 1] = level_data[v3 >> 1] & 0xFFF | 0x8000;
+  level_data[v3 >> 1] = BlockTileMakeSolid(level_data[v3 >> 1]);
   int v4 = (uint16)(room_width_in_blocks * 2 + v3) >> 1;
-  level_data[v4] = level_data[v4] & 0xFFF | 0x8000;
+  level_data[v4] = BlockTileMakeSolid(level_data[v4]);
   return 0;
 }
 
@@ -289,7 +290,7 @@ uint8 PlmSetup_D6DA_LowerNorfairChozoHandTrigger(uint16 j) {  // 0x84D18F
     SetEventHappened(0xC);
     enemy_data[0].parameter_1 = 1;
     int v2 = plm_block_indices[j >> 1] >> 1;
-    level_data[v2] &= 0xFFF;
+    level_data[v2] = BlockTileMakeAir(level_data[v2]);
     CallSomeSamusCode(0);
     SpawnHardcodedPlm((SpawnHardcodedPlmArgs) { 0x0c, 0x1d, 0xd113 });
   }
@@ -329,7 +330,7 @@ uint8 PlmSetup_D6F2_WreckedShipChozoHandTrigger(uint16 j) {  // 0x84D620
     *(uint16 *)&scrolls[7] = 514;
     *(uint16 *)&scrolls[13] = 257;
     int v1 = plm_block_indices[j >> 1] >> 1;
-    level_data[v1] &= 0xFFF;
+    level_data[v1] = BlockTileMakeAir(level_data[v1]);
     CallSomeSamusCode(0);
     SpawnHardcodedPlm((SpawnHardcodedPlmArgs) { 0x17, 0x1d, 0xd6f8 });
   }
@@ -522,4 +523,3 @@ uint8 sub_84EEAB(uint16 v0) {  // 0x84EEAB
   }
   return 0;
 }
-

@@ -14,6 +14,25 @@
 // sm_a0.c / sm_86.c keeps us from copying the 512-byte table.
 #define kAlignYPos_Tab0 ((uint8*)RomFixedPtr(0x948b2b))
 
+static bool Samus_IsSlopeAlignBlock(uint16 block_word, uint8 bts) {
+  return BlockTypeFromTile(block_word) == kBlockType_Slope
+      && (bts & kSlopeBts_ShapeMask) >= kSlopeBts_FirstAlignedShape;
+}
+
+static uint16 Samus_SlopeXInTile(uint8 bts, uint16 x_pos) {
+  uint16 x = (bts & kSlopeBts_MirrorX) != 0 ? x_pos ^ kBlockPixelMask : x_pos;
+  return x & kBlockPixelMask;
+}
+
+static uint16 Samus_SlopeTableOffset(uint8 bts) {
+  return kBlockPixelSize * (bts & kSlopeBts_ShapeMask);
+}
+
+static uint16 Samus_SlopeHeightAt(uint8 bts, uint16 x_pos) {
+  return kAlignYPos_Tab0[Samus_SlopeTableOffset(bts) + Samus_SlopeXInTile(bts, x_pos)]
+       & kSlopeBts_ShapeMask;
+}
+
 bool IsGreaterThanQuirked(uint16 vhi, uint16 vlo, uint16 cmphi, uint16 cmplo) {
   if ((int16)(vhi - cmphi) >= 0) {
     if (vhi != cmphi || ((int16)(vlo - cmplo) >= 0) && vlo != cmplo)
@@ -98,15 +117,13 @@ void Samus_AlignYPosSlope(void) {  // 0x9487F4
   uint16 r26 = samus_x_pos;
   uint16 R28 = samus_y_radius + samus_y_pos - 1;
   CalculateBlockAt(r26, R28, 0, 0);
-  if ((level_data[cur_block_index] & 0xF000) == 4096 && (BTS[cur_block_index] & 0x1F) >= 5) {
-    uint16 temp_collision_DD4 = (samus_y_radius + samus_y_pos - 1) & 0xF;
-    uint16 temp_collision_DD6 = 16 * (BTS[cur_block_index] & 0x1F);
-    uint8 v0 = BTS[cur_block_index];
-    if (!(v0 & 0x80)) {
-      uint16 v1 = (v0 & 0x40) != 0 ? samus_x_pos ^ 0xF : samus_x_pos;
-      uint16 v2 = (kAlignYPos_Tab0[temp_collision_DD6 + (v1 & 0xF)] & 0x1F) - temp_collision_DD4 - 1;
-      if ((int16)v2 < 0) {
-        samus_y_pos += v2;
+  uint8 bts = BTS[cur_block_index];
+  if (Samus_IsSlopeAlignBlock(level_data[cur_block_index], bts)) {
+    uint16 bottom_y_in_tile = (samus_y_radius + samus_y_pos - 1) & kBlockPixelMask;
+    if ((bts & kSlopeBts_Ceiling) == 0) {
+      uint16 y_delta = Samus_SlopeHeightAt(bts, samus_x_pos) - bottom_y_in_tile - 1;
+      if ((int16)y_delta < 0) {
+        samus_y_pos += y_delta;
         samus_pos_adjusted_by_slope_flag = 1;
       }
     }
@@ -114,15 +131,13 @@ void Samus_AlignYPosSlope(void) {  // 0x9487F4
   r26 = samus_x_pos;
   R28 = samus_y_pos - samus_y_radius;
   CalculateBlockAt(r26, R28, 0, 0);
-  if ((level_data[cur_block_index] & 0xF000) == 4096 && (BTS[cur_block_index] & 0x1F) >= 5) {
-    uint16 temp_collision_DD4 = (samus_y_pos - samus_y_radius) & 0xF ^ 0xF;
-    uint16 temp_collision_DD6 = 16 * (BTS[cur_block_index] & 0x1F);
-    uint8 v3 = BTS[cur_block_index];
-    if (v3 & 0x80) {
-      uint16 v4 = (v3 & 0x40) != 0 ? samus_x_pos ^ 0xF : samus_x_pos;
-      uint16 v6 = (kAlignYPos_Tab0[temp_collision_DD6 + (v4 & 0xF)] & 0x1F) - temp_collision_DD4 - 1;
-      if ((int16)v6 <= 0) {
-        samus_y_pos -= v6;
+  bts = BTS[cur_block_index];
+  if (Samus_IsSlopeAlignBlock(level_data[cur_block_index], bts)) {
+    uint16 top_y_in_tile = ((samus_y_pos - samus_y_radius) & kBlockPixelMask) ^ kBlockPixelMask;
+    if ((bts & kSlopeBts_Ceiling) != 0) {
+      uint16 y_delta = Samus_SlopeHeightAt(bts, samus_x_pos) - top_y_in_tile - 1;
+      if ((int16)y_delta <= 0) {
+        samus_y_pos -= y_delta;
         samus_pos_adjusted_by_slope_flag = 1;
       }
     }

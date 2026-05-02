@@ -328,7 +328,7 @@ static int RunWindowed(const MiniOptions *options) {
   }
   sdl_initialized = true;
 
-  window = SDL_CreateWindow("sm_rev mini shell",
+  window = SDL_CreateWindow("sm_rev mini",
                             SDL_WINDOWPOS_CENTERED,
                             SDL_WINDOWPOS_CENTERED,
                             kMiniWindowWidth,

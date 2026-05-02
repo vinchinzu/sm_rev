@@ -140,7 +140,7 @@ static uint8 SetCarry_0(CollInfo *ci) {  // 0x949D5B
 }
 
 static uint8 BlockSpreadBombReact_Slope(CollInfo *ci) {  // 0x949D5D
-  if ((BTS[cur_block_index] & 0x1F) < 5)
+  if ((BTS[cur_block_index] & kSlopeBts_ShapeMask) < kSlopeBts_FirstAlignedShape)
     return 1;
   else
     return BlockShotReactVert_Slope_NonSquare(ci);
@@ -217,7 +217,7 @@ static Func_CollInfo_U8 *const kBlockBombedReact[16] = {  // 0x94A052
 
 static void BlockBombedReact(CollInfo *ci, uint16 v0) {
   cur_block_index = v0 >> 1;
-  while (kBlockBombedReact[(level_data[cur_block_index] & 0xF000) >> 12](ci) & 0x80) {
+  while (kBlockBombedReact[BlockTypeIndexFromTile(level_data[cur_block_index])](ci) & 0x80) {
   }
 }
 
@@ -280,15 +280,15 @@ static void BlockFunc_A11A(uint16 a, uint16 r24, uint16 r26, uint16 r28) {  // 0
 }
 
 static uint8 BlockShotReactHoriz_Slope(CollInfo *ci) {  // 0x94A147
-  if ((BTS[cur_block_index] & 0x1F) < 5)
-    return BlockShotReactVert_Slope_Square(ci, BTS[cur_block_index] & 0x1F, cur_block_index);
+  if ((BTS[cur_block_index] & kSlopeBts_ShapeMask) < kSlopeBts_FirstAlignedShape)
+    return BlockShotReactVert_Slope_Square(ci, BTS[cur_block_index] & kSlopeBts_ShapeMask, cur_block_index);
   else
     return BlockShotReactVert_Slope_NonSquare(ci);
 }
 
 static uint8 BlockShotReactVert_Slope(CollInfo *ci) {  // 0x94A15E
-  if ((BTS[cur_block_index] & 0x1F) < 5)
-    return BlockShotReactHoriz_Slope_Square(ci, BTS[cur_block_index] & 0x1F, cur_block_index);
+  if ((BTS[cur_block_index] & kSlopeBts_ShapeMask) < kSlopeBts_FirstAlignedShape)
+    return BlockShotReactHoriz_Slope_Square(ci, BTS[cur_block_index] & kSlopeBts_ShapeMask, cur_block_index);
   else
     return BlockShotReactHoriz_Slope_NonSquare(ci);
 }
@@ -317,7 +317,7 @@ static uint8 BlockShotReactHoriz(CollInfo *ci, uint16 k) {  // 0x94A1B5
     return 1;
   cur_block_index = k >> 1;
   do {
-    v1 = kBlockShotReactHoriz[(level_data[cur_block_index] & 0xF000) >> 12](ci);
+    v1 = kBlockShotReactHoriz[BlockTypeIndexFromTile(level_data[cur_block_index])](ci);
   } while (v1 & 0x80);
   if (v1)
     ci->ci_r40--;
@@ -348,7 +348,7 @@ static uint8 BlockShotReactVert(CollInfo *ci, uint16 k) {  // 0x94A1D6
     return 1;
   cur_block_index = k >> 1;
   do {
-    v1 = kBlockShotReactVert[(level_data[cur_block_index] & 0xF000) >> 12](ci);
+    v1 = kBlockShotReactVert[BlockTypeIndexFromTile(level_data[cur_block_index])](ci);
   } while (v1 & 0x80);
   if (v1)
     --ci->ci_r40;
@@ -514,9 +514,12 @@ uint8 BlockCollMissileVert(uint16 k) {  // 0x94A4D9
 }
 
 static uint8 BlockShotReact_Slope_NonSquare(CollInfo *ci, uint16 j, uint16 k) {  // 0x94A58F
-  uint16 v2 = (projectile_x_pos[j >> 1] & 0xF) ^ ((BTS[k] & 0x40) != 0 ? 0xF : 0);
-  uint16 v4 = (projectile_y_pos[j >> 1] & 0xF) ^ ((BTS[k] & 0x80) != 0 ? 0xF : 0);
-  uint16 v5 = kAlignYPos_Tab0[16 * (BTS[k] & 0x1F) + (v2 & 0xF)] & 0x1F;
+  uint16 v2 = (projectile_x_pos[j >> 1] & kBlockPixelMask)
+            ^ ((BTS[k] & kSlopeBts_MirrorX) != 0 ? kBlockPixelMask : 0);
+  uint16 v4 = (projectile_y_pos[j >> 1] & kBlockPixelMask)
+            ^ ((BTS[k] & kSlopeBts_Ceiling) != 0 ? kBlockPixelMask : 0);
+  uint16 v5 = kAlignYPos_Tab0[kBlockPixelSize * (BTS[k] & kSlopeBts_ShapeMask)
+                              + (v2 & kBlockPixelMask)] & kSlopeBts_ShapeMask;
   if ((int16)(v5 - v4) <= 0) {
     ci->ci_r38 = 0;
     ci->ci_r40 = 0;
@@ -579,7 +582,7 @@ uint8 BlockCollSpreadBomb(uint16 k) {  // 0x94A621
     return 1;
   uint8 rv;
   do {
-    rv = kBlockCollSpreadBomb[(level_data[cur_block_index] & 0xF000) >> 12](&ci);
+    rv = kBlockCollSpreadBomb[BlockTypeIndexFromTile(level_data[cur_block_index])](&ci);
   } while (rv & 0x80);
   return rv;
 }

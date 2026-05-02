@@ -13,7 +13,7 @@
 static void PrintUsage(const char *argv0) {
   fprintf(stderr,
           "Usage: %s [--headless] [--record] [--frames N] [--screenshot PATH] [--input-script PATH] [--replay-in PATH] [--replay-out PATH] [--room-export PATH] [--background MODE] [--ai-background]\n"
-          "  --headless   Run the mini shell without SDL video.\n"
+          "  --headless   Run the mini runtime without SDL video.\n"
           "  --record   Save a low-resolution quick clip under out/mini_recording_YYYYMMDD_HHMMSS.mp4.\n"
           "  --frames N   Limit the run to N frames. Windowed mode runs until quit by default.\n"
           "  --screenshot PATH  Save the last rendered frame to a BMP file.\n"

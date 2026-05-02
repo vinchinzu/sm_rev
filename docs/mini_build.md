@@ -4,9 +4,11 @@ This repo now has a first-pass `mini` build target intended for subtractive refa
 
 For the gameplay-kernel roadmap that reframes mini around moddable Samus movement,
 collision, and authored map/nav rules, see [mini_modability_plan.md](mini_modability_plan.md).
-For the staged path from the current mini shell to a deterministic multiplayer-ready
+For the staged path from the current mini runtime to a deterministic multiplayer-ready
 kernel, including the next `physics.c` extraction target, see
 [mini_multiplayer_roadmap.md](mini_multiplayer_roadmap.md).
+For the current top-level plan and source ownership rules, see
+[roadmap.md](roadmap.md) and [source_layout.md](source_layout.md).
 
 Current scope:
 - `make mini` builds `sm_rev_mini`.
@@ -21,7 +23,9 @@ Current scope:
   `--background generated` or `--ai-background`; the default remains `game`.
 - The build is compiled with `CURRENT_BUILD=BUILD_MINI`, which now means
   "Landing Site content scope" rather than broad compile-time subtraction.
-- The shell supports `--headless --frames N` for smoke testing and a small SDL window for manual inspection.
+- Desktop OpenGL/GLSL host code lives under [`src/host/`](../src/host) and is
+  intentionally outside the mini source set.
+- The runtime supports `--headless --frames N` for smoke testing and a small SDL window for manual inspection.
 
 ## Current Mini Layers
 
@@ -53,7 +57,7 @@ macOS:
 - `make mini-mac`
 - `make mini NATIVE_MAC=1`
 
-The existing native macOS path uses SDL2 frameworks and turns on bundled assets by default for the full build. The mini shell does not require a ROM and is the easiest target to validate first on macOS.
+The existing native macOS path uses SDL2 frameworks and turns on bundled assets by default for the full build. The mini runtime does not require a ROM and is the easiest target to validate first on macOS.
 
 ## Rust Rollback Host
 
