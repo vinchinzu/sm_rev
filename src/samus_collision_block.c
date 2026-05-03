@@ -103,27 +103,27 @@ static uint8 BlockColl_Vert_Slope_NonSquare(CollInfo *ci, uint16 k) {  // 0x9486
   return 0;
 }
 
+static bool BlockColl_Horiz_SquareSlopeHits(CollInfo *ci, uint16 square_slope_index) {
+  bool primary_quadrant_hits = kBlockCollSquareSlopeTab[square_slope_index] != 0;
+  if (!ci->ci_r26) {
+    if (((samus_y_radius + samus_y_pos - 1) & 8) == 0)
+      return primary_quadrant_hits;
+    return primary_quadrant_hits || kBlockCollSquareSlopeTab[square_slope_index ^ 2] != 0;
+  }
+  if (ci->ci_r26 != ci->ci_r28 || ((samus_y_pos - samus_y_radius) & 8) == 0) {
+    if (primary_quadrant_hits)
+      return true;
+  }
+  return kBlockCollSquareSlopeTab[square_slope_index ^ 2] != 0;
+}
+
 static uint8 BlockColl_Horiz_Slope_Square(CollInfo *ci, uint16 a, uint16 k) {  // 0x948D2B
   uint16 temp_collision_DD4 = 4 * a;
   uint16 temp_collision_DD6 = BTS[k] >> 6;
   uint16 v2 = 4 * a + (temp_collision_DD6 ^ ((ci->ci_r32 & 8) >> 3));
-  if (!ci->ci_r26) {
-    if (((samus_y_radius + samus_y_pos - 1) & 8) == 0) {
-      if (!kBlockCollSquareSlopeTab[v2])
-        return 0;
-      goto block_collision;
-    }
-    goto check_next_quadrant;
-  }
-  if (ci->ci_r26 != ci->ci_r28 || ((samus_y_pos - samus_y_radius) & 8) == 0) {
-check_next_quadrant:
-    if (kBlockCollSquareSlopeTab[v2])
-      goto block_collision;
-  }
-  if (!kBlockCollSquareSlopeTab[v2 ^ 2])
+  if (!BlockColl_Horiz_SquareSlopeHits(ci, v2))
     return 0;
 
-block_collision:
   if (ci->ci_r18_r20 < 0) {
     int16 v5 = samus_x_radius + (ci->ci_r32 | 7) + 1 - samus_x_pos;
     if (v5 >= 0)
@@ -140,27 +140,27 @@ block_collision:
   return 1;
 }
 
+static bool BlockColl_Vert_SquareSlopeHits(CollInfo *ci, uint16 square_slope_index) {
+  bool primary_quadrant_hits = kBlockCollSquareSlopeTab[square_slope_index] != 0;
+  if (!ci->ci_r26) {
+    if (((samus_x_radius + samus_x_pos - 1) & 8) == 0)
+      return primary_quadrant_hits;
+    return primary_quadrant_hits || kBlockCollSquareSlopeTab[square_slope_index ^ 1] != 0;
+  }
+  if (ci->ci_r26 != ci->ci_r28 || ((samus_x_pos - samus_x_radius) & 8) == 0) {
+    if (primary_quadrant_hits)
+      return true;
+  }
+  return kBlockCollSquareSlopeTab[square_slope_index ^ 1] != 0;
+}
+
 static uint8 BlockColl_Vert_Slope_Square(CollInfo *ci, uint16 a, uint16 k) {  // 0x948DBD
   uint16 temp_collision_DD4 = 4 * a;
   uint16 temp_collision_DD6 = BTS[k] >> 6;
   uint16 v2 = 4 * a + (temp_collision_DD6 ^ ((ci->ci_r32 & 8) >> 2));
-  if (!ci->ci_r26) {
-    if (((samus_x_radius + samus_x_pos - 1) & 8) == 0) {
-      if (!kBlockCollSquareSlopeTab[v2])
-        return 0;
-      goto block_collision;
-    }
-    goto check_next_quadrant;
-  }
-  if (ci->ci_r26 != ci->ci_r28 || ((samus_x_pos - samus_x_radius) & 8) == 0) {
-check_next_quadrant:
-    if (kBlockCollSquareSlopeTab[v2])
-      goto block_collision;
-  }
-  if (!kBlockCollSquareSlopeTab[v2 ^ 1])
+  if (!BlockColl_Vert_SquareSlopeHits(ci, v2))
     return 0;
 
-block_collision:
   if (ci->ci_r18_r20 < 0) {
     int16 v5 = samus_y_radius + (ci->ci_r32 | 7) + 1 - samus_y_pos;
     if (v5 >= 0)

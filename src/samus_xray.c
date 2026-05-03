@@ -3,9 +3,23 @@
 #include "variables.h"
 #include "funcs.h"
 #include "sm_rtl.h"
+#include "samus_env.h"
 
 #define unk_91CAF2 (*(SpawnHdmaObject_Args*)RomFixedPtr(0x91caf2))
 #define stru_91D2D6 ((XrayBlockData*)RomFixedPtr(0x91d2d6))
+
+enum {
+  kXrayScreenWidth = 256,
+  kXrayHiddenHdmaValue = 255,
+  kXrayFirefleaFxType = 36,
+  kXrayFirefleaBrightnessThreshold = 7,
+  kXrayLayerBlendFireflea = 0x1000,
+  kXrayLayerBlendNoBlockReveal = 0x2000,
+  kXrayLayerBlendBlockReveal = 0x4000,
+  kXraySetupColorRed = 0x27,
+  kXraySetupColorGreen = 0x47,
+  kXraySetupColorBlue = 0x87,
+};
 
 static void Xray_Func12(uint16 dst_r22, const uint8 *jp);
 static void Xray_Func13(uint16 dst_r22, uint16 j);
@@ -313,34 +327,49 @@ void MoveXrayDown(void) {  // 0x888835
   }
 }
 
+static int16 Samus_XrayBeamScreenX(void) {
+  if (samus_pose_x_dir == kSamusPoseXDir_FaceRight)
+    return samus_x_pos - layer1_x_pos - 3;
+  return samus_x_pos - layer1_x_pos + 3;
+}
+
+static uint16 Samus_XrayBeamScreenY(void) {
+  if (samus_movement_type == kMovementType_05_Crouching)
+    return samus_y_pos - layer1_y_pos - 12;
+  return samus_y_pos - layer1_y_pos - 16;
+}
+
+static bool Samus_XrayBeamOriginOnScreen(int16 screen_x) {
+  return screen_x >= 0 && screen_x < kXrayScreenWidth;
+}
+
+static bool Samus_XrayBeamOriginBehindSamus(int16 screen_x) {
+  if (screen_x < 0)
+    return samus_pose_x_dir == kSamusPoseXDir_FaceRight;
+  if (screen_x >= kXrayScreenWidth)
+    return samus_pose_x_dir == kSamusPoseXDir_FaceLeft;
+  return false;
+}
+
+static void Samus_FillHiddenXrayHdmaTable(void) {
+  for (int i = 510; i >= 0; i -= 2)
+    hdma_table_1[i >> 1] = kXrayHiddenHdmaValue;
+}
+
 void CalculateXrayHdmaTable(void) {  // 0x888896
-  int16 v0;
-  if (samus_pose_x_dir == 4)
-    v0 = samus_x_pos - layer1_x_pos - 3;
-  else
-    v0 = samus_x_pos - layer1_x_pos + 3;
-  uint16 v1;
-  if (samus_movement_type == 5)
-    v1 = samus_y_pos - layer1_y_pos - 12;
-  else
-    v1 = samus_y_pos - layer1_y_pos - 16;
-  if (v0 < 0) {
-    if (samus_pose_x_dir != 4) {
-off_screen:
-      CalculateXrayHdmaTableInner(v0, v1, xray_angle, demo_input, true, hdma_table_1);
-      return;
-    }
-  } else {
-    if ((int16)(v0 - 256) < 0) {
-      CalculateXrayHdmaTableInner(v0, v1, xray_angle, demo_input, false, hdma_table_1);
-      return;
-    }
-    if (samus_pose_x_dir != 8)
-      goto off_screen;
+  int16 screen_x = Samus_XrayBeamScreenX();
+  uint16 screen_y = Samus_XrayBeamScreenY();
+  if (Samus_XrayBeamOriginOnScreen(screen_x)) {
+    CalculateXrayHdmaTableInner(screen_x, screen_y, xray_angle, demo_input, false, hdma_table_1);
+    return;
   }
 
-  for (int i = 510; i >= 0; i -= 2)
-    hdma_table_1[i >> 1] = 255;
+  if (!Samus_XrayBeamOriginBehindSamus(screen_x)) {
+    CalculateXrayHdmaTableInner(screen_x, screen_y, xray_angle, demo_input, true, hdma_table_1);
+    return;
+  }
+
+  Samus_FillHiddenXrayHdmaTable();
 }
 
 void HdmaobjPreInstr_XrayFunc3_DeactivateBeam(uint16 k) {  // 0x888934
@@ -869,25 +898,33 @@ void Xray_SetupStage7(void) {  // 0x91D1A0
     xray_angle = 64;
 }
 
-void HdmaobjPreInstr_XraySetup(uint16 k) {  // 0x91D27F
-  uint16 v1;
+static void Xray_SetupBackdropColors(void) {
+  *(uint16 *)&reg_COLDATA[0] = kXraySetupColorRed;
+  *(uint16 *)&reg_COLDATA[1] = kXraySetupColorGreen;
+  *(uint16 *)&reg_COLDATA[2] = kXraySetupColorBlue;
+}
 
-  v1 = 4096;
-  if (fx_type == 36) {
-    if (!sign16((reg_COLDATA[0] & 0x1F) - 7))
-      goto LABEL_5;
-    goto LABEL_4;
+static bool Xray_FirefleaColorsNeedSetup(void) {
+  return sign16((reg_COLDATA[0] & 0x1F) - kXrayFirefleaBrightnessThreshold);
+}
+
+static uint16 Xray_SetupLayerBlendMask(void) {
+  if (fx_type == kXrayFirefleaFxType) {
+    if (Xray_FirefleaColorsNeedSetup())
+      Xray_SetupBackdropColors();
+    return kXrayLayerBlendFireflea;
   }
-  v1 = 0x2000;
+
   if (CanXrayShowBlocks()) {
-    v1 = 0x4000;
-LABEL_4:
-    *(uint16 *)&reg_COLDATA[0] = 0x27;
-    *(uint16 *)&reg_COLDATA[1] = 0x47;
-    *(uint16 *)&reg_COLDATA[2] = 0x87;
+    Xray_SetupBackdropColors();
+    return kXrayLayerBlendBlockReveal;
   }
-LABEL_5:
-  fx_layer_blending_config_c |= v1;
+
+  return kXrayLayerBlendNoBlockReveal;
+}
+
+void HdmaobjPreInstr_XraySetup(uint16 k) {  // 0x91D27F
+  fx_layer_blending_config_c |= Xray_SetupLayerBlendMask();
 }
 
 void Xray_SetupStage8_SetBackdropColor(void) {  // 0x91D2BC

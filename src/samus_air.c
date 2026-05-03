@@ -32,10 +32,7 @@ static bool Samus_IsSpinJumpSubmerged(void) {
   if ((samus_suit_palette_index & kSamusSuitPalette_Gravity) != 0)
     return false;
 
-  uint16 samus_top = Samus_GetTop_R20();
-  if ((fx_y_pos & kLiquidYPos_Disabled) != 0)
-    return Samus_IsSubmergedInLavaAcid(samus_top);
-  return Samus_IsSubmergedInWater(samus_top);
+  return Samus_IsSubmergedInRoomLiquid(Samus_GetTop_R20());
 }
 
 static SamusRejumpWindow Samus_GetSpinJumpRejumpWindow(uint16 vertical_env) {

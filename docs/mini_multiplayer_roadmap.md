@@ -223,6 +223,9 @@ Completed work:
 - [`src/samus_env.h`](../src/samus_env.h) names the Samus equipment bits,
   contact-damage modes, suit-palette variants, liquid pass-through bit, and
   disabled-liquid sentinel used by the movement/palette slice
+- the shared liquid classifier now names the original water-vs-lava ordering,
+  so pose, spin-jump, landing-gfx, and animation-delay paths no longer repeat
+  raw `fx_y_pos` / `lava_acid_y_pos` bit tests
 - [`src/samus_air.c`](../src/samus_air.c) uses named hi-jump, liquid, screw,
   pseudo-screw, and pose constants in the spin-jump/wall-jump paths
 - [`src/samus_palette.c`](../src/samus_palette.c) now uses the shared Samus
@@ -239,7 +242,8 @@ Use existing names first:
 
 Safe immediate replacements in the air-movement slice:
 
-- `equipped_items & 0x200` -> `Samus_HasEquip(kSamusEquip_HiJumpBoots)`
+- `equipped_items & 0x100` -> `Samus_HasEquip(kSamusEquip_HiJumpBoots)`
+- `equipped_items & 0x200` -> `Samus_HasEquip(kSamusEquip_SpaceJump)`
 - `samus_suit_palette_index & 4` -> gravity-suit helper or named suit-palette enum
 - `fx_liquid_options & 4` -> `kFxLiquidOptions_Passthrough`
 - `liquid_physics_type` raw tests -> `kLiquidPhysicsType_*`
@@ -431,16 +435,136 @@ Completed extraction:
   now includes deterministic authored morph-ball tunnel coverage, so
   `samus_ball.c` cleanup can start from a tested traversal contract.
 - [`src/samus_ball.c`](../src/samus_ball.c) has a first small semantic cleanup
-  pass for ball movement, naming the no-accel and left-facing checks while
-  preserving the Bank 90 branch shape.
+  pass for ball movement, naming the no-accel/no-input checks and preserving
+  the Bank 90 x-dir branch shape with the shared pose-direction enum.
+- The ball movement slice now uses a tiny `SamusGroundBallPosePair` for the
+  Bank 90 ground-pose mapping and a named bounce-active predicate, keeping
+  morph-ball and spring-ball movement on one shared path without adding new
+  behavior.
+- [`tests/mini_rollback_api.c`](../tests/mini_rollback_api.c) now covers the
+  crouching/pose-transition movement handler's slope-collision dispatch and
+  ball-bounce reset signal; [`src/samus_transition.c`](../src/samus_transition.c)
+  uses that contract for a first no-`goto` semantic cleanup of
+  `Samus_Movement_0F_CrouchingEtcTransition`.
+- The same rollback test now covers the adjacent block-collision transition
+  dispatcher for spin-jump, morph-ball, spring-ball, wall-jump, and ignored
+  high-byte cases; `samus_transition.c` uses that coverage to name its
+  block-collision subtypes, momentum handoff, current-facing pose selection,
+  and ball-landing bounce tests while preserving the original branch contract.
+- The landing/bounce transition helpers now have direct no-springball and
+  springball assertions for first bounce, second bounce, terminal reset, and
+  slope-collision setup. That let `samus_transition.c` share the vertical
+  bounce setup/reset helpers without changing the original low-byte bounce
+  state checks.
+- The same transition contract test now pins the knockback and ground x-ray
+  transition-table helpers, letting `samus_transition.c` name their button
+  masks, knockback indices, x-ray angles, and setup timers without widening
+  the transition-table cleanup beyond covered behavior.
+- Grapple transition-table cleanup now shares the previous-position clamp and
+  motion reset paths between the grapple-release handlers, with direct tests
+  for both clamp directions and the no-change window.
+- The adjacent A7 pose-adjustment transition now has direct tests for table
+  offsets, zero-offset bounce reset, aim-up transition offsets, and unsupported
+  stand-transition poses; `samus_transition.c` uses that coverage to remove the
+  shared-label control flow and name the Y-offset table.
+- Crateria landing graphics now have direct contract coverage for cinematic
+  clearing, out-of-table rooms, FX-type-gated splashes, Y-threshold-gated
+  splashes, always-splash rooms, and the Norfair room delegation; the handler
+  now uses named rule flags instead of label jumps over the ROM rule table.
+- The top-level Samus transition dispatcher now has direct contracts for the
+  transitional, interrupted, normal-pending, no-pending, and grapple fallthrough
+  paths. `samus_transition.c` now routes those through named helper functions
+  instead of label jumps, while keeping the same A/B/C dispatch table ordering.
+- `Samus_CheckWalkedIntoSomething` now has focused contracts for immediate
+  solid-enemy running conversion and non-running no-op clearing; the handler no
+  longer uses label jumps for the solid-enemy/move retry path.
+- `samus_pose.c` now has focused contracts for the morph/springball facing-flip
+  speed-carry helper, and the implementation names the flip test plus the
+  extra-run-speed carry instead of jumping through a shared label.
+- The crouch/stand/morph transition dispatch in `samus_pose.c` now has direct
+  low-table, high-table, aim-up, and stand-transition range contracts, and the
+  implementation names its table bases plus the transition momentum routine.
+- The unsupported screw/space-jump pose downgrade helper now has direct
+  equipment-gated contracts and uses named advanced-spin support checks instead
+  of a shared downgrade label.
+- The normal-jump pose-transition helper now has direct contracts for
+  right/left shinespark windup selection, normal horizontal-accel setup,
+  aim-up animation-frame carry, and shot-direction bookkeeping. The
+  implementation now names the shinespark-eligible poses instead of jumping
+  through shared labels.
+- The spin-jump pose-transition helper now has direct contracts for
+  opposite-facing extra-run-speed carry, screw attack remapping, space-jump
+  remapping, and the liquid gate before advanced spin poses. With that
+  coverage, the remaining label jumps in `samus_pose.c` were replaced by named
+  carry/remap helpers while preserving the original equipment priority.
+- The currently covered transition slice in `samus_pose.c` and
+  `samus_transition.c` is now free of `goto`/`LABEL_` control flow.
+- The adjacent runtime jump/sound/shoot checks now have direct contracts for
+  health-flash input filtering, spin/wall-jump SFX selection, charging-beam
+  resume state, echo sound cleanup, and debug invincibility preservation.
+  `samus_runtime.c` no longer has `goto`/`LABEL_` control flow in those paths.
+- The first-slice input helper cleanup now has direct contracts for
+  pose-momentum selection and timed release filtering, and
+  `samus_input.c` no longer uses label jumps for those helper paths.
+- The speed/pose remap helper now has direct contracts for face-forward
+  Varia/Gravity suit pose correction and screw/space-jump equipment remapping.
+  `samus_speed.c` now names those pose decisions without shared label jumps.
+- The horizontal shinespark movement helper now has direct contracts for speed
+  capping and previous-X history clamping. `samus_special_move.c` now names the
+  shared clamp path instead of jumping around the no-collision move/align block.
+- The slow grapple camera-scrolling helper now has direct contracts for the
+  left/right/up/down thresholds, the negative-X skip behavior, and Samus
+  previous-position history copying. `samus_camera_map.c` no longer uses label
+  jumps in the main scrolling routine.
+- The transition bottom-half drawing helper now has direct contracts for the
+  aim-up transition range, DB/DD frame gates, classic crouch/stand transition
+  poses, and hidden fallback. `samus_draw.c` now names those visibility rules
+  without a shared hide label.
+- The x-ray HDMA/setup helpers now have direct contracts for behind-Samus beam
+  hiding and fireflea-room color/blend setup. `samus_xray.c` is now free of
+  `goto`/`LABEL_` control flow in those x-ray setup paths.
+- The Crateria footstep splash selector now has direct contracts for cinematic,
+  out-of-table, FX-gated, Y-threshold, and always-splash rooms. The corresponding
+  `samus_anim_fx.c` room-rule path now uses named rule flags instead of label
+  jumps.
+- The wall-jump animation-delay selector in `samus_anim_fx.c` now reuses the
+  shared liquid classifier and named equipment/SFX/frame-delta constants instead
+  of jumping to the basic-spin delay label.
+- The misc Samus palette hurt-flash and screw/speed-boost palette helpers now
+  have direct contracts for damage-SFX gating, counter-40 sound refresh,
+  screw-attack frame windows, wall-jump frame gates, and speed-boost palette
+  advance. `samus_palette.c` is now free of `goto`/`LABEL_` control flow.
+- Solid enemy collision now has direct contracts for no-interactive-enemy,
+  inactive-enemy skip, frozen touching hits, property-solid gap hits, and both
+  horizontal/vertical directions. `samus_enemy_collision.c` now names the
+  solid-enemy eligibility and contact/gap decision instead of branching through
+  shared hit labels.
+- Projectile firing now has a direct super-missile gate contract for the
+  selected four-projectile limit, the normal five-projectile limit, and cooldown
+  blocking. `samus_projectile_weapon.c` now shares named beam collision/finish
+  helpers for charged and uncharged beam setup instead of jumping through the
+  collision labels.
+- Square-slope block collision in `samus_collision_block.c` now names the
+  primary/alternate quadrant hit decision for horizontal and vertical checks,
+  leaving the original displacement and subpixel adjustment paths intact without
+  label jumps.
+- The matching post-grapple square-slope probe in `samus_grapple.c` now uses
+  the same named primary/alternate quadrant decision before returning the
+  original grapple collision distance.
+- The remaining grapple cancel/swing/release helpers now name active-cancel
+  checks, angle-gated swing input, swing animation frame selection,
+  still-connected probing, and release-pose selection. With that pass,
+  `samus_grapple.c` is also free of `goto`/`LABEL_` control flow.
+- The remaining turn-transition pose tables now have direct contracts for
+  standing, crouching, moonwalk jump-held, jumping, and falling turn dispatches.
+  `samus_pose.c` names the previous-pose shot direction, moonwalk projectile
+  flag, ground-turn table choice, and shared speed carry helper.
 
 Remaining cleanup candidates:
 
-| Candidate | Why it matters | Risk | Recommendation |
-| --- | --- | --- | --- |
-| Further `samus_ball.c` cleanup | Ball movement is mini-critical and now has focused authored tunnel coverage | Medium | Continue only in small parity-sensitive passes; compare against the `../sm/` baseline for behavior questions |
-| `Samus_Movement_0F_CrouchingEtcTransition` | Still ASM-shaped, but tied to pose-transition cleanup more than core movement feel | Medium | Defer until pose-transition contracts are tested |
-| `Samus_Initialize` | Valuable eventually, but too broad for the next cleanup pass | High | Do not pick before more init-state tests exist |
+No explicit cleanup candidates remain in this roadmap. Future work should be
+added as a new scoped candidate with a parity plan and a focused test before
+implementation starts.
 
 ## What "Elegant Reused Code" Means Here
 

@@ -10,6 +10,11 @@
 #include "physics_config.h"
 #include "samus_asset_bridge.h"
 
+enum {
+  kTransitionBottomFrameZeroPoseStart = kPose_DB,
+  kTransitionBottomFrameTwoPoseStart = 0xDD,
+};
+
 static uint8 GetPackedOamExtBits(uint16 idx);
 static void SetPackedOamExtBits(uint16 idx, uint8 bits);
 static void DrawPad2DronePing(const OamEnt *src, uint8 src_ext_bits, int x, int y);
@@ -240,25 +245,40 @@ uint8 SamusBottomDrawn_A_Knockback(void) {  // 0x9086EE
   return 0;
 }
 
-uint8 SamusBottomDrawn_F_Transitions(void) {  // 0x90870C
-  if (!sign16(samus_pose - kPose_F1_FaceR_CrouchTrans_AimU))
-    return 1;
-  if (!sign16(samus_pose - 219)) {
-    if (sign16(samus_pose - 221)) {
-      if (samus_anim_frame)
-        goto LABEL_8;
-    } else if (samus_anim_frame != 2) {
-      goto LABEL_8;
-    }
-    return 1;
-  }
-  if (samus_pose == kPose_35_FaceR_CrouchTrans
+static bool SamusTransitionPoseAtOrAfter(uint16 pose) {
+  return !sign16(samus_pose - pose);
+}
+
+static bool SamusTransitionPoseBefore(uint16 pose) {
+  return sign16(samus_pose - pose);
+}
+
+static bool SamusClassicCrouchStandTransitionDrawsBottom(void) {
+  return samus_pose == kPose_35_FaceR_CrouchTrans
       || samus_pose == kPose_36_FaceL_CrouchTrans
       || samus_pose == kPose_3B_FaceR_StandTrans
-      || samus_pose == kPose_3C_FaceL_StandTrans) {
-    return 1;
+      || samus_pose == kPose_3C_FaceL_StandTrans;
+}
+
+static bool SamusFrameGatedTransitionDrawsBottom(void) {
+  if (!SamusTransitionPoseAtOrAfter(kTransitionBottomFrameZeroPoseStart) ||
+      SamusTransitionPoseAtOrAfter(kPose_F1_FaceR_CrouchTrans_AimU)) {
+    return false;
   }
-LABEL_8:
+  if (SamusTransitionPoseBefore(kTransitionBottomFrameTwoPoseStart))
+    return samus_anim_frame == 0;
+  return samus_anim_frame == 2;
+}
+
+static bool SamusTransitionBottomHalfIsDrawn(void) {
+  return SamusTransitionPoseAtOrAfter(kPose_F1_FaceR_CrouchTrans_AimU) ||
+         SamusFrameGatedTransitionDrawsBottom() ||
+         SamusClassicCrouchStandTransitionDrawsBottom();
+}
+
+uint8 SamusBottomDrawn_F_Transitions(void) {  // 0x90870C
+  if (SamusTransitionBottomHalfIsDrawn())
+    return 1;
   samus_bottom_half_spritemap_index = 0;
   return 0;
 }

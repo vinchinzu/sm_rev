@@ -119,9 +119,17 @@ static uint32 Samus_ClampSpeedHi(int32 amt, int val) {
   return amt;
 }
 
-void Samus_ShinesparkMove_X(void) {  // 0x90D132
-  int16 v4;
+static void Samus_ClampPrevXForShinespark(void) {
+  int16 delta = samus_x_pos - samus_prev_x_pos;
+  if (delta < 0) {
+    if (sign16(delta + 15))
+      samus_prev_x_pos = samus_x_pos + 15;
+  } else if (!sign16(delta - 16)) {
+    samus_prev_x_pos = samus_x_pos - 15;
+  }
+}
 
+void Samus_ShinesparkMove_X(void) {  // 0x90D132
   samus_shine_timer = 15;
   AddToHiLo(&samus_x_extra_run_speed, &samus_x_extra_run_subspeed, __PAIR32__(samus_y_accel, samus_y_subaccel));
   if (!sign16(samus_x_extra_run_speed - 15))
@@ -133,7 +141,8 @@ void Samus_ShinesparkMove_X(void) {  // 0x90D132
     amt = cres.amt;
     if (cres.collision) {
       samus_collision_flag = cres.collision;
-      goto LABEL_18;
+      Samus_ClampPrevXForShinespark();
+      return;
     }
     amt = -(int32)amt;
   } else {
@@ -142,19 +151,13 @@ void Samus_ShinesparkMove_X(void) {  // 0x90D132
     amt = cres.amt;
     if (cres.collision) {
       samus_collision_flag = cres.collision;
-      goto LABEL_18;
+      Samus_ClampPrevXForShinespark();
+      return;
     }
   }
   Samus_MoveRight_NoSolidColl(amt);
   Samus_AlignYPosSlope();
-LABEL_18:
-  v4 = samus_x_pos - samus_prev_x_pos;
-  if ((int16)(samus_x_pos - samus_prev_x_pos) < 0) {
-    if (sign16(v4 + 15))
-      samus_prev_x_pos = samus_x_pos + 15;
-  } else if (!sign16(v4 - 16)) {
-    samus_prev_x_pos = samus_x_pos - 15;
-  }
+  Samus_ClampPrevXForShinespark();
 }
 
 void Samus_ShinesparkMove_Y(void) {  // 0x90D1FF
@@ -660,7 +663,7 @@ void Samus_MoveHandler_Knockback_Down(void) {  // 0x90DF64
 
 void Samus_ClearMoveVars(void) {  // 0x90DF6E
   if (samus_collision_flag) {
-    samus_x_accel_mode = 0;
+    samus_x_accel_mode = kSamusXAccelMode_None;
     samus_collides_with_solid_enemy = 0;
     samus_is_falling_flag = 0;
     UNUSED_word_7E0B1A = 0;
@@ -814,7 +817,7 @@ void MakeSamusFaceForward(void) {  // 0x91E3F6
   samus_y_speed = 0;
   samus_y_dir = 0;
   used_for_ball_bounce_on_landing = 0;
-  samus_x_accel_mode = 0;
+  samus_x_accel_mode = kSamusXAccelMode_None;
   flare_counter = 0;
   flare_animation_frame = 0;
   flare_slow_sparks_anim_frame = 0;

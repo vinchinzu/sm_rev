@@ -5,12 +5,21 @@
 #include "variables.h"
 #include "sm_rtl.h"
 #include "funcs.h"
+#include "samus_env.h"
 
 #define kPauseMenuMapData ((uint16*)RomFixedPtr(0x829717))
 #define kPauseMenuMapTilemaps ((LongPtr*)RomFixedPtr(0x82964a))
 
 static const uint8 kShr0x80[8] = { 0x80, 0x40, 0x20, 0x10, 8, 4, 2, 1 };
 static const uint16 kShr0xFc00[8] = { 0xfc00, 0x7e00, 0x3f00, 0x1f80, 0xfc0, 0x7e0, 0x3f0, 0x1f8 };
+
+enum {
+  kSlowGrappleScrollStep = 3,
+  kSlowGrappleScrollLeftThreshold = 0x60,
+  kSlowGrappleScrollRightThreshold = 0xA0,
+  kSlowGrappleScrollUpThreshold = 0x70,
+  kSlowGrappleScrollDownThreshold = 0x90,
+};
 
 static void CallScrollingFinishedHook(uint32 ea) {
   switch (ea) {
@@ -27,50 +36,59 @@ static void MarkMapTileAsExplored(uint16 r18, uint16 r24) {  // 0x90A8A6
   map_tiles_explored[(uint16)(r20 + 4 * (R34 + R22))] |= kShr0x80[(room_x_coordinate_on_map + v0) & 7];
 }
 
-void MainScrollingRoutine(void) {  // 0x9094EC
-  if (slow_grabble_scrolling_flag) {
-    if ((samus_x_pos & 0x8000) != 0)
-      goto LABEL_14;
-    uint16 v0;
-    v0 = samus_x_pos - layer1_x_pos;
-    if (samus_x_pos < layer1_x_pos)
-      goto LABEL_7;
-    if (v0 >= 0xA0) {
-      layer1_x_pos += 3;
-      goto LABEL_8;
-    }
-    if (v0 < 0x60)
-      LABEL_7:
-    layer1_x_pos -= 3;
-LABEL_8:
-    if ((samus_y_pos & 0x8000) == 0) {
-      uint16 v1 = samus_y_pos - layer1_y_pos;
-      if (samus_y_pos >= layer1_y_pos) {
-        if (v1 >= 0x90) {
-          layer1_y_pos += 3;
-          goto LABEL_14;
-        }
-        if (v1 >= 0x70)
-          goto LABEL_14;
-      }
-      layer1_y_pos -= 3;
-    }
-LABEL_14:
-    HandleAutoscrolling_X();
-    HandleAutoscrolling_Y();
-    goto LABEL_16;
+static bool Samus_CameraPositionIsNegative(uint16 position) {
+  return (position & 0x8000) != 0;
+}
+
+static void Samus_UpdateSlowGrappleScrollX(void) {
+  uint16 x_delta = samus_x_pos - layer1_x_pos;
+  if (samus_x_pos < layer1_x_pos || x_delta < kSlowGrappleScrollLeftThreshold) {
+    layer1_x_pos -= kSlowGrappleScrollStep;
+  } else if (x_delta >= kSlowGrappleScrollRightThreshold) {
+    layer1_x_pos += kSlowGrappleScrollStep;
   }
-  Samus_CalcDistanceMoved_X();
-  Samus_HandleScroll_X();
-  Samus_CalcDistanceMoved_Y();
-  Samus_HandleScroll_Y();
-LABEL_16:
-  if (scrolling_finished_hook)
-    CallScrollingFinishedHook(scrolling_finished_hook | 0x900000);
+}
+
+static void Samus_UpdateSlowGrappleScrollY(void) {
+  if (Samus_CameraPositionIsNegative(samus_y_pos))
+    return;
+
+  uint16 y_delta = samus_y_pos - layer1_y_pos;
+  if (samus_y_pos < layer1_y_pos || y_delta < kSlowGrappleScrollUpThreshold) {
+    layer1_y_pos -= kSlowGrappleScrollStep;
+  } else if (y_delta >= kSlowGrappleScrollDownThreshold) {
+    layer1_y_pos += kSlowGrappleScrollStep;
+  }
+}
+
+static void Samus_UpdateSlowGrappleScroll(void) {
+  if (!Samus_CameraPositionIsNegative(samus_x_pos)) {
+    Samus_UpdateSlowGrappleScrollX();
+    Samus_UpdateSlowGrappleScrollY();
+  }
+  HandleAutoscrolling_X();
+  HandleAutoscrolling_Y();
+}
+
+static void Samus_RecordPreviousScrollPosition(void) {
   samus_prev_x_pos = samus_x_pos;
   samus_prev_x_subpos = samus_x_subpos;
   samus_prev_y_pos = samus_y_pos;
   samus_prev_y_subpos = samus_y_subpos;
+}
+
+void MainScrollingRoutine(void) {  // 0x9094EC
+  if (slow_grabble_scrolling_flag) {
+    Samus_UpdateSlowGrappleScroll();
+  } else {
+    Samus_CalcDistanceMoved_X();
+    Samus_HandleScroll_X();
+    Samus_CalcDistanceMoved_Y();
+    Samus_HandleScroll_Y();
+  }
+  if (scrolling_finished_hook)
+    CallScrollingFinishedHook(scrolling_finished_hook | 0x900000);
+  Samus_RecordPreviousScrollPosition();
 }
 
 void Samus_ScrollFinishedHook_SporeSpawnFight(void) {  // 0x909589
@@ -85,7 +103,8 @@ void Samus_HandleScroll_X(void) {  // 0x9095A0
     HandleAutoscrolling_X();
     return;
   }
-  if ((knockback_dir || samus_movement_type == 16 || samus_x_accel_mode == 1) ^ (samus_pose_x_dir != 4)) {
+  if ((knockback_dir || samus_movement_type == 16 || samus_x_accel_mode == kSamusXAccelMode_Decelerating)
+      ^ (samus_pose_x_dir != kSamusPoseXDir_FaceRight)) {
     ideal_layer1_xpos = samus_x_pos - kSamus_HandleScroll_X_FaceRight[camera_distance_index >> 1];
   } else {
     ideal_layer1_xpos = samus_x_pos - kSamus_HandleScroll_X_FaceLeft[camera_distance_index >> 1];

@@ -94,6 +94,53 @@ static void Samus_SetPrevPoseDirAndMovement(SamusPoseXDirection x_dir, uint8 mov
   *(uint16 *)&samus_prev_pose_x_dir = ((uint16)movement_type << 8) | x_dir;
 }
 
+static void Samus_SetPrevPoseFromCurrentFacing(uint8 movement_type) {
+  if (Samus_PoseFacesRight())
+    Samus_SetPrevPoseDirAndMovement(kSamusPoseXDir_FaceRight, movement_type);
+  else
+    Samus_SetPrevPoseDirAndMovement(kSamusPoseXDir_FaceLeft, movement_type);
+}
+
+static bool Samus_IsScrewAttackPose(void) {
+  return samus_pose == kPose_81_FaceR_Screwattack ||
+         samus_pose == kPose_82_FaceL_Screwattack;
+}
+
+static bool Samus_IsSpaceJumpPose(void) {
+  return samus_pose == kPose_1B_FaceR_SpaceJump ||
+         samus_pose == kPose_1C_FaceL_SpaceJump;
+}
+
+static SamusPose Samus_SpinJumpPoseForCurrentFacing(void) {
+  return Samus_PoseFacesRight() ? kPose_1A_FaceL_SpinJump : kPose_19_FaceR_SpinJump;
+}
+
+static SamusPose Samus_ScrewAttackPoseForCurrentFacing(void) {
+  return Samus_PoseFacesRight() ? kPose_82_FaceL_Screwattack : kPose_81_FaceR_Screwattack;
+}
+
+static bool Samus_UpdateFaceForwardSuitPose(void) {
+  if (samus_pose == kPose_9B_FaceF_VariaGravitySuit && !Samus_HasVariaOrGravitySuit()) {
+    samus_pose = kPose_00_FaceF_Powersuit;
+    return true;
+  }
+  if (samus_pose == kPose_00_FaceF_Powersuit && Samus_HasVariaOrGravitySuit()) {
+    samus_pose = kPose_9B_FaceF_VariaGravitySuit;
+    return true;
+  }
+  return false;
+}
+
+static void Samus_UpdateAdvancedSpinPoseForEquipment(void) {
+  if (Samus_IsSpaceJumpPose()) {
+    samus_pose = Samus_HasEquip(kSamusEquip_ScrewAttack)
+        ? Samus_ScrewAttackPoseForCurrentFacing()
+        : Samus_SpinJumpPoseForCurrentFacing();
+  } else if (Samus_IsScrewAttackPose() && !Samus_HasEquip(kSamusEquip_ScrewAttack)) {
+    samus_pose = Samus_SpinJumpPoseForCurrentFacing();
+  }
+}
+
 static void Samus_TickExtraRunSpeed_Boosted(void) {
   uint16 cap_speed, cap_subspeed;
   uint16 accel_speed, accel_subspeed;
@@ -172,7 +219,7 @@ int32 Samus_CalcBaseSpeed_X(uint16 k) {  // 0x909A7E
     if ((int16)samus_x_base_speed < 0) {
       samus_x_base_speed = 0;
       samus_x_base_subspeed = 0;
-      samus_x_accel_mode = 0;
+      samus_x_accel_mode = kSamusXAccelMode_None;
     }
   } else {
     AddToHiLo(&samus_x_base_speed, &samus_x_base_subspeed, __PAIR32__(accel, accel_sub));
@@ -209,7 +256,7 @@ Pair_Bool_Amt Samus_CalcBaseSpeed_NoDecel_X(uint16 k) {  // 0x909B1F
     if ((int16)samus_x_base_speed < 0) {
       samus_x_base_speed = 0;
       samus_x_base_subspeed = 0;
-      samus_x_accel_mode = 0;
+      samus_x_accel_mode = kSamusXAccelMode_None;
     }
   } else {
     AddToHiLo(&samus_x_base_speed, &samus_x_base_subspeed, __PAIR32__(accel, accel_sub));
@@ -339,14 +386,7 @@ void Samus_UpdatePreviousPose_0(void) {  // 0x91E719
 }
 
 void SamusFunc_E633_0(void) {  // 0x91E733
-  if (samus_pose) {
-    if (samus_pose == kPose_9B_FaceF_VariaGravitySuit && !Samus_HasVariaOrGravitySuit()) {
-      samus_pose = kPose_00_FaceF_Powersuit;
-      goto LABEL_10;
-    }
-  } else if (Samus_HasVariaOrGravitySuit()) {
-    samus_pose = kPose_9B_FaceF_VariaGravitySuit;
-LABEL_10:
+  if (Samus_UpdateFaceForwardSuitPose()) {
     SamusFunc_F433();
     Samus_SetAnimationFrameIfPoseChanged();
     Samus_UpdatePreviousPose_0();
@@ -354,36 +394,11 @@ LABEL_10:
 }
 
 void SamusFunc_E633_3(void) {  // 0x91E776
-  if (Samus_PoseFacesRight())
-    Samus_SetPrevPoseDirAndMovement(kSamusPoseXDir_FaceRight, kMovementType_01_Running);
-  else
-    Samus_SetPrevPoseDirAndMovement(kSamusPoseXDir_FaceLeft, kMovementType_01_Running);
-  if (samus_pose != kPose_81_FaceR_Screwattack && samus_pose != kPose_82_FaceL_Screwattack) {
-    if (samus_pose != kPose_1B_FaceR_SpaceJump && samus_pose != kPose_1C_FaceL_SpaceJump)
-      goto LABEL_18;
-    if (Samus_HasEquip(kSamusEquip_ScrewAttack)) {
-      if (Samus_PoseFacesRight())
-        samus_pose = kPose_82_FaceL_Screwattack;
-      else
-        samus_pose = kPose_81_FaceR_Screwattack;
-      goto LABEL_18;
-    }
-    goto LABEL_15;
-  }
-  if (!Samus_HasEquip(kSamusEquip_ScrewAttack)) {
-LABEL_15:
-    if (Samus_PoseFacesRight())
-      samus_pose = kPose_1A_FaceL_SpinJump;
-    else
-      samus_pose = kPose_19_FaceR_SpinJump;
-  }
-LABEL_18:
+  Samus_SetPrevPoseFromCurrentFacing(kMovementType_01_Running);
+  Samus_UpdateAdvancedSpinPoseForEquipment();
   SamusFunc_F433();
   Samus_SetAnimationFrameIfPoseChanged();
-  if (Samus_PoseFacesRight())
-    Samus_SetPrevPoseDirAndMovement(kSamusPoseXDir_FaceRight, kMovementType_03_SpinJumping);
-  else
-    Samus_SetPrevPoseDirAndMovement(kSamusPoseXDir_FaceLeft, kMovementType_03_SpinJumping);
+  Samus_SetPrevPoseFromCurrentFacing(kMovementType_03_SpinJumping);
   Samus_UpdatePreviousPose_0();
 }
 

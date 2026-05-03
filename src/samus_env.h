@@ -16,7 +16,7 @@
 
 // Equipment bitfield masks (subset used by Samus motion/physics).
 // Full set lives in ida_types.h's kEquipment_* enum, but the speed /
-// jump / runspeed code historically used raw 0x20 / 0x100 / 0x2000
+// jump / runspeed code historically used raw 0x20 / 0x100 / 0x200 / 0x2000
 // literals. These named aliases keep each call site readable without
 // forcing a dependency on the whole kEquipment_ enum ordering.
 enum {
@@ -26,6 +26,7 @@ enum {
   kSamusEquip_ScrewAttack  = 0x08,
   kSamusEquip_GravitySuit  = 0x20,
   kSamusEquip_HiJumpBoots  = 0x100,
+  kSamusEquip_SpaceJump    = 0x200,
   kSamusEquip_SpeedBooster = 0x2000,
 };
 
@@ -60,6 +61,12 @@ typedef enum SamusPoseXDirection {
   kSamusPoseXDir_FaceRight = 4,
   kSamusPoseXDir_FaceLeft = 8,
 } SamusPoseXDirection;
+
+typedef enum SamusHorizontalAccelMode {
+  kSamusXAccelMode_None = 0,
+  kSamusXAccelMode_Decelerating = 1,
+  kSamusXAccelMode_Accelerating = 2,
+} SamusHorizontalAccelMode;
 
 enum {
   kSpeedBoostCounter_Charged = 0x0400,
@@ -102,6 +109,24 @@ static inline bool Samus_IsSubmergedInLavaAcid(uint16 samus_bottom) {
   return sign16(lava_acid_y_pos - samus_bottom);
 }
 
+// Classifies an arbitrary Samus edge against the active room liquid without
+// applying Gravity Suit immunity. This mirrors Bank 90's layer ordering: if
+// the water layer is active, lava/acid is ignored for this query.
+static inline uint16 Samus_GetLiquidEnvAt(uint16 samus_bottom) {
+  if ((fx_y_pos & kLiquidYPos_Disabled) == 0) {
+    if (Samus_IsSubmergedInWater(samus_bottom))
+      return kSamusVerticalEnv_Water;
+    return kSamusVerticalEnv_Air;
+  }
+  if (Samus_IsSubmergedInLavaAcid(samus_bottom))
+    return kSamusVerticalEnv_LavaAcid;
+  return kSamusVerticalEnv_Air;
+}
+
+static inline bool Samus_IsSubmergedInRoomLiquid(uint16 samus_edge) {
+  return Samus_GetLiquidEnvAt(samus_edge) != kSamusVerticalEnv_Air;
+}
+
 // Returns one of kSamusVerticalEnv_*.
 //
 // Gravity Suit short-circuits to Air. Otherwise: if the water layer is
@@ -113,12 +138,5 @@ static inline uint16 Samus_GetVerticalEnv(void) {
     return kSamusVerticalEnv_Air;
 
   uint16 samus_bottom = Samus_GetBottom_R18();
-  if ((fx_y_pos & kLiquidYPos_Disabled) == 0) {
-    if (Samus_IsSubmergedInWater(samus_bottom))
-      return kSamusVerticalEnv_Water;
-    return kSamusVerticalEnv_Air;
-  }
-  if (Samus_IsSubmergedInLavaAcid(samus_bottom))
-    return kSamusVerticalEnv_LavaAcid;
-  return kSamusVerticalEnv_Air;
+  return Samus_GetLiquidEnvAt(samus_bottom);
 }

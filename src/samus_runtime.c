@@ -6,6 +6,7 @@
 #include "variables.h"
 #include "sm_rtl.h"
 #include "funcs.h"
+#include "samus_env.h"
 
 // Forward declarations for functions defined later in this file
 uint8 PlaySamusFanfare(void);
@@ -444,7 +445,7 @@ void Samus_ReleaseFromDraygon(void) {  // 0x90E2DE
   samus_y_subspeed = 0;
   samus_y_dir = 0;
   used_for_ball_bounce_on_landing = 0;
-  samus_x_accel_mode = 0;
+  samus_x_accel_mode = kSamusXAccelMode_None;
   samus_grapple_flags = samus_grapple_flags & 0xFFFD | 2;
 }
 
@@ -807,6 +808,10 @@ void Samus_LowHealthCheck_0(void) {  // 0x90EAAB
   Samus_LowHealthCheck_();
 }
 
+static bool Samus_DebugInvincibilityPreventsHealthLoss(void) {
+  return !sign16(debug_invincibility - 7);
+}
+
 void Samus_JumpCheck(void) {  // 0x90EAB3
   if ((button_config_jump_a & joypad1_lastkeys) != 0 && (button_config_jump_a & joypad1_input_samusfilter) != 0)
     ++autojump_timer;
@@ -814,15 +819,93 @@ void Samus_JumpCheck(void) {  // 0x90EAB3
     autojump_timer = 0;
   joypad1_input_samusfilter = joypad1_lastkeys;
   joypad1_newinput_samusfilter = joypad1_newkeys;
-  if ((int16)(samus_health - samus_prev_health_for_flash) >= 0)
-    goto LABEL_10;
-  if (!samus_hurt_flash_counter)
-    samus_hurt_flash_counter = 1;
-  if (sign16(debug_invincibility - 7))
-LABEL_10:
-    samus_prev_health_for_flash = samus_health;
-  else
-    samus_health = samus_prev_health_for_flash;
+
+  if ((int16)(samus_health - samus_prev_health_for_flash) < 0) {
+    if (!samus_hurt_flash_counter)
+      samus_hurt_flash_counter = 1;
+    if (Samus_DebugInvincibilityPreventsHealthLoss()) {
+      samus_health = samus_prev_health_for_flash;
+      return;
+    }
+  }
+  samus_prev_health_for_flash = samus_health;
+}
+
+static bool Samus_RuntimePoseIsScrewAttack(void) {
+  return samus_pose == kPose_81_FaceR_Screwattack ||
+         samus_pose == kPose_82_FaceL_Screwattack;
+}
+
+static bool Samus_RuntimePoseIsSpaceJump(void) {
+  return samus_pose == kPose_1B_FaceR_SpaceJump ||
+         samus_pose == kPose_1C_FaceL_SpaceJump;
+}
+
+static bool Samus_LeftSpinOrWallJump(void) {
+  return (samus_prev_movement_type == kMovementType_03_SpinJumping ||
+          samus_prev_movement_type == kMovementType_14_WallJumping) &&
+         samus_movement_type != kMovementType_03_SpinJumping &&
+         samus_movement_type != kMovementType_14_WallJumping;
+}
+
+static bool Samus_ShootButtonHeld(void) {
+  return (button_config_shoot_x & joypad1_lastkeys) != 0;
+}
+
+static bool Samus_ShouldResumeChargingBeamSfx(void) {
+  return !sign16(flare_counter - 16) && Samus_ShootButtonHeld();
+}
+
+static void Samus_ResumeChargingBeamSfxIfNeeded(bool should_resume) {
+  if (should_resume)
+    play_resume_charging_beam_sfx = 1;
+}
+
+static bool Samus_RunDebugShootCheck(void) {
+  if (!enable_debug)
+    return true;
+
+  if (samus_pose == kPose_00_FaceF_Powersuit || samus_pose == kPose_9B_FaceF_VariaGravitySuit) {
+    if ((joypad2_last & 0x30) == 48 && (joypad2_new_keys & 0x80) != 0)
+      debug_invincibility = 7;
+  } else {
+    if (!sign16(debug_invincibility - 7))
+      return false;
+    debug_invincibility = 0;
+  }
+  return true;
+}
+
+static void Samus_CheckTimeUpEvent(void) {
+  if (CheckEventHappened(0xE) & 1
+      && frame_handler_gamma == FUNC16(DrawTimer_)
+      && game_state != kGameState_35_TimeUp) {
+    game_state = kGameState_35_TimeUp;
+  }
+}
+
+static void Samus_CheckResumeChargingBeamSfx(void) {
+  if (!play_resume_charging_beam_sfx)
+    return;
+
+  if (Samus_ShootButtonHeld())
+    QueueSfx1_Max9(0x41);
+  play_resume_charging_beam_sfx = 0;
+}
+
+static void Samus_CheckEchoesSound(void) {
+  if (samus_echoes_sound_flag && (speed_boost_counter & 0x400) == 0) {
+    samus_echoes_sound_flag = 0;
+    QueueSfx3_Max15(0x25);
+  }
+}
+
+static bool Samus_CheckSpinExitSound(void) {
+  if (!Samus_LeftSpinOrWallJump())
+    return false;
+
+  QueueSfx1_Max15(0x32);
+  return Samus_ShouldResumeChargingBeamSfx();
 }
 
 void Samus_Func10(void) {  // 0x90EB02
@@ -1135,26 +1218,29 @@ uint8 SamusCode_1B_CheckedLockSamus(void) {  // 0x90F411
 
 uint8 SamusCode_1C(void) {  // 0x90F41E
   if (samus_movement_type == kMovementType_14_WallJumping) {
-    if (sign16(samus_anim_frame - 23)) {
-      if (sign16(samus_anim_frame - 13)) {
-LABEL_11:
-        QueueSfx1_Max9(0x31);
-        return 0;
-      }
-      goto LABEL_12;
-    }
-  } else {
-    if (samus_movement_type != kMovementType_03_SpinJumping)
+    if (!sign16(samus_anim_frame - 23)) {
+      QueueSfx1_Max9(0x33);
       return 0;
-    if (samus_pose != kPose_81_FaceR_Screwattack && samus_pose != kPose_82_FaceL_Screwattack) {
-      if (samus_pose != kPose_1B_FaceR_SpaceJump && samus_pose != kPose_1C_FaceL_SpaceJump)
-        goto LABEL_11;
-LABEL_12:
+    }
+    if (!sign16(samus_anim_frame - 13)) {
       QueueSfx1_Max9(0x3E);
       return 0;
     }
+    QueueSfx1_Max9(0x31);
+    return 0;
   }
-  QueueSfx1_Max9(0x33);
+
+  if (samus_movement_type != kMovementType_03_SpinJumping)
+    return 0;
+  if (Samus_RuntimePoseIsScrewAttack()) {
+    QueueSfx1_Max9(0x33);
+    return 0;
+  }
+  if (Samus_RuntimePoseIsSpaceJump()) {
+    QueueSfx1_Max9(0x3E);
+    return 0;
+  }
+  QueueSfx1_Max9(0x31);
   return 0;
 }
 
@@ -1211,40 +1297,17 @@ uint8 Samus_Func26(void) {  // 0x90F507
 }
 
 void Samus_ShootCheck(void) {  // 0x90F576
-  if ((play_resume_charging_beam_sfx & 0x8000) != 0)
-    goto LABEL_15;
-  if (play_resume_charging_beam_sfx) {
-    if ((button_config_shoot_x & joypad1_lastkeys) != 0)
-      QueueSfx1_Max9(0x41);
-    play_resume_charging_beam_sfx = 0;
+  bool should_resume_charge_sfx = (play_resume_charging_beam_sfx & 0x8000) != 0;
+
+  if (!should_resume_charge_sfx) {
+    Samus_CheckResumeChargingBeamSfx();
+    Samus_CheckEchoesSound();
+    should_resume_charge_sfx = Samus_CheckSpinExitSound();
   }
-  if (samus_echoes_sound_flag && (speed_boost_counter & 0x400) == 0) {
-    samus_echoes_sound_flag = 0;
-    QueueSfx3_Max15(0x25);
-  }
-  if ((samus_prev_movement_type == 3 || samus_prev_movement_type == 20)
-      && samus_movement_type != kMovementType_03_SpinJumping
-      && samus_movement_type != kMovementType_14_WallJumping) {
-    QueueSfx1_Max15(0x32);
-    if (!sign16(flare_counter - 16) && (button_config_shoot_x & joypad1_lastkeys) != 0)
-LABEL_15:
-      play_resume_charging_beam_sfx = 1;
-  }
-  if (enable_debug) {
-    if (samus_pose == kPose_00_FaceF_Powersuit || samus_pose == kPose_9B_FaceF_VariaGravitySuit) {
-      if ((joypad2_last & 0x30) == 48 && (joypad2_new_keys & 0x80) != 0)
-        debug_invincibility = 7;
-    } else {
-      if (!sign16(debug_invincibility - 7))
-        return;
-      debug_invincibility = 0;
-    }
-  }
-  if (CheckEventHappened(0xE) & 1
-      && frame_handler_gamma == FUNC16(DrawTimer_)
-      && game_state != kGameState_35_TimeUp) {
-    game_state = kGameState_35_TimeUp;
-  }
+  Samus_ResumeChargingBeamSfxIfNeeded(should_resume_charge_sfx);
+  if (!Samus_RunDebugShootCheck())
+    return;
+  Samus_CheckTimeUpEvent();
 }
 
 // Extracted from sm_92.c: Item acquisition fanfare

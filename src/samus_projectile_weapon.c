@@ -18,6 +18,8 @@ enum {
   kBeamVariantMask = 0x000f,
   kBeamChargedFlag = 0x0010,
   kHyperBeamProjectileType = 0x9018,
+  kProjectileLimit_Normal = 5,
+  kProjectileLimit_SuperMissile = 4,
 };
 
 static const uint16 kUnchargedProjectile_Sfx[12] = {  // 0x90C3E1
@@ -89,6 +91,40 @@ static uint8 SamusProjectile_GetBeamAutoFireCooldown(uint16 type) {
   return kBeamAutoFireCooldowns[type & kBeamCombinationMask];
 }
 
+static uint16 SamusProjectile_GetSuperMissileLimit(void) {
+  return hud_item_index == 2 ? kProjectileLimit_SuperMissile : kProjectileLimit_Normal;
+}
+
+static bool SamusProjectile_RunBeamCollision(uint16 *projectile_slot, bool is_wave_beam) {
+  uint16 slot = *projectile_slot;
+  int slot_index = slot >> 1;
+  projectile_bomb_x_speed[slot_index] = 0;
+  projectile_bomb_y_speed[slot_index] = 0;
+  projectile_index = slot;
+
+  if (is_wave_beam) {
+    WaveBeam_CheckColl(slot);
+    return true;
+  }
+
+  CheckBeamCollByDir(slot);
+  *projectile_slot = projectile_index;
+  return (projectile_type[projectile_index >> 1] & kProjectileType_TypeMask) == 0;
+}
+
+static void SamusProjectile_FinishUnchargedBeam(uint16 projectile_slot) {
+  projectile_bomb_pre_instructions[projectile_slot >> 1] =
+      SamusProjectile_GetUnchargedBeamPreInstr(projectile_type[projectile_slot >> 1]);
+  SetInitialProjectileSpeed(projectile_slot);
+}
+
+static void SamusProjectile_FinishChargedBeam(uint16 projectile_slot) {
+  projectile_bomb_pre_instructions[projectile_slot >> 1] =
+      SamusProjectile_GetChargedBeamPreInstr(projectile_type[projectile_slot >> 1]);
+  SetInitialProjectileSpeed(projectile_slot);
+  charged_shot_glow_timer = 4;
+}
+
 void Samus_HandleCooldown(void) {  // 0x90AC1C
   if (time_is_frozen_flag) {
     cooldown_timer = 32;
@@ -107,20 +143,13 @@ uint8 Samus_CanFireBeam(void) {  // 0x90AC39
 }
 
 uint8 Samus_CanFireSuperMissile(void) {  // 0x90AC5A
-  if (hud_item_index != 2) {
-    if (!sign16(projectile_counter - 5))
-      return 0;
-LABEL_3:
-    if (!(uint8)cooldown_timer) {
-      cooldown_timer = 1;
-      ++projectile_counter;
-      return 1;
-    }
+  if (!sign16(projectile_counter - SamusProjectile_GetSuperMissileLimit()))
     return 0;
-  }
-  if (sign16(projectile_counter - 4))
-    goto LABEL_3;
-  return 0;
+  if ((uint8)cooldown_timer)
+    return 0;
+  cooldown_timer = 1;
+  ++projectile_counter;
+  return 1;
 }
 
 void UpdateBeamTilesAndPalette(void) {  // 0x90AC8D
@@ -188,36 +217,17 @@ void FireUnchargedBeam(void) {  // 0x90B8D6
       QueueSfx1_Max15(kUnchargedProjectile_Sfx[v3 & kBeamVariantMask]);
       play_resume_charging_beam_sfx = 0;
       InitializeProjectile(v1);
-      if ((equipped_beams & 0x1000) != 0
-          || (button_config_shoot_x & joypad1_newkeys) != 0
-          || (button_config_shoot_x & joypad1_newinput_samusfilter) != 0) {
-        uint16 v6 = projectile_type[v2];
-        cooldown_timer = SamusProjectile_GetUnchargedBeamCooldown(v6);
-        if ((v6 & 1) == 0)
-          goto LABEL_17;
-      } else {
-        uint16 v5 = projectile_type[v2];
-        cooldown_timer = SamusProjectile_GetBeamAutoFireCooldown(v5);
-        if ((v5 & 1) == 0) {
-LABEL_17:
-          projectile_bomb_x_speed[v2] = 0;
-          projectile_bomb_y_speed[v2] = 0;
-          projectile_index = v1;
-          CheckBeamCollByDir(v1);
-          v1 = projectile_index;
-          if ((projectile_type[projectile_index >> 1] & kProjectileType_TypeMask) != 0)
-            return;
-          goto LABEL_20;
-        }
-      }
-      int v4 = v1 >> 1;
-      projectile_bomb_x_speed[v4] = 0;
-      projectile_bomb_y_speed[v4] = 0;
-      projectile_index = v1;
-      WaveBeam_CheckColl(v1);
-LABEL_20:
-      projectile_bomb_pre_instructions[v1 >> 1] = SamusProjectile_GetUnchargedBeamPreInstr(projectile_type[v1 >> 1]);
-      SetInitialProjectileSpeed(v1);
+      bool manual_fire =
+          (equipped_beams & 0x1000) != 0 ||
+          (button_config_shoot_x & joypad1_newkeys) != 0 ||
+          (button_config_shoot_x & joypad1_newinput_samusfilter) != 0;
+      uint16 beam_type = projectile_type[v2];
+      cooldown_timer = manual_fire
+          ? SamusProjectile_GetUnchargedBeamCooldown(beam_type)
+          : SamusProjectile_GetBeamAutoFireCooldown(beam_type);
+      if (!SamusProjectile_RunBeamCollision(&v1, (beam_type & 1) != 0))
+        return;
+      SamusProjectile_FinishUnchargedBeam(v1);
       return;
     }
   }
@@ -250,28 +260,12 @@ void FireChargedBeam(void) {  // 0x90B99E
       InitializeProjectile(v1);
       uint16 v5 = projectile_type[v2];
       cooldown_timer = SamusProjectile_GetUnchargedBeamCooldown(v5);
-      if ((v5 & 1) != 0) {
-        int v4 = v1 >> 1;
-        projectile_bomb_x_speed[v4] = 0;
-        projectile_bomb_y_speed[v4] = 0;
-        projectile_index = v1;
-        WaveBeam_CheckColl(v1);
-      } else {
-        projectile_bomb_x_speed[v2] = 0;
-        projectile_bomb_y_speed[v2] = 0;
-        projectile_index = v1;
-        CheckBeamCollByDir(v1);
-        v1 = projectile_index;
-        if ((projectile_type[projectile_index >> 1] & kProjectileType_TypeMask) != 0) {
-LABEL_14:
-          charged_shot_glow_timer = 4;
-          return;
-        }
+      if (!SamusProjectile_RunBeamCollision(&v1, (v5 & 1) != 0)) {
+        charged_shot_glow_timer = 4;
+        return;
       }
-      r20 = v1;
-      projectile_bomb_pre_instructions[v1 >> 1] = SamusProjectile_GetChargedBeamPreInstr(projectile_type[v1 >> 1]);
-      SetInitialProjectileSpeed(r20);
-      goto LABEL_14;
+      SamusProjectile_FinishChargedBeam(v1);
+      return;
     }
   }
   if (!sign16(prev_beam_charge_counter - 16)) {

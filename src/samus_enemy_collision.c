@@ -12,10 +12,59 @@ typedef struct PositionAndWidth {
   uint16 height;
 } PositionAndWidth;
 
+typedef enum SolidEnemyCollisionKind {
+  kSolidEnemyCollision_None,
+  kSolidEnemyCollision_Touching,
+  kSolidEnemyCollision_Gap,
+} SolidEnemyCollisionKind;
+
+enum {
+  kEnemyProps_SolidSamusCollision = 0x8000,
+};
+
+static bool Samus_IsEnemySolidForCollision(const EnemyData *enemy) {
+  return enemy->frozen_timer || (enemy->properties & kEnemyProps_SolidSamusCollision) != 0;
+}
+
+static SolidEnemyCollisionKind Samus_CheckSolidEnemyContact(
+    const EnemyData *enemy, int16 *distance_to_collision) {
+  uint16 samus_edge, enemy_edge;
+
+  switch (samus_collision_direction & 3) {
+  case 0:
+    samus_edge = samus_x_pos - samus_x_radius;
+    enemy_edge = enemy->x_width + enemy->x_pos;
+    *distance_to_collision = samus_edge - enemy_edge;
+    if (samus_edge == enemy_edge)
+      return kSolidEnemyCollision_Touching;
+    return *distance_to_collision >= 0 ? kSolidEnemyCollision_Gap : kSolidEnemyCollision_None;
+  case 1:
+    samus_edge = samus_x_radius + samus_x_pos;
+    *distance_to_collision = enemy->x_pos - enemy->x_width - samus_edge;
+    if (!*distance_to_collision)
+      return kSolidEnemyCollision_Touching;
+    return *distance_to_collision >= 0 ? kSolidEnemyCollision_Gap : kSolidEnemyCollision_None;
+  case 2:
+    samus_edge = samus_y_pos - samus_y_radius;
+    enemy_edge = enemy->y_height + enemy->y_pos;
+    *distance_to_collision = samus_edge - enemy_edge;
+    if (samus_edge == enemy_edge)
+      return kSolidEnemyCollision_Touching;
+    return *distance_to_collision >= 0 ? kSolidEnemyCollision_Gap : kSolidEnemyCollision_None;
+  case 3:
+    samus_edge = samus_y_radius + samus_y_pos;
+    *distance_to_collision = enemy->y_pos - enemy->y_height - samus_edge;
+    if (!*distance_to_collision)
+      return kSolidEnemyCollision_Touching;
+    return *distance_to_collision >= 0 ? kSolidEnemyCollision_Gap : kSolidEnemyCollision_None;
+  default:
+    Unreachable();
+  }
+}
+
 CheckEnemyColl_Result Samus_CheckSolidEnemyColl(int32 amt) {  // 0xA0A8F0
   int16 distance_to_collision;
   uint16 delta_pos = amt >> 16, delta_subpos = amt;
-  uint16 enemy_edge;
   PositionAndWidth next_pos;
 
   if (!interactive_enemy_indexes_write_ptr)
@@ -80,7 +129,7 @@ CheckEnemyColl_Result Samus_CheckSolidEnemyColl(int32 amt) {  // 0xA0A8F0
 
     collision_detection_index = enemy_index;
     EnemyData *enemy = gEnemyData(enemy_index);
-    if (!enemy->frozen_timer && (enemy->properties & 0x8000) == 0)
+    if (!Samus_IsEnemySolidForCollision(enemy))
       continue;
 
     uint16 x_delta = abs16(enemy->x_pos - next_pos.x_pos);
@@ -95,52 +144,18 @@ CheckEnemyColl_Result Samus_CheckSolidEnemyColl(int32 amt) {  // 0xA0A8F0
     if (!y_overlaps && y_gap >= next_pos.height)
       continue;
 
-    switch (samus_collision_direction & 3) {
-    case 0:
-      enemy_edge = enemy->x_width + enemy->x_pos;
-      distance_to_collision = samus_x_pos - samus_x_radius - enemy_edge;
-      if (samus_x_pos - samus_x_radius == enemy_edge)
-        goto hit_now;
-      if (distance_to_collision >= 0)
-        goto hit_with_gap;
-      break;
-    case 1:
-      enemy_edge = samus_x_radius + samus_x_pos;
-      distance_to_collision = enemy->x_pos - enemy->x_width - enemy_edge;
-      if (!distance_to_collision)
-        goto hit_now;
-      if (distance_to_collision >= 0)
-        goto hit_with_gap;
-      break;
-    case 2:
-      enemy_edge = enemy->y_height + enemy->y_pos;
-      distance_to_collision = samus_y_pos - samus_y_radius - enemy_edge;
-      if (samus_y_pos - samus_y_radius == enemy_edge)
-        goto hit_now;
-      if (distance_to_collision >= 0)
-        goto hit_with_gap;
-      break;
-    case 3:
-      enemy_edge = samus_y_radius + samus_y_pos;
-      distance_to_collision = enemy->y_pos - enemy->y_height - enemy_edge;
-      if (!distance_to_collision)
-        goto hit_now;
-      if (distance_to_collision >= 0)
-        goto hit_with_gap;
-      break;
-    default:
-      Unreachable();
+    SolidEnemyCollisionKind collision =
+        Samus_CheckSolidEnemyContact(enemy, &distance_to_collision);
+    if (collision == kSolidEnemyCollision_Touching) {
+      samus_y_subpos = 0;
+      enemy_index_colliding_dirs[samus_collision_direction & 3] = collision_detection_index;
+      return (CheckEnemyColl_Result){-1, 0};
+    }
+    if (collision == kSolidEnemyCollision_Gap) {
+      enemy_index_colliding_dirs[samus_collision_direction & 3] = collision_detection_index;
+      return (CheckEnemyColl_Result){-1, INT16_SHL16(distance_to_collision)};
     }
   }
 
   return (CheckEnemyColl_Result){0, amt};
-
-hit_now:
-  samus_y_subpos = 0;
-  enemy_index_colliding_dirs[samus_collision_direction & 3] = collision_detection_index;
-  return (CheckEnemyColl_Result){-1, 0};
-
-hit_with_gap:
-  enemy_index_colliding_dirs[samus_collision_direction & 3] = collision_detection_index;
-  return (CheckEnemyColl_Result){-1, INT16_SHL16(distance_to_collision)};
 }

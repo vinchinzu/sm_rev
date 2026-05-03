@@ -54,7 +54,7 @@ void VariaSuitPickup(void) {  // 0x91D4E4
   samus_y_speed = 0;
   samus_y_dir = 0;
   used_for_ball_bounce_on_landing = 0;
-  samus_x_accel_mode = 0;
+  samus_x_accel_mode = kSamusXAccelMode_None;
   elevator_status = 0;
   substate = 0;
   suit_pickup_light_beam_pos = 0;
@@ -92,7 +92,7 @@ void GravitySuitPickup(void) {  // 0x91D5BA
   samus_y_speed = 0;
   samus_y_dir = 0;
   used_for_ball_bounce_on_landing = 0;
-  samus_x_accel_mode = 0;
+  samus_x_accel_mode = kSamusXAccelMode_None;
   elevator_status = 0;
   substate = 0;
   suit_pickup_light_beam_pos = 0;
@@ -492,47 +492,61 @@ uint8 HandleVisorPalette(void) {  // 0x91D83F
   }
 }
 
+static bool Samus_ShouldQueueHurtFlashDamageSfx(void) {
+  return !cinematic_function &&
+         (frame_handler_beta != FUNC16(j_HandleDemoRecorder_2_0) ||
+          samus_pose != kPose_54_FaceL_Knockback);
+}
+
+static void Samus_RestoreSuitPaletteForHurtFlash(void) {
+  if (cinematic_function)
+    CopyToSamusSuitPalette(addr_word_9BA3A0);
+  else
+    Samus_LoadSuitPalette();
+}
+
+static void Samus_ApplyHurtFlashPaletteFrame(uint16 hurt_counter) {
+  if (hurt_counter == 2 && Samus_ShouldQueueHurtFlashDamageSfx())
+    QueueSfx1_Max6(0x35);
+
+  if (!sign16(hurt_counter - 7))
+    return;
+  if ((hurt_counter & 1) != 0) {
+    CopyToSamusSuitPalette(addr_word_9BA380);
+    return;
+  }
+  Samus_RestoreSuitPaletteForHurtFlash();
+}
+
+static void Samus_HandleHurtFlashCounter40(void) {
+  if (grapple_beam_function == FUNC16(GrappleBeamFunc_Inactive)) {
+    if (samus_movement_type == kMovementType_03_SpinJumping ||
+        samus_movement_type == kMovementType_14_WallJumping) {
+      CallSomeSamusCode(0x1C);
+    } else if (!sign16(flare_counter - 16) && (button_config_shoot_x & joypad1_lastkeys) != 0) {
+      play_resume_charging_beam_sfx = 1;
+    }
+  } else if (sign16(grapple_beam_function + 0x37AA)) {
+    QueueSfx1_Max9(6);
+  }
+}
+
+static void Samus_AdvanceHurtFlashCounter(void) {
+  uint16 next_counter = samus_hurt_flash_counter + 1;
+  samus_hurt_flash_counter = next_counter;
+  if (next_counter == 40) {
+    Samus_HandleHurtFlashCounter40();
+  } else if (!sign16(next_counter - 60)) {
+    samus_hurt_flash_counter = 0;
+  }
+}
+
 void HandleMiscSamusPalette(void) {  // 0x91D8A5
   if (!samus_special_super_palette_flags) {
-    uint16 v0 = samus_hurt_flash_counter;
     if (!samus_hurt_flash_counter)
       return;
-    if (samus_hurt_flash_counter == 2) {
-      if (!cinematic_function
-          && (frame_handler_beta != FUNC16(j_HandleDemoRecorder_2_0)
-              || samus_pose != kPose_54_FaceL_Knockback)) {
-        QueueSfx1_Max6(0x35);
-        goto LABEL_14;
-      }
-      v0 = samus_hurt_flash_counter;
-    }
-    if (!sign16(v0 - 7))
-      goto LABEL_17;
-    if ((v0 & 1) != 0) {
-      CopyToSamusSuitPalette(addr_word_9BA380);
-      goto LABEL_17;
-    }
-LABEL_14:
-    if (cinematic_function)
-      CopyToSamusSuitPalette(addr_word_9BA3A0);
-    else
-      Samus_LoadSuitPalette();
-LABEL_17:;
-    uint16 v1 = samus_hurt_flash_counter + 1;
-    samus_hurt_flash_counter = v1;
-    if (v1 == 40) {
-      if (grapple_beam_function == FUNC16(GrappleBeamFunc_Inactive)) {
-        if (samus_movement_type == kMovementType_03_SpinJumping || samus_movement_type == kMovementType_14_WallJumping) {
-          CallSomeSamusCode(0x1C);
-        } else if (!sign16(flare_counter - 16) && (button_config_shoot_x & joypad1_lastkeys) != 0) {
-          play_resume_charging_beam_sfx = 1;
-        }
-      } else if (sign16(grapple_beam_function + 0x37AA)) {
-        QueueSfx1_Max9(6);
-      }
-    } else if (!sign16(v1 - 60)) {
-      samus_hurt_flash_counter = 0;
-    }
+    Samus_ApplyHurtFlashPaletteFrame(samus_hurt_flash_counter);
+    Samus_AdvanceHurtFlashCounter();
     return;
   }
   if ((samus_special_super_palette_flags & 0x8000) != 0) {
@@ -552,62 +566,67 @@ LABEL_17:;
   }
 }
 
-uint8 Samus_HandleScrewAttackSpeedBoostingPals(void) {  // 0x91D9B2
-  if ((samus_suit_palette_index & kSamusSuitPalette_Gravity) == 0) {
-    uint16 r20 = Samus_GetTop_R20();
-    if ((fx_y_pos & kLiquidYPos_Disabled) != 0) {
-      if ((lava_acid_y_pos & kLiquidYPos_Disabled) == 0 && sign16(lava_acid_y_pos - r20))
-        return 1;
-    } else if (sign16(fx_y_pos - r20) && (fx_liquid_options & kFxLiquidOptions_Passthrough) == 0) {
-      return 1;
-    }
-  }
-  if (samus_movement_type == kMovementType_03_SpinJumping) {
-    if (!Samus_HasEquip(kSamusEquip_ScrewAttack))
-      goto LABEL_10;
-    if (samus_anim_frame) {
-      if (!sign16(samus_anim_frame - 27))
-        return 0;
-      goto LABEL_18;
-    }
-    goto LABEL_21;
-  }
-  if (samus_movement_type == kMovementType_14_WallJumping) {
-    if (!Samus_HasEquip(kSamusEquip_ScrewAttack))
-      return 1;
-    if (!sign16(samus_anim_frame - 3)) {
-LABEL_18:;
-      uint16 R36 = kSamusPal_ScrewAttack[samus_suit_palette_index >> 1];
-      uint16 v1 = *(uint16 *)RomPtr_91(R36 + special_samus_palette_frame);
-      CopyToSamusSuitPalette(v1);
-      uint16 v2 = special_samus_palette_frame + 2;
-      if (special_samus_palette_frame >= 10)
-        v2 = 0;
-      special_samus_palette_frame = v2;
-      return 1;
-    }
-LABEL_21:
-    special_samus_palette_frame = 0;
-    return 1;
-  }
-LABEL_10:
+static bool Samus_ScrewSpeedPaletteBlockedByLiquid(void) {
+  return (samus_suit_palette_index & kSamusSuitPalette_Gravity) == 0 &&
+         Samus_IsSubmergedInRoomLiquid(Samus_GetTop_R20());
+}
+
+static uint8 Samus_ApplyScrewAttackPalette(void) {
+  uint16 R36 = kSamusPal_ScrewAttack[samus_suit_palette_index >> 1];
+  uint16 palette = *(uint16 *)RomPtr_91(R36 + special_samus_palette_frame);
+  CopyToSamusSuitPalette(palette);
+  uint16 next_frame = special_samus_palette_frame + 2;
+  if (special_samus_palette_frame >= 10)
+    next_frame = 0;
+  special_samus_palette_frame = next_frame;
+  return 1;
+}
+
+static uint8 Samus_ResetScrewAttackPaletteFrame(void) {
+  special_samus_palette_frame = 0;
+  return 1;
+}
+
+static uint8 Samus_ApplySpeedBoostPalette(void) {
   if ((speed_boost_counter & 0xFF00) != 1024)
     return 1;
-  bool v3 = (--special_samus_palette_timer & 0x8000) != 0;
-  if (!special_samus_palette_timer || v3) {
+  bool timer_expired = (--special_samus_palette_timer & 0x8000) != 0;
+  if (!special_samus_palette_timer || timer_expired) {
     special_samus_palette_timer = 4;
     uint16 R36 = kSamusPal_SpeedBoost[samus_suit_palette_index >> 1];
     // Bugfix: The original game can do an out of bounds read here.
     if (special_samus_palette_frame > 6)
       special_samus_palette_frame = 6;
-    uint16 v4 = *(uint16 *)RomPtr_91(R36 + special_samus_palette_frame);
-    CopyToSamusSuitPalette(v4);
-    uint16 v5 = special_samus_palette_frame + 2;
+    uint16 palette = *(uint16 *)RomPtr_91(R36 + special_samus_palette_frame);
+    CopyToSamusSuitPalette(palette);
+    uint16 next_frame = special_samus_palette_frame + 2;
     if (special_samus_palette_frame >= 6)
-      v5 = 6;
-    special_samus_palette_frame = v5;
+      next_frame = 6;
+    special_samus_palette_frame = next_frame;
   }
   return 1;
+}
+
+uint8 Samus_HandleScrewAttackSpeedBoostingPals(void) {  // 0x91D9B2
+  if (Samus_ScrewSpeedPaletteBlockedByLiquid())
+    return 1;
+  if (samus_movement_type == kMovementType_03_SpinJumping) {
+    if (!Samus_HasEquip(kSamusEquip_ScrewAttack))
+      return Samus_ApplySpeedBoostPalette();
+    if (samus_anim_frame == 0)
+      return Samus_ResetScrewAttackPaletteFrame();
+    if (!sign16(samus_anim_frame - 27))
+      return 0;
+    return Samus_ApplyScrewAttackPalette();
+  }
+  if (samus_movement_type == kMovementType_14_WallJumping) {
+    if (!Samus_HasEquip(kSamusEquip_ScrewAttack))
+      return 1;
+    if (!sign16(samus_anim_frame - 3))
+      return Samus_ApplyScrewAttackPalette();
+    return Samus_ResetScrewAttackPaletteFrame();
+  }
+  return Samus_ApplySpeedBoostPalette();
 }
 
 uint8 Samus_SpeedBoosterShinePals(void) {  // 0x91DAC7

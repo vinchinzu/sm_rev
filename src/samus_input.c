@@ -249,16 +249,14 @@ static const uint8 kSamus_Pose_Func2_Tab[28] = {  // 0x918304
 uint8 Samus_Pose_Func2(void) {
 
   uint16 v0 = kSamus_Pose_Func2_Tab[samus_movement_type];
-  if (v0 != 1)
-    goto LABEL_2;
-  if (!samus_x_base_speed && !samus_x_base_subspeed) {
-    v0 = 2;
-LABEL_2:
-    samus_momentum_routine_index = v0;
-    return 0;
+  if (v0 == 1 && (samus_x_base_speed || samus_x_base_subspeed)) {
+    samus_momentum_routine_index = 1;
+    return 1;
   }
-  samus_momentum_routine_index = 1;
-  return 1;
+  if (v0 == 1)
+    v0 = 2;
+  samus_momentum_routine_index = v0;
+  return 0;
 }
 
 void ReleaseButtonsFilter(uint16 v0) {  // 0x808146
@@ -268,16 +266,13 @@ void ReleaseButtonsFilter(uint16 v0) {  // 0x808146
   if (!v1) {
     timed_held_input_timer = timed_held_input_timer_reset;
     timed_held_input = 0;
-    goto LABEL_6;
-  }
-  if ((--timed_held_input_timer & 0x8000) == 0) {
+  } else if ((--timed_held_input_timer & 0x8000) == 0) {
     timed_held_input = 0;
-    goto LABEL_6;
+  } else {
+    timed_held_input_timer = 0;
+    previous_timed_held_input = timed_held_input;
+    timed_held_input = ~joypad1_newkeys & joypad1_lastkeys;
   }
-  timed_held_input_timer = 0;
-  previous_timed_held_input = timed_held_input;
-  timed_held_input = ~joypad1_newkeys & joypad1_lastkeys;
-LABEL_6:
   newly_held_down_timed_held_input = timed_held_input & (previous_timed_held_input ^ timed_held_input);
 }
 

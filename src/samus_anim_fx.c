@@ -2,11 +2,27 @@
 // liquid interaction visuals, footstep effects, and suit-palette updates.
 
 #include "ida_types.h"
+#include "samus_env.h"
 #include "variables.h"
 #include "sm_rtl.h"
 #include "funcs.h"
 
 void nullsub_12(void) {}
+
+enum {
+  kCrateriaFootstepRule_FxTypeGate = 1,
+  kCrateriaFootstepRule_YThresholdGate = 2,
+  kCrateriaFootstepRule_AlwaysSplash = 4,
+  kCrateriaFootstepRoomRuleCount = 16,
+  kCrateriaFootstepRequiredFxType = 10,
+  kCrateriaFootstepYThreshold = 944,
+  kWallJumpBasicSpinSfx = 0x31,
+  kWallJumpScrewAttackSfx = 0x33,
+  kWallJumpSpaceJumpSfx = 0x3e,
+  kWallJumpBasicSpinFrameDelta = 1,
+  kWallJumpSpaceJumpFrameDelta = 11,
+  kWallJumpScrewAttackFrameDelta = 21,
+};
 
 static Func_V *const kSamusFxHandlers[8] = {
   Samus_Animate_NoFx,
@@ -296,29 +312,28 @@ static bool UNUSED_Samus_AnimDelayFunc_10(const uint8 *jp) {  // 0x9083F6
   return false;
 }
 
+static bool Samus_WallJumpMustUseBasicSpinDelay(void) {
+  if ((equipped_items & kSamusEquip_GravitySuit) != 0)
+    return false;
+  return Samus_GetLiquidEnvAt(Samus_GetTop_R20()) != kSamusVerticalEnv_Air;
+}
+
+static void Samus_ApplyWallJumpAnimDelay(uint16 sfx, uint16 frame_delta) {
+  QueueSfx1_Max6(sfx);
+  samus_anim_frame += frame_delta;
+}
+
 static bool Samus_AnimDelayFunc_11_SelectDelaySequenceWalljump(const uint8 *jp) {  // 0x90841D
-  if ((equipped_items & 0x20) == 0) {
-    uint16 r20 = Samus_GetTop_R20();
-    if ((fx_y_pos & 0x8000) != 0) {
-      if ((lava_acid_y_pos & 0x8000) == 0 && sign16(lava_acid_y_pos - r20))
-        goto LABEL_10;
-    } else if (sign16(fx_y_pos - r20) && (fx_liquid_options & 4) == 0) {
-      goto LABEL_10;
-    }
-  }
-  if ((equipped_items & 8) != 0) {
-    QueueSfx1_Max6(0x33);
-    samus_anim_frame += 21;
+  if (Samus_WallJumpMustUseBasicSpinDelay()) {
+    Samus_ApplyWallJumpAnimDelay(kWallJumpBasicSpinSfx, kWallJumpBasicSpinFrameDelta);
+  } else if ((equipped_items & kSamusEquip_ScrewAttack) != 0) {
+    Samus_ApplyWallJumpAnimDelay(kWallJumpScrewAttackSfx, kWallJumpScrewAttackFrameDelta);
+  } else if ((equipped_items & kSamusEquip_SpaceJump) != 0) {
+    Samus_ApplyWallJumpAnimDelay(kWallJumpSpaceJumpSfx, kWallJumpSpaceJumpFrameDelta);
   } else {
-    if ((equipped_items & 0x200) == 0) {
-LABEL_10:
-      QueueSfx1_Max6(0x31);
-      samus_anim_frame += 1;
-    } else {
-      QueueSfx1_Max6(0x3E);
-      samus_anim_frame += 11;
-    }
+    Samus_ApplyWallJumpAnimDelay(kWallJumpBasicSpinSfx, kWallJumpBasicSpinFrameDelta);
   }
+
   return true;
 }
 
@@ -508,28 +523,30 @@ void Samus_FootstepGraphics(void) {
   kSamus_FootstepGraphics[area_index]();
 }
 
-void Samus_FootstepGraphics_Crateria(void) {
-  static const uint8 byte_90EDC9[16] = {  // 0x90EDA1
-    1, 0, 0, 0, 0, 2, 0, 4,
-    0, 4, 4, 4, 4, 0, 4, 0,
+static bool Samus_CrateriaFootstepUsesMaridiaSplash(void) {
+  static const uint8 kCrateriaFootstepRoomRules[kCrateriaFootstepRoomRuleCount] = {
+    kCrateriaFootstepRule_FxTypeGate, 0, 0, 0,
+    0, kCrateriaFootstepRule_YThresholdGate, 0, kCrateriaFootstepRule_AlwaysSplash,
+    0, kCrateriaFootstepRule_AlwaysSplash, kCrateriaFootstepRule_AlwaysSplash, kCrateriaFootstepRule_AlwaysSplash,
+    kCrateriaFootstepRule_AlwaysSplash, 0, kCrateriaFootstepRule_AlwaysSplash, 0,
   };
   if (cinematic_function || (int16)(room_index - 16) >= 0)
-    goto LABEL_11;
-  if ((byte_90EDC9[room_index] & 1) == 0) {
-    if ((byte_90EDC9[room_index] & 2) != 0) {
-      if (!sign16(samus_y_pos - 944))
-        goto LABEL_12;
-    } else if ((byte_90EDC9[room_index] & 4) != 0) {
-      goto LABEL_12;
-    }
-LABEL_11:
-    Samus_FootstepGraphics_1();
+    return false;
+
+  uint8 rule = kCrateriaFootstepRoomRules[room_index];
+  if ((rule & kCrateriaFootstepRule_FxTypeGate) != 0)
+    return fx_type == kCrateriaFootstepRequiredFxType;
+  if ((rule & kCrateriaFootstepRule_YThresholdGate) != 0)
+    return !sign16(samus_y_pos - kCrateriaFootstepYThreshold);
+  return (rule & kCrateriaFootstepRule_AlwaysSplash) != 0;
+}
+
+void Samus_FootstepGraphics_Crateria(void) {
+  if (Samus_CrateriaFootstepUsesMaridiaSplash()) {
+    Samus_FootstepGraphics_Maridia();
     return;
   }
-  if (fx_type != 10)
-    goto LABEL_11;
-LABEL_12:
-  Samus_FootstepGraphics_Maridia();
+  Samus_FootstepGraphics_1();
 }
 
 void Samus_FootstepGraphics_Maridia(void) {  // 0x90EDEC

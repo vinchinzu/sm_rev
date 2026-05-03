@@ -17,12 +17,6 @@ enum SamusVerticalDirection {
   kSamusYDir_Falling = 2,
 };
 
-enum SamusHorizontalAccelMode {
-  kSamusXAccelMode_None = 0,
-  kSamusXAccelMode_Decelerating = 1,
-  kSamusXAccelMode_Accelerating = 2,
-};
-
 enum SamusCollisionDirection {
   kSamusCollisionDirection_Up = 2,
   kSamusCollisionDirection_Down = 3,

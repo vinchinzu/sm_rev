@@ -4,6 +4,7 @@
 #include "ida_types.h"
 #include "util.h"
 #include "variables.h"
+#include "samus_env.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -369,7 +370,7 @@ static void TorizoConfig_ClearSamusMotionForFreeze(void) {
   samus_x_extra_run_subspeed = 0;
   samus_x_base_speed = 0;
   samus_x_base_subspeed = 0;
-  samus_x_accel_mode = 0;
+  samus_x_accel_mode = kSamusXAccelMode_None;
   samus_y_speed = 0;
   samus_y_subspeed = 0;
 }

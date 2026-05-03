@@ -17,7 +17,7 @@ static void Samus_ClearGroundHorizontalState(void) {
   samus_x_extra_run_subspeed = 0;
   samus_x_base_speed = 0;
   samus_x_base_subspeed = 0;
-  samus_x_accel_mode = 0;
+  samus_x_accel_mode = kSamusXAccelMode_None;
 }
 
 void Samus_Movement_00_Standing(void) {

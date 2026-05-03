@@ -8,6 +8,7 @@
 #include "variables.h"
 #include "sm_rtl.h"
 #include "funcs.h"
+#include "samus_env.h"
 
 // Slope-alignment lookup table (256 slope patterns * 16 x-positions each).
 // Lives in ROM at bank 94; mirroring the RomFixedPtr pattern used by
@@ -155,7 +156,7 @@ void Samus_ClearXSpeedIfColl(void) {  // 0x90E5CE
     samus_x_extra_run_subspeed = 0;
     samus_x_base_speed = 0;
     samus_x_base_subspeed = 0;
-    samus_x_accel_mode = 0;
+    samus_x_accel_mode = kSamusXAccelMode_None;
   } else {
     input_to_pose_calc = 0;
     samus_collides_with_solid_enemy = 0;
