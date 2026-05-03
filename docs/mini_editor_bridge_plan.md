@@ -84,6 +84,10 @@ Room data:
 - `blockWords`: full 16-bit layer-1 words per block, not only collision type
   and BTS
 - `camera`: spawn/camera defaults for mini boot
+- `cameraFollow`: optional authored camera target percentages for material-only
+  mini traversal, e.g. `targetXPercent` and `targetYPercent`
+- `doorways`: optional authored source block to target spawn/camera transitions
+  for material-only mini traversal
 - `scroll`: room scroll table and scroller metadata
 - `tileset`: room tileset id and CRE flag
 

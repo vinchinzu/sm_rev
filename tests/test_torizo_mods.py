@@ -92,6 +92,8 @@ def run_torizo_preset(tmp_path: Path, frames: int = 600) -> subprocess.Completed
             str(frames),
             "--runmode",
             "mine",
+            "--input-list",
+            "0",
             "--dump",
             "-",
             "--load-state",

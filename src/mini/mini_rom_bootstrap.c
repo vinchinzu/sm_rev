@@ -134,6 +134,8 @@ static void MiniRomBootstrap_FillRoomInfo(MiniRoomInfo *info, bool booted_from_s
     .camera_y = layer1_y_pos,
     .spawn_x = spawn_x,
     .spawn_y = spawn_y,
+    .camera_target_x_percent = kMiniCameraFollowDefaultTargetPercent,
+    .camera_target_y_percent = kMiniCameraFollowDefaultTargetPercent,
   };
   MiniRomBootstrap_SetRoomLabel(info, MiniContentScope_RoomHandle(room_ptr),
                                 MiniContentScope_RoomName(room_ptr));

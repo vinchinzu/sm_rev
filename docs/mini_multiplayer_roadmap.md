@@ -112,7 +112,7 @@ Required seams:
 Near-term work:
 
 - keep `src/mini/mini_runtime.c` free of gameplay rules
-- keep peeling parity shims out of `src/mini/stubs_mini.c`
+- keep parity shims in named mini modules instead of catch-all facades
 - keep the first Samus slice linked under mini:
   - `physics.c`
   - `physics_config.c`
@@ -146,7 +146,7 @@ Current weapon boundary for mini:
 
 Completed visual extraction order:
 
-1. [x] split ROM loading/save-slot/demo-room selection out of `src/mini/stubs_mini.c`
+1. [x] split ROM loading/save-slot/demo-room selection out of the old mini stubs facade
 2. [x] keep the editor-room ROM visual fallback narrow and safe; do not run full room setup scripts just to fetch visuals
 3. [x] replace remaining mini-only projectile/room-sprite presentation in the ROM path with original OAM/VRAM state
 4. [x] expand the new mini room-fx module from one-off sky bands to reusable per-scanline layer scroll rendering
@@ -156,9 +156,9 @@ Completed follow-on visual work:
 
 - [`src/mini/mini_rom_bootstrap.c`](../src/mini/mini_rom_bootstrap.c) now owns
   mini ROM/SRAM loading plus save-slot and demo-room boot selection
-- [`src/mini/stubs_mini.c`](../src/mini/stubs_mini.c) keeps editor/fallback
-  world setup and applies the ROM bootstrap's `MiniRoomInfo` result instead of
-  owning save/demo startup details
+- [`src/mini/mini_room_adapter.c`](../src/mini/mini_room_adapter.c) keeps
+  editor/fallback world setup and applies the ROM bootstrap's `MiniRoomInfo`
+  result instead of owning save/demo startup details
 - the editor-room ROM visual fallback still primes only the narrow visual state
   it needs for missing room FX, tileset, background, and Samus assets
 - ROM-backed rendering no longer has a mini-only room-sprite path; original-runtime
@@ -336,7 +336,7 @@ Implemented API:
 Snapshot coverage:
 
 - `MiniGameState`
-- mini room-boundary state from [`src/mini/stubs_mini.c`](../src/mini/stubs_mini.c)
+- mini room-boundary state from [`src/mini/mini_room_adapter.c`](../src/mini/mini_room_adapter.c)
 - WRAM and SRAM
 - mini PPU registers and VRAM from [`src/mini/mini_ppu_stub.c`](../src/mini/mini_ppu_stub.c)
 - host-global flags needed by the mini runtime
@@ -407,95 +407,40 @@ Success condition:
 
 ## Physics Extraction Triage
 
-The next extraction should come from `physics.c`, but not all handlers are equally useful.
+Status: First air-movement extraction complete.
+
+Completed extraction:
+
+- [`src/samus_air.c`](../src/samus_air.c) now owns
+  `Samus_Movement_02_NormalJumping`, `Samus_Movement_03_SpinJumping`,
+  `Samus_Movement_06_Falling`, `Samus_Movement_14_WallJumping`,
+  `Samus_Movement_17_TurningAroundJumping`,
+  `Samus_Movement_18_TurningAroundFalling`, and
+  `Samus_Movement_19_DamageBoost`.
+- [`src/physics.c`](../src/physics.c) is now closer to a movement dispatcher for
+  the air slice instead of carrying the spin/fall/wall-jump implementations.
+- `Samus_Movement_03_SpinJumping` builds a `SamusSpinJumpContext`, uses named
+  hi-jump/liquid/contact-damage helpers, and keeps the underwater spin-jump SFX
+  id scoped locally.
+- [`src/samus_ball.c`](../src/samus_ball.c) also already owns the morph-ball and
+  spring-ball movement handlers that were previously listed as extraction
+  candidates.
+- [`tests/test_mini_spin_jump.py`](../tests/test_mini_spin_jump.py) provides a
+  deterministic headless spin-jump replay check for the editor-export mini path.
+- [`tests/test_mini_authored_room.py`](../tests/test_mini_authored_room.py)
+  now includes deterministic authored morph-ball tunnel coverage, so
+  `samus_ball.c` cleanup can start from a tested traversal contract.
+- [`src/samus_ball.c`](../src/samus_ball.c) has a first small semantic cleanup
+  pass for ball movement, naming the no-accel and left-facing checks while
+  preserving the Bank 90 branch shape.
+
+Remaining cleanup candidates:
 
 | Candidate | Why it matters | Risk | Recommendation |
 | --- | --- | --- | --- |
-| `Samus_Movement_03_SpinJumping` | Core air-state behavior, mini-critical, still contains liquid/equip/contact-damage archaeology | Medium | **Pick first** |
-| `Samus_Movement_06_Falling` | Airborne baseline, simpler than spin jump, pairs naturally with air module | Low | Move soon after spin jump |
-| `Samus_Movement_14_WallJumping` | Important for advanced movement and multiplayer feel | Medium | Move with rest of air cluster |
-| `Samus_Movement_04_MorphBallOnGround` | Good mini value, but better as part of ball cluster | Medium | Defer until `samus_ball.c` exists |
-| `Samus_Movement_0F_CrouchingEtcTransition` | Still ASM-shaped, but tied to pose-transition cleanup more than core movement feel | Medium | Defer |
-| `Samus_Initialize` | Valuable eventually, but too broad for the first cleanup pass | High | Do not pick first |
-
-## Chosen First Extraction
-
-Pick:
-
-- `Samus_Movement_03_SpinJumping` from [`src/physics.c`](../src/physics.c)
-
-Move it to:
-
-- `src/samus_air.c`
-
-Why this one first:
-
-- it is part of the mini-critical movement slice
-- it already relies on existing air/jump helpers such as `Samus_SpinJumpMovement()`
-- it mixes several concerns that should be named explicitly:
-  - liquid detection
-  - hi-jump re-jump window logic
-  - screw/pseudo-screw contact damage selection
-  - underwater spin-jump SFX
-- it is small enough to extract without forcing a large bank-wide split
-
-## Concrete Refactor Target For `Samus_Movement_03_SpinJumping`
-
-Current code problems:
-
-- local scratch names like `r18`, `r20`
-- duplicated liquid checks already abstracted elsewhere
-- raw equip bit `0x200`
-- raw contact-damage values `3` and `4`
-- raw SFX id `0x2F`
-- direct byte reinterpretation of `samus_y_subspeed`
-
-Recommended replacement shape:
-
-```c
-static SamusSpinJumpContext Samus_BuildSpinJumpContext(void);
-static SamusRejumpWindow Samus_GetSpinJumpRejumpWindow(uint16 vertical_env);
-static void Samus_TrySpinJumpRejump(const SamusSpinJumpContext *ctx);
-static void Samus_UpdateSpinJumpContactDamage(const SamusSpinJumpContext *ctx);
-static void Samus_TickSpinJumpLiquidSfx(const SamusSpinJumpContext *ctx);
-
-void Samus_Movement_03_SpinJumping(void);
-```
-
-Recommended implementation order:
-
-1. extract the function unchanged except for file move
-2. replace liquid checks with `samus_env.h` helpers
-3. add `SamusContactDamageMode`
-4. add `SamusSpinJumpContext`
-5. replace the raw re-jump thresholds with a named `SamusRejumpWindow`
-6. only then consider naming the SFX id once it is traced in the audio tables
-
-## Immediate Safe Replacements For That Extraction
-
-These changes are low-risk because the repo already has evidence for them:
-
-- use `Samus_HasEquip(kSamusEquip_HiJumpBoots)` instead of `equipped_items & 0x200`
-- use `Samus_GetVerticalEnv()` or `Samus_IsSubmergedInWater(...)` from `samus_env.h`
-- use `kLiquidPhysicsType_Water` and `kLiquidPhysicsType_LavaAcid`
-- replace `samus_contact_damage_index = 3` with `kSamusContactDamage_ScrewAttack`
-- replace `samus_contact_damage_index = 4` with `kSamusContactDamage_PseudoScrew`
-
-These should wait until better source tracing:
-
-- naming `QueueSfx1_Max6(0x2F)`
-- generalizing suit-palette checks beyond the spin-jump use case
-
-## First Implementation Sequence
-
-If this roadmap is followed immediately, do the next work in this order:
-
-1. create `src/samus_air.c` and move `Samus_Movement_03_SpinJumping` there
-2. add a small air-movement header if needed, or keep the exported prototype in `physics.h`
-3. add `SamusContactDamageMode` in a shared header
-4. rewrite the extracted function to use `samus_env.h` helpers and the new enum
-5. add a focused headless test or replay-script test that exercises spin-jump behavior in air and water
-6. only then peel `Samus_Movement_06_Falling` and `Samus_Movement_14_WallJumping` into the same module
+| Further `samus_ball.c` cleanup | Ball movement is mini-critical and now has focused authored tunnel coverage | Medium | Continue only in small parity-sensitive passes; compare against the `../sm/` baseline for behavior questions |
+| `Samus_Movement_0F_CrouchingEtcTransition` | Still ASM-shaped, but tied to pose-transition cleanup more than core movement feel | Medium | Defer until pose-transition contracts are tested |
+| `Samus_Initialize` | Valuable eventually, but too broad for the next cleanup pass | High | Do not pick before more init-state tests exist |
 
 ## What "Elegant Reused Code" Means Here
 

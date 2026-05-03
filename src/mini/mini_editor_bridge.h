@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 
+#include "mini_room_adapter.h"
 #include "types.h"
 
 enum {
@@ -27,6 +28,14 @@ typedef struct MiniEditorSamusAssetRange {
   uint32 size;
   uint32 data_offset;
 } MiniEditorSamusAssetRange;
+
+typedef struct MiniEditorSamusRenderedFrame {
+  uint16 pose;
+  uint16 anim_frame;
+  uint32 data_offset;
+  int16 origin_x;
+  int16 origin_y;
+} MiniEditorSamusRenderedFrame;
 
 typedef struct MiniEditorRoomSpriteOamEntry {
   int16 x_offset;
@@ -63,6 +72,8 @@ typedef struct MiniEditorRoom {
   int spawn_y;
   int camera_x;
   int camera_y;
+  int camera_target_x_percent;
+  int camera_target_y_percent;
   int tileset;
   int cre_bitflag;
   int export_up_scroller;
@@ -72,6 +83,7 @@ typedef struct MiniEditorRoom {
   bool has_bg2_assets;
   bool has_samus_assets;
   bool has_samus_palette_assets;
+  bool has_samus_rendered_sprites;
   MiniEditorSamusSuit initial_suit;
   uint16 *block_words;
   uint8 *collision_types;
@@ -90,8 +102,16 @@ typedef struct MiniEditorRoom {
   MiniEditorSamusAssetRange *samus_ranges;
   int samus_range_count;
   size_t samus_data_size;
+  uint8 *samus_rendered_sprite_rgba;
+  size_t samus_rendered_sprite_rgba_size;
+  MiniEditorSamusRenderedFrame *samus_rendered_frames;
+  int samus_rendered_frame_count;
+  int samus_rendered_frame_width;
+  int samus_rendered_frame_height;
   MiniEditorRoomSprite *room_sprites;
   int room_sprite_count;
+  MiniDoorwayTransition doorways[kMiniDoorwayTransitionCapacity];
+  int doorway_count;
 } MiniEditorRoom;
 
 void MiniEditorBridge_SetRoomExportPath(const char *path);

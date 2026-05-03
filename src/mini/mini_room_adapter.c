@@ -1,59 +1,25 @@
-#include "stubs_mini.h"
+#include "mini_room_adapter.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "funcs.h"
-#include "ida_types.h"
-#include "mini_defs.h"
+#include "features.h"
 #include "mini_asset_bootstrap.h"
 #include "mini_content_scope.h"
+#include "mini_defs.h"
 #include "mini_editor_bridge.h"
 #include "mini_ppu_stub.h"
 #include "mini_rom_bootstrap.h"
-#include "samus_asset_bridge.h"
-#include "physics_config.h"
-#include "sm_rtl.h"
 #include "variables.h"
 
 enum {
   kMiniWorldPadding = 32,
   kMiniGroundOffset = 48,
-  kMiniGroundSpeed = 3,
-  kMiniAirSpeed = 2,
   kMiniDefaultUpScroller = 112,
   kMiniDefaultDownScroller = 160,
   kMiniLevelDataCapacity = (0x16402 - 0x10002) / 2,
 };
-
-uint8 g_ram[0x20000];
-
-bool g_use_my_apu_code;
-bool g_debug_flag;
-int snes_frame_counter;
-SpcPlayer *g_spc_player;
-uint16 currently_installed_bug_fix_counter;
-
-void RtlApuWrite(uint32 adr, uint8 val) {
-  (void)adr;
-  (void)val;
-}
-
-void RtlApuUpload(const uint8 *p) {
-  (void)p;
-}
-
-void RtlWriteSram(void) {
-}
-
-void RtlReadSram(void) {
-}
-
-void Call(uint32 addr) {
-  (void)addr;
-  Die("mini: unsupported raw ASM trampoline in Landing Site runtime\n");
-}
 
 static int g_mini_world_left;
 static int g_mini_world_right;
@@ -213,7 +179,11 @@ static bool MiniTryConfigureEditorRoom(void) {
     .camera_y = room.camera_y,
     .spawn_x = room.spawn_x,
     .spawn_y = room.spawn_y,
+    .camera_target_x_percent = room.camera_target_x_percent,
+    .camera_target_y_percent = room.camera_target_y_percent,
   };
+  g_mini_room_info.doorway_count = room.doorway_count;
+  memcpy(g_mini_room_info.doorways, room.doorways, sizeof(g_mini_room_info.doorways));
   MiniSetRoomLabel(&g_mini_room_info, room.handle, room.name);
   MiniApplyRoomInfoWorld();
   MiniClampCamera();
@@ -235,10 +205,6 @@ static bool MiniTryConfigureDemoRoom(void) {
   return true;
 }
 
-static int32 MiniHorizontalStep(void) {
-  return INT16_SHL16(kMiniAirSpeed);
-}
-
 static int MiniClamp(int value, int min_value, int max_value) {
   if (value < min_value)
     return min_value;
@@ -256,20 +222,16 @@ static void MiniClampCamera(void) {
   layer1_y_subpos = 0;
 }
 
-void MiniStubs_Reset(void) {
-  memset(g_ram, 0, sizeof(g_ram));
-  MiniPpu_Reset();
-  MiniAssetBootstrap_Reset();
-  MiniRomBootstrap_Reset();
-}
-
 void MiniStubs_SetRoomExportPath(const char *path) {
   g_mini_explicit_room_export_path = path != NULL && path[0] != '\0';
   MiniEditorBridge_SetRoomExportPath(path);
 }
 
 void MiniStubs_ConfigureWorld(int viewport_width, int viewport_height) {
-  if (g_mini_explicit_room_export_path) {
+  if (BUILD_IS_MODDABLE) {
+    if (MiniTryConfigureEditorRoom())
+      return;
+  } else if (g_mini_explicit_room_export_path) {
     if (MiniTryConfigureEditorRoom() || MiniTryConfigureSaveSlotRoom() || MiniTryConfigureDemoRoom())
       return;
   } else if (MiniTryConfigureSaveSlotRoom() || MiniTryConfigureDemoRoom() || MiniTryConfigureEditorRoom()) {
@@ -302,6 +264,8 @@ void MiniStubs_ConfigureWorld(int viewport_width, int viewport_height) {
     .camera_y = 0,
     .spawn_x = g_mini_world_left + 3 * kMiniBlockSize,
     .spawn_y = g_mini_world_floor,
+    .camera_target_x_percent = kMiniCameraFollowDefaultTargetPercent,
+    .camera_target_y_percent = kMiniCameraFollowDefaultTargetPercent,
   };
   MiniSetRoomLabel(&g_mini_room_info, "fallbackRoom", "Fallback Room");
   MiniBuildCollisionMap(viewport_width, viewport_height);
@@ -309,6 +273,18 @@ void MiniStubs_ConfigureWorld(int viewport_width, int viewport_height) {
 
 void MiniStubs_GetRoomInfo(MiniRoomInfo *info) {
   *info = g_mini_room_info;
+}
+
+void MiniStubs_GetCollisionMapView(MiniCollisionMapView *view) {
+  *view = (MiniCollisionMapView){
+    .block_size = kMiniBlockSize,
+    .width_blocks = room_width_in_blocks,
+    .height_blocks = room_height_in_blocks,
+    .world_left = g_mini_world_left,
+    .world_top = g_mini_world_ceiling,
+    .world_right = g_mini_world_right,
+    .world_bottom = g_mini_world_floor,
+  };
 }
 
 void MiniStubs_SaveSnapshot(MiniStubsSnapshot *snapshot) {
@@ -329,22 +305,14 @@ void MiniStubs_LoadSnapshot(const MiniStubsSnapshot *snapshot) {
   g_mini_room_info = snapshot->room_info;
 }
 
-void MiniStubs_GetEditorTilesetView(MiniEditorTilesetView *view) {
-  MiniAssetBootstrap_GetEditorTilesetView(view);
-}
-
-void MiniStubs_GetEditorBg2View(MiniEditorBg2View *view) {
-  MiniAssetBootstrap_GetEditorBg2View(view);
-}
-
-int MiniStubs_GetEditorRoomSpriteViews(const MiniEditorRoomSpriteView **sprites) {
-  return MiniAssetBootstrap_GetEditorRoomSpriteViews(sprites);
-}
-
 uint16 MiniStubs_GetLevelBlock(int block_x, int block_y) {
   if ((unsigned)block_x >= room_width_in_blocks || (unsigned)block_y >= room_height_in_blocks)
     return kMiniSolidBlock;
   return level_data[block_y * room_width_in_blocks + block_x];
+}
+
+BlockType MiniStubs_GetCollisionMaterial(int block_x, int block_y) {
+  return (BlockType)BlockTypeFromTile(MiniStubs_GetLevelBlock(block_x, block_y));
 }
 
 uint8 MiniStubs_GetBts(int block_x, int block_y) {
@@ -387,56 +355,4 @@ const char *MiniStubs_SamusSuitName(MiniSamusSuit suit) {
   default:
     return "power";
   }
-}
-
-void MemCpy(void *dst, const void *src, int size) {
-  memcpy(dst, src, size);
-}
-
-void RtlApplyPhysicsParams(void) {
-  samus_y_accel = g_physics_params.gravity_accel;
-  samus_y_subaccel = g_physics_params.gravity_subaccel;
-}
-
-void mov24(struct LongPtr *dst, uint32 src) {
-  dst->addr = src;
-  dst->bank = src >> 16;
-}
-
-uint32 Load24(const LongPtr *src) {
-  return src->addr | (src->bank << 16);
-}
-
-PairU16 MakePairU16(uint16 k, uint16 j) {
-  PairU16 pair = { .k = k, .j = j };
-  return pair;
-}
-
-const uint8 *RomPtr(uint32_t addr) {
-  return &g_rom[(((addr >> 16) << 15) | (addr & 0x7fff)) & 0x3fffff];
-}
-
-uint16 Mult8x8(uint8 a, uint8 b) {
-  return a * b;
-}
-
-uint16 SnesDivide(uint16 a, uint8 b) {
-  return (b == 0) ? 0xffff : a / b;
-}
-
-uint16 SnesModulus(uint16 a, uint8 b) {
-  return (b == 0) ? a : a % b;
-}
-
-bool Unreachable(void) {
-  Die("Unreachable\n");
-}
-
-NORETURN void Die(const char *error) {
-  fprintf(stderr, "%s", error);
-  abort();
-}
-
-void Warning(const char *error) {
-  fprintf(stderr, "%s", error);
 }

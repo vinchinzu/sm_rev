@@ -6,8 +6,8 @@
 #include "mini_editor_bridge.h"
 #include "mini_runtime.h"
 
-#if CURRENT_BUILD != BUILD_MINI
-#error "mini_main.c must be compiled with CURRENT_BUILD=BUILD_MINI"
+#if !BUILD_IS_MINI && !BUILD_IS_MODDABLE
+#error "mini_main.c must be compiled with CURRENT_BUILD=BUILD_MINI or BUILD_MODDABLE"
 #endif
 
 static void PrintUsage(const char *argv0) {

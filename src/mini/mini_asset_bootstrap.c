@@ -32,6 +32,12 @@ static uint16 g_mini_editor_bg2_tilemap_words[kMiniEditorBridgeBg2TilemapWordCou
 static uint16 g_mini_editor_samus_palette_power[kMiniEditorBridgeSamusPaletteCount];
 static uint16 g_mini_editor_samus_palette_varia[kMiniEditorBridgeSamusPaletteCount];
 static uint16 g_mini_editor_samus_palette_gravity[kMiniEditorBridgeSamusPaletteCount];
+static uint8 *g_mini_editor_samus_rendered_sprite_rgba;
+static size_t g_mini_editor_samus_rendered_sprite_rgba_size;
+static MiniEditorSamusRenderedFrameView *g_mini_editor_samus_rendered_frames;
+static int g_mini_editor_samus_rendered_frame_count;
+static int g_mini_editor_samus_rendered_frame_width;
+static int g_mini_editor_samus_rendered_frame_height;
 static MiniEditorRoomSpriteView *g_mini_editor_room_sprite_views;
 static int g_mini_editor_room_sprite_count;
 
@@ -56,6 +62,17 @@ static void MiniClearEditorSamusPaletteAssets(void) {
   memset(g_mini_editor_samus_palette_power, 0, sizeof(g_mini_editor_samus_palette_power));
   memset(g_mini_editor_samus_palette_varia, 0, sizeof(g_mini_editor_samus_palette_varia));
   memset(g_mini_editor_samus_palette_gravity, 0, sizeof(g_mini_editor_samus_palette_gravity));
+}
+
+static void MiniClearEditorSamusRenderedSprites(void) {
+  free(g_mini_editor_samus_rendered_sprite_rgba);
+  free(g_mini_editor_samus_rendered_frames);
+  g_mini_editor_samus_rendered_sprite_rgba = NULL;
+  g_mini_editor_samus_rendered_sprite_rgba_size = 0;
+  g_mini_editor_samus_rendered_frames = NULL;
+  g_mini_editor_samus_rendered_frame_count = 0;
+  g_mini_editor_samus_rendered_frame_width = 0;
+  g_mini_editor_samus_rendered_frame_height = 0;
 }
 
 static void MiniClearEditorTilesetAssets(void) {
@@ -86,12 +103,39 @@ static MiniSamusSuit MiniConvertEditorSuit(MiniEditorSamusSuit suit) {
 static void MiniInstallEditorSamusAssets(const MiniEditorRoom *room) {
   SamusAssetBridge_Reset();
   MiniClearEditorSamusPaletteAssets();
+  MiniClearEditorSamusRenderedSprites();
   g_mini_editor_samus_initial_suit = MiniConvertEditorSuit(room->initial_suit);
   if (room->has_samus_palette_assets) {
     memcpy(g_mini_editor_samus_palette_power, room->samus_palette_power, sizeof(g_mini_editor_samus_palette_power));
     memcpy(g_mini_editor_samus_palette_varia, room->samus_palette_varia, sizeof(g_mini_editor_samus_palette_varia));
     memcpy(g_mini_editor_samus_palette_gravity, room->samus_palette_gravity, sizeof(g_mini_editor_samus_palette_gravity));
     g_mini_has_editor_samus_palette_assets = true;
+  }
+  if (room->has_samus_rendered_sprites && room->samus_rendered_sprite_rgba != NULL &&
+      room->samus_rendered_frames != NULL && room->samus_rendered_frame_count > 0 &&
+      room->samus_rendered_frame_width > 0 && room->samus_rendered_frame_height > 0) {
+    g_mini_editor_samus_rendered_sprite_rgba = (uint8 *)malloc(room->samus_rendered_sprite_rgba_size);
+    g_mini_editor_samus_rendered_frames = (MiniEditorSamusRenderedFrameView *)calloc(
+        (size_t)room->samus_rendered_frame_count, sizeof(*g_mini_editor_samus_rendered_frames));
+    if (g_mini_editor_samus_rendered_sprite_rgba != NULL && g_mini_editor_samus_rendered_frames != NULL) {
+      memcpy(g_mini_editor_samus_rendered_sprite_rgba, room->samus_rendered_sprite_rgba,
+             room->samus_rendered_sprite_rgba_size);
+      for (int i = 0; i < room->samus_rendered_frame_count; i++) {
+        g_mini_editor_samus_rendered_frames[i] = (MiniEditorSamusRenderedFrameView){
+          .pose = room->samus_rendered_frames[i].pose,
+          .anim_frame = room->samus_rendered_frames[i].anim_frame,
+          .data_offset = room->samus_rendered_frames[i].data_offset,
+          .origin_x = room->samus_rendered_frames[i].origin_x,
+          .origin_y = room->samus_rendered_frames[i].origin_y,
+        };
+      }
+      g_mini_editor_samus_rendered_sprite_rgba_size = room->samus_rendered_sprite_rgba_size;
+      g_mini_editor_samus_rendered_frame_count = room->samus_rendered_frame_count;
+      g_mini_editor_samus_rendered_frame_width = room->samus_rendered_frame_width;
+      g_mini_editor_samus_rendered_frame_height = room->samus_rendered_frame_height;
+    } else {
+      MiniClearEditorSamusRenderedSprites();
+    }
   }
   if (!room->has_samus_assets || room->samus_bank92 == NULL || room->samus_data == NULL ||
       room->samus_ranges == NULL || room->samus_range_count <= 0)
@@ -229,6 +273,7 @@ static void MiniLoadRoomFxStateFromRom(void) {
 void MiniAssetBootstrap_Reset(void) {
   MiniClearEditorTilesetAssets();
   MiniClearEditorSamusPaletteAssets();
+  MiniClearEditorSamusRenderedSprites();
   SamusAssetBridge_Reset();
 }
 
@@ -366,4 +411,18 @@ void MiniAssetBootstrap_GetEditorBg2View(MiniEditorBg2View *view) {
 int MiniAssetBootstrap_GetEditorRoomSpriteViews(const MiniEditorRoomSpriteView **sprites) {
   *sprites = g_mini_editor_room_sprite_views;
   return g_mini_editor_room_sprite_count;
+}
+
+void MiniAssetBootstrap_GetEditorSamusRenderedSpritesView(MiniEditorSamusRenderedSpritesView *view) {
+  *view = (MiniEditorSamusRenderedSpritesView){
+    .loaded = g_mini_editor_samus_rendered_sprite_rgba != NULL &&
+              g_mini_editor_samus_rendered_frames != NULL &&
+              g_mini_editor_samus_rendered_frame_count > 0,
+    .rgba = g_mini_editor_samus_rendered_sprite_rgba,
+    .rgba_size = g_mini_editor_samus_rendered_sprite_rgba_size,
+    .frames = g_mini_editor_samus_rendered_frames,
+    .frame_count = g_mini_editor_samus_rendered_frame_count,
+    .frame_width = g_mini_editor_samus_rendered_frame_width,
+    .frame_height = g_mini_editor_samus_rendered_frame_height,
+  };
 }

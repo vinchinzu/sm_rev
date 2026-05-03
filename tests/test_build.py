@@ -17,7 +17,9 @@ from pathlib import Path
 SM_REV_DIR = Path(__file__).parent.parent
 BINARY = SM_REV_DIR / "sm_rev"
 MINI_BINARY = SM_REV_DIR / "sm_rev_mini"
+MODDABLE_BINARY = SM_REV_DIR / "sm_rev_moddable"
 EDITOR_LANDING_SITE_EXPORT = SM_REV_DIR.parent / "super_metroid_editor" / "export" / "sm_nav" / "rooms" / "room_91F8.json"
+LANDING_SITE_ROOM_ID = 0x91F8
 
 
 def run(cmd: list[str], **kw) -> subprocess.CompletedProcess:
@@ -30,6 +32,36 @@ def parse_json_payload(stdout: str) -> dict:
     end = stdout.rfind("}")
     assert start >= 0 and end > start, stdout
     return json.loads(stdout[start:end + 1])
+
+
+def write_minimal_authored_room(path: Path) -> Path:
+    width = 32
+    height = 16
+    materials = [
+        [
+            "solid" if y >= 13 or x in (0, width - 1) else "air"
+            for x in range(width)
+        ]
+        for y in range(height)
+    ]
+    room = {
+        "roomId": LANDING_SITE_ROOM_ID,
+        "handle": "landingSite",
+        "name": "Build Test Authored Landing Site",
+        "widthScreens": 2,
+        "heightScreens": 1,
+        "widthBlocks": width,
+        "heightBlocks": height,
+        "materials": materials,
+        "camera": {
+            "spawnX": 64,
+            "spawnY": 192,
+            "cameraX": 0,
+            "cameraY": 32,
+        },
+    }
+    path.write_text(json.dumps(room), encoding="utf-8")
+    return path
 
 
 def read_bmp_rows(path: Path) -> tuple[int, int, list[bytes]]:
@@ -426,3 +458,50 @@ class TestBuildMini:
         ], cwd=tmp_path)
         assert r_bad.returncode != 0, "mini replay accepted a mismatched final hash"
         assert "replay final hash mismatch" in r_bad.stderr
+
+
+class TestBuildModdable:
+    def test_make_moddable_succeeds(self):
+        """Moddable sandbox build must compile cleanly as its own feature variant."""
+        r = run(["make", "moddable"])
+        assert r.returncode == 0, f"make moddable failed:\n{r.stderr}\n{r.stdout}"
+
+    def test_moddable_headless_smoke_prefers_authored_runtime(self):
+        """Moddable defaults to authored/fallback runtime instead of ROM parity runtime."""
+        if not MODDABLE_BINARY.exists():
+            r_build = run(["make", "moddable"])
+            assert r_build.returncode == 0, f"make moddable failed:\n{r_build.stderr}\n{r_build.stdout}"
+        r = run([str(MODDABLE_BINARY), "--headless", "--frames", "3"])
+        assert r.returncode == 0, f"moddable headless smoke failed:\n{r.stderr}\n{r.stdout}"
+        payload = parse_json_payload(r.stdout)
+        assert payload["build"] == "moddable"
+        assert payload["rom_room"] is False
+        assert payload["original_runtime"] is False
+        assert payload["room_source"] in {"editor_export", "fallback"}
+
+    def test_moddable_material_export_drives_authored_movement(self, tmp_path: Path):
+        """Moddable accepts named-material authored rooms and exposes deterministic movement state."""
+        if not MODDABLE_BINARY.exists():
+            r_build = run(["make", "moddable"])
+            assert r_build.returncode == 0, f"make moddable failed:\n{r_build.stderr}\n{r_build.stdout}"
+        room_path = write_minimal_authored_room(tmp_path / "authored_room.json")
+        script_path = tmp_path / "run.script"
+        script_path.write_text(("RIGHT\n" * 12), encoding="utf-8")
+
+        r = run([
+            str(MODDABLE_BINARY),
+            "--headless",
+            "--frames",
+            "12",
+            "--room-export",
+            str(room_path),
+            "--input-script",
+            str(script_path),
+        ], cwd=tmp_path)
+        assert r.returncode == 0, f"moddable authored run failed:\n{r.stderr}\n{r.stdout}"
+        payload = parse_json_payload(r.stdout)
+        assert payload["build"] == "moddable"
+        assert payload["room_source"] == "editor_export"
+        assert payload["rom_room"] is False
+        assert payload["original_runtime"] is False
+        assert payload["samus_world_x"] > 64

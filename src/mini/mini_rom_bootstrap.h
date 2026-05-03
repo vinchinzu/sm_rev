@@ -1,7 +1,7 @@
 #ifndef SM_MINI_ROM_BOOTSTRAP_H_
 #define SM_MINI_ROM_BOOTSTRAP_H_
 
-#include "stubs_mini.h"
+#include "mini_room_adapter.h"
 #include "types.h"
 
 void MiniRomBootstrap_Reset(void);

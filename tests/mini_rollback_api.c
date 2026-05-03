@@ -6,7 +6,7 @@
 #include "ida_types.h"
 #include "mini/mini_defs.h"
 #include "mini/mini_game.h"
-#include "mini/stubs_mini.h"
+#include "mini/mini_room_adapter.h"
 #include "types.h"
 
 enum {
@@ -98,10 +98,45 @@ static uint64_t StepRomRoomFrames(MiniGameState *state, int frames) {
   return MiniStateHash(state);
 }
 
+static void RequireTypedStateBoundary(const MiniGameState *state) {
+  Require(state->viewport.width == state->viewport_width,
+          "typed viewport width did not match compatibility field");
+  Require(state->viewport.height == state->viewport_height,
+          "typed viewport height did not match compatibility field");
+  Require(state->viewport.camera_x == state->camera_x,
+          "typed camera x did not match compatibility field");
+  Require(state->viewport.camera_y == state->camera_y,
+          "typed camera y did not match compatibility field");
+  Require(state->room.has_room == state->has_room,
+          "typed room availability did not match compatibility field");
+  Require(state->room.uses_rom_room == state->uses_rom_room,
+          "typed room source did not match compatibility field");
+  Require(state->room.room_source == state->room_source,
+          "typed room source enum did not match compatibility field");
+  Require(state->samus.screen_x == state->samus_x,
+          "typed Samus x did not match compatibility field");
+  Require(state->samus.screen_y == state->samus_y,
+          "typed Samus y did not match compatibility field");
+  Require(state->samus.pose == state->samus_pose_value,
+          "typed Samus pose did not match compatibility field");
+  Require(state->samus.movement_type == state->samus_movement_type_value,
+          "typed Samus movement type did not match compatibility field");
+  Require(state->controls.buttons == state->last_buttons,
+          "typed controls did not match compatibility field");
+  Require(state->projectile_state.count == state->projectile_count,
+          "typed projectile count did not match compatibility field");
+  Require(state->collision_map.block_size == kMiniBlockSize,
+          "typed collision map reported the wrong block size");
+  Require(state->collision_map.width_blocks == state->room.room_width_blocks,
+          "typed collision map width did not match typed room");
+  Require(state->collision_map.height_blocks == state->room.room_height_blocks,
+          "typed collision map height did not match typed room");
+}
+
 static const SamusProjectileView *FirstActiveProjectile(const MiniGameState *state) {
   for (int i = 0; i < kMiniProjectileViewCapacity; i++) {
-    if (state->projectiles[i].active)
-      return &state->projectiles[i];
+    if (state->projectile_state.views[i].active)
+      return &state->projectile_state.views[i];
   }
   return NULL;
 }
@@ -113,10 +148,13 @@ static uint64_t StepProjectileAdvanceFrames(MiniGameState *state) {
 }
 
 static void RequireFallbackRoom(const MiniGameState *state) {
+  RequireTypedStateBoundary(state);
   Require(state->has_room, "fallback mini state did not configure a room");
   Require(!state->uses_rom_room, "fallback mini test unexpectedly booted a ROM room");
   Require(state->room_source == kMiniRoomSource_Fallback,
           "fallback mini test did not use the fallback room");
+  Require(MiniStubs_GetCollisionMaterial(-1, -1) == kBlockType_Solid,
+          "typed collision material boundary did not treat out-of-room as solid");
 }
 
 static void TestBasicRollbackApi(void) {
@@ -193,7 +231,7 @@ static void TestProjectileRollbackProgression(void) {
   Require(state != NULL, "MiniCreate failed for projectile rollback test");
   RequireFallbackRoom(state);
 
-  for (int frame = 0; frame < kProjectileSearchFrames && state->projectile_count == 0; frame++) {
+  for (int frame = 0; frame < kProjectileSearchFrames && state->projectile_state.count == 0; frame++) {
     MiniStepButtons(state, kButton_Right | kButton_X, false);
   }
 

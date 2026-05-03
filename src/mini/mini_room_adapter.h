@@ -1,5 +1,5 @@
-#ifndef SM_STUBS_MINI_H_
-#define SM_STUBS_MINI_H_
+#ifndef SM_MINI_ROOM_ADAPTER_H_
+#define SM_MINI_ROOM_ADAPTER_H_
 
 #include <stddef.h>
 
@@ -9,6 +9,10 @@
 enum {
   kMiniBlockSize = kBlockPixelSize,
   kMiniSolidBlock = kBlockType_Solid,
+  kMiniRoomHandleCapacity = 32,
+  kMiniRoomNameCapacity = 64,
+  kMiniDoorwayTransitionCapacity = 8,
+  kMiniCameraFollowDefaultTargetPercent = 50,
 };
 
 typedef enum MiniRoomSource {
@@ -24,6 +28,16 @@ typedef enum MiniSamusSuit {
   kMiniSamusSuit_Gravity = 2,
 } MiniSamusSuit;
 
+typedef struct MiniDoorwayTransition {
+  bool active;
+  int source_block_x;
+  int source_block_y;
+  int destination_x;
+  int destination_y;
+  int camera_x;
+  int camera_y;
+} MiniDoorwayTransition;
+
 typedef struct MiniRoomInfo {
   bool has_room;
   bool uses_rom_room;
@@ -34,8 +48,8 @@ typedef struct MiniRoomInfo {
   bool has_original_plms;
   MiniSamusSuit samus_suit;
   uint16 room_id;
-  char room_handle[32];
-  char room_name[64];
+  char room_handle[kMiniRoomHandleCapacity];
+  char room_name[kMiniRoomNameCapacity];
   MiniRoomSource room_source;
   int room_left;
   int room_top;
@@ -47,7 +61,21 @@ typedef struct MiniRoomInfo {
   int camera_y;
   int spawn_x;
   int spawn_y;
+  int camera_target_x_percent;
+  int camera_target_y_percent;
+  int doorway_count;
+  MiniDoorwayTransition doorways[kMiniDoorwayTransitionCapacity];
 } MiniRoomInfo;
+
+typedef struct MiniCollisionMapView {
+  int block_size;
+  int width_blocks;
+  int height_blocks;
+  int world_left;
+  int world_top;
+  int world_right;
+  int world_bottom;
+} MiniCollisionMapView;
 
 typedef struct MiniStubsSnapshot {
   int world_left;
@@ -58,59 +86,18 @@ typedef struct MiniStubsSnapshot {
   MiniRoomInfo room_info;
 } MiniStubsSnapshot;
 
-typedef struct MiniEditorTilesetView {
-  bool loaded;
-  int tileset_id;
-  const uint8 *tiles4bpp;
-  const uint16 *metatile_words;
-  const uint16 *palette;
-} MiniEditorTilesetView;
-
-typedef struct MiniEditorBg2View {
-  bool loaded;
-  const uint16 *tilemap_words;
-  uint8 scroll_x;
-  uint8 scroll_y;
-  const char *variant_key;
-} MiniEditorBg2View;
-
-typedef struct MiniEditorRoomSpriteOamView {
-  int16 x_offset;
-  int16 y_offset;
-  uint16 tile_num;
-  uint8 palette_row;
-  bool h_flip;
-  bool v_flip;
-  bool is_16x16;
-} MiniEditorRoomSpriteOamView;
-
-typedef struct MiniEditorRoomSpriteView {
-  const char *key;
-  const char *label;
-  uint16 species_id;
-  int x_pos;
-  int y_pos;
-  const uint8 *tile_data;
-  size_t tile_data_size;
-  const uint16 *palette;
-  const MiniEditorRoomSpriteOamView *entries;
-  int entry_count;
-} MiniEditorRoomSpriteView;
-
-void MiniStubs_Reset(void);
 void MiniStubs_SetRoomExportPath(const char *path);
 void MiniStubs_ConfigureWorld(int viewport_width, int viewport_height);
 void MiniStubs_GetRoomInfo(MiniRoomInfo *info);
+void MiniStubs_GetCollisionMapView(MiniCollisionMapView *view);
 void MiniStubs_SaveSnapshot(MiniStubsSnapshot *snapshot);
 void MiniStubs_LoadSnapshot(const MiniStubsSnapshot *snapshot);
-void MiniStubs_GetEditorTilesetView(MiniEditorTilesetView *view);
-void MiniStubs_GetEditorBg2View(MiniEditorBg2View *view);
-int MiniStubs_GetEditorRoomSpriteViews(const MiniEditorRoomSpriteView **sprites);
 uint16 MiniStubs_GetLevelBlock(int block_x, int block_y);
+BlockType MiniStubs_GetCollisionMaterial(int block_x, int block_y);
 uint8 MiniStubs_GetBts(int block_x, int block_y);
 int MiniStubs_GetFloorY(void);
 const char *MiniStubs_RoomSourceName(MiniRoomSource source);
 const char *MiniStubs_SamusSuitName(MiniSamusSuit suit);
 void MiniStubs_ClampCameraToRoom(void);
 
-#endif  // SM_STUBS_MINI_H_
+#endif  // SM_MINI_ROOM_ADAPTER_H_

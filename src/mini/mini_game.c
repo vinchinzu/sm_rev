@@ -6,18 +6,19 @@
 
 #include "funcs.h"
 #include "ida_types.h"
+#include "mini_authored_movement.h"
 #include "mini_ppu_stub.h"
+#include "mini_system.h"
 #include "physics_config.h"
 #include "samus_projectile_view.h"
 #include "sm_rtl.h"
-#include "stubs_mini.h"
 #include "variables.h"
 
 enum {
   kMiniItem_VariaSuit = 1,
   kMiniItem_GravitySuit = 0x20,
   kMiniSnapshotMagic = 0x4D53534D,
-  kMiniSnapshotVersion = 1,
+  kMiniSnapshotVersion = 2,
   kMiniRamSnapshotSize = 0x20000,
   kMiniSramSnapshotSize = 0x2000,
 };
@@ -64,29 +65,116 @@ static uint64_t MiniHashBool(uint64_t hash, bool value) {
   return MiniHashBytes(hash, &normalized, sizeof(normalized));
 }
 
+static MiniRoomState MiniRoomState_FromInfo(const MiniRoomInfo *room) {
+  MiniRoomState state = {
+    .has_room = room->has_room,
+    .uses_rom_room = room->uses_rom_room,
+    .booted_from_save_slot = room->booted_from_save_slot,
+    .has_editor_room_visuals = room->has_editor_room_visuals,
+    .uses_original_gameplay_runtime = room->uses_original_gameplay_runtime,
+    .has_original_enemies = room->has_original_enemies,
+    .has_original_plms = room->has_original_plms,
+    .samus_suit = room->samus_suit,
+    .room_id = room->room_id,
+    .room_source = room->room_source,
+    .room_left = room->room_left,
+    .room_top = room->room_top,
+    .room_right = room->room_right,
+    .room_bottom = room->room_bottom,
+    .room_width_blocks = room->room_width_blocks,
+    .room_height_blocks = room->room_height_blocks,
+    .camera_x = room->camera_x,
+    .camera_y = room->camera_y,
+    .spawn_x = room->spawn_x,
+    .spawn_y = room->spawn_y,
+    .camera_target_x_percent = room->camera_target_x_percent,
+    .camera_target_y_percent = room->camera_target_y_percent,
+    .doorway_count = room->doorway_count,
+  };
+  memcpy(state.room_handle, room->room_handle, sizeof(state.room_handle));
+  memcpy(state.room_name, room->room_name, sizeof(state.room_name));
+  memcpy(state.doorways, room->doorways, sizeof(state.doorways));
+  return state;
+}
+
+static void MiniSyncLegacyPublicFields(MiniGameState *state) {
+  state->viewport_width = state->viewport.width;
+  state->viewport_height = state->viewport.height;
+  state->camera_x = state->viewport.camera_x;
+  state->camera_y = state->viewport.camera_y;
+
+  state->room_id = state->room.room_id;
+  state->room_width_blocks = state->room.room_width_blocks;
+  state->room_height_blocks = state->room.room_height_blocks;
+  state->room_left = state->room.room_left;
+  state->room_top = state->room.room_top;
+  state->room_right = state->room.room_right;
+  state->room_bottom = state->room.room_bottom;
+  state->ground_y = state->room.room_bottom;
+  state->has_room = state->room.has_room;
+  state->uses_rom_room = state->room.uses_rom_room;
+  state->has_editor_room_visuals = state->room.has_editor_room_visuals;
+  state->uses_original_gameplay_runtime = state->room.uses_original_gameplay_runtime;
+  state->has_original_enemies = state->room.has_original_enemies;
+  state->has_original_plms = state->room.has_original_plms;
+  state->samus_suit = state->room.samus_suit;
+  state->room_source = state->room.room_source;
+  memcpy(state->room_handle, state->room.room_handle, sizeof(state->room_handle));
+  memcpy(state->room_name, state->room.room_name, sizeof(state->room_name));
+
+  state->samus_x = state->samus.screen_x;
+  state->samus_y = state->samus.screen_y;
+  state->samus_pose_value = state->samus.pose;
+  state->samus_movement_type_value = state->samus.movement_type;
+
+  state->last_buttons = state->controls.buttons;
+  state->quit_requested = state->controls.quit_requested;
+  state->projectile_count = state->projectile_state.count;
+  memcpy(state->projectiles, state->projectile_state.views, sizeof(state->projectiles));
+}
+
 static void MiniSyncRenderState(MiniGameState *state) {
-  state->camera_x = layer1_x_pos;
-  state->camera_y = layer1_y_pos;
-  state->samus_x = samus_x_pos - state->camera_x - samus_x_radius;
-  state->samus_y = samus_y_pos - state->camera_y - samus_y_radius;
-  state->samus_pose_value = samus_pose;
-  state->samus_movement_type_value = samus_movement_type;
-  state->projectile_count = SamusProjectile_GetActiveViews(
-      state->projectiles, kMiniProjectileViewCapacity);
+  int x_velocity = state->samus.x_velocity;
+  int y_velocity = state->samus.y_velocity;
+  bool on_ground = state->samus.on_ground;
+  state->viewport.camera_x = layer1_x_pos;
+  state->viewport.camera_y = layer1_y_pos;
+  state->samus = (MiniSamusCoreState){
+    .world_x = samus_x_pos,
+    .world_y = samus_y_pos,
+    .x_velocity = x_velocity,
+    .y_velocity = y_velocity,
+    .screen_x = samus_x_pos - state->viewport.camera_x - samus_x_radius,
+    .screen_y = samus_y_pos - state->viewport.camera_y - samus_y_radius,
+    .x_radius = samus_x_radius,
+    .y_radius = samus_y_radius,
+    .pose = samus_pose,
+    .movement_type = samus_movement_type,
+    .suit = state->room.samus_suit,
+    .on_ground = on_ground,
+  };
+  state->projectile_state.count = SamusProjectile_GetActiveViews(
+      state->projectile_state.views, kMiniProjectileViewCapacity);
+  MiniSyncLegacyPublicFields(state);
 }
 
 static void MiniUpdateButtons(MiniGameState *state, const MiniInputState *input) {
-  joypad1_prev = state->last_buttons;
+  state->controls.previous_buttons = state->controls.buttons;
+  state->controls.buttons = input->buttons;
+  joypad1_prev = state->controls.previous_buttons;
   joypad1_lastkeys = input->buttons;
   joypad1_newkeys = input->buttons & (joypad1_prev ^ input->buttons);
   joypad1_newkeys2_UNUSED = joypad1_newkeys;
   joypad2_last = 0;
   joypad2_new_keys = 0;
   joypad2_newkeys2 = 0;
-  state->last_buttons = input->buttons;
+  state->controls.new_buttons = joypad1_newkeys;
+  state->last_buttons = state->controls.buttons;
 }
 
 static uint16 MiniInitialPoseForRoom(const MiniRoomInfo *room) {
+  if (!room->uses_rom_room && !room->has_editor_room_visuals)
+    return kPose_01_FaceR_Normal;
   if (room->room_id != 0x91F8)
     return kPose_01_FaceR_Normal;
   return (equipped_items & (kMiniItem_GravitySuit | kMiniItem_VariaSuit)) != 0
@@ -103,6 +191,7 @@ static void MiniInitializeSamusRuntime(const MiniRoomInfo *room) {
   game_state = kGameState_8_MainGameplay;
   debug_disable_minimap = room->uses_rom_room ? 0 : 1;
   time_is_frozen_flag = 0;
+  elevator_status = 0;
   samus_input_handler = FUNC16(Samus_InputHandler_E913);
   samus_movement_handler = FUNC16(Samus_MovementHandler_Normal);
   samus_draw_handler = FUNC16(SamusDrawHandler_Default);
@@ -121,36 +210,24 @@ static void MiniInitializeSamusRuntime(const MiniRoomInfo *room) {
 void MiniGameState_Init(MiniGameState *state, int viewport_width, int viewport_height) {
   MiniRoomInfo room;
 
-  MiniStubs_Reset();
+  memset(state, 0, sizeof(*state));
+  MiniSystem_Reset();
   MiniStubs_ConfigureWorld(viewport_width, viewport_height);
   MiniStubs_GetRoomInfo(&room);
 
   state->frame = 0;
-  state->viewport_width = viewport_width;
-  state->viewport_height = viewport_height;
-  state->room_id = room.room_id;
-  state->room_width_blocks = room.room_width_blocks;
-  state->room_height_blocks = room.room_height_blocks;
-  state->room_left = room.room_left;
-  state->room_top = room.room_top;
-  state->room_right = room.room_right;
-  state->room_bottom = room.room_bottom;
-  state->camera_x = room.camera_x;
-  state->camera_y = room.camera_y;
+  state->viewport = (MiniViewportState){
+    .width = viewport_width,
+    .height = viewport_height,
+    .camera_x = room.camera_x,
+    .camera_y = room.camera_y,
+  };
+  state->room = MiniRoomState_FromInfo(&room);
+  MiniStubs_GetCollisionMapView(&state->collision_map);
   state->original_oam_next_ptr = 0;
-  state->ground_y = room.room_bottom;
-  state->last_buttons = 0;
-  state->has_room = room.has_room;
-  state->uses_rom_room = room.uses_rom_room;
-  state->has_editor_room_visuals = room.has_editor_room_visuals;
-  state->uses_original_gameplay_runtime = room.uses_original_gameplay_runtime;
-  state->has_original_enemies = room.has_original_enemies;
-  state->has_original_plms = room.has_original_plms;
-  state->quit_requested = false;
-  state->samus_suit = room.samus_suit;
-  state->room_source = room.room_source;
-  memcpy(state->room_handle, room.room_handle, sizeof(state->room_handle));
-  memcpy(state->room_name, room.room_name, sizeof(state->room_name));
+  state->controls = (MiniControlState){0};
+  state->samus.suit = room.samus_suit;
+  MiniSyncLegacyPublicFields(state);
 
   button_config_left = kButton_Left;
   button_config_right = kButton_Right;
@@ -169,9 +246,15 @@ void MiniGameState_Init(MiniGameState *state, int viewport_width, int viewport_h
   SetLiquidPhysicsType();
   samus_x_pos = room.spawn_x;
   samus_y_pos = room.spawn_y;
+  if (MiniAuthoredMovement_ShouldUseRoom(&room))
+    MiniAuthoredMovement_InitializeSamusGlobals();
   samus_prev_x_pos = samus_x_pos;
   samus_prev_y_pos = samus_y_pos;
   MiniSyncRenderState(state);
+  if (MiniAuthoredMovement_ShouldUseState(state)) {
+    MiniAuthoredMovement_SyncGrounded(state);
+    MiniSyncLegacyPublicFields(state);
+  }
 }
 
 static uint16 MiniStepOriginalGameplayFrame(void) {
@@ -200,12 +283,18 @@ static uint16 MiniStepOriginalGameplayFrame(void) {
 
 void MiniUpdate(MiniGameState *state, const MiniInputState *input) {
   if (input->quit_requested) {
+    state->controls.quit_requested = true;
     state->quit_requested = true;
   }
 
   MiniUpdateButtons(state, input);
-  if (state->uses_original_gameplay_runtime) {
+  if (state->room.uses_original_gameplay_runtime) {
     state->original_oam_next_ptr = MiniStepOriginalGameplayFrame();
+  } else if (MiniAuthoredMovement_ShouldUseState(state)) {
+    state->original_oam_next_ptr = 0;
+    nmi_frame_counter_word++;
+    MiniAuthoredMovement_Step(state);
+    MiniStubs_ClampCameraToRoom();
   } else {
     state->original_oam_next_ptr = 0;
     nmi_frame_counter_word++;
@@ -214,7 +303,7 @@ void MiniUpdate(MiniGameState *state, const MiniInputState *input) {
     HandleControllerInputForGamePhysics();
     HandleSamusMovementAndPause();
     MainScrollingRoutine();
-    if (!state->uses_rom_room)
+    if (!state->room.uses_rom_room)
       MiniStubs_ClampCameraToRoom();
     CalculateLayer2PosAndScrollsWhenScrolling();
     AnimtilesHandler();
@@ -227,22 +316,28 @@ void MiniUpdate(MiniGameState *state, const MiniInputState *input) {
 
 uint64_t MiniGameState_ComputeHash(const MiniGameState *state) {
   static const uint64_t kFnvOffsetBasis = UINT64_C(14695981039346656037);
-  MiniRoomInfo room;
   uint64_t hash = kFnvOffsetBasis;
 
-  MiniStubs_GetRoomInfo(&room);
   hash = MiniHashInt(hash, state->frame);
-  hash = MiniHashInt(hash, state->viewport_width);
-  hash = MiniHashInt(hash, state->viewport_height);
-  hash = MiniHashInt(hash, state->camera_x);
-  hash = MiniHashInt(hash, state->camera_y);
-  hash = MiniHashInt(hash, state->samus_x);
-  hash = MiniHashInt(hash, state->samus_y);
-  hash = MiniHashUInt16(hash, state->samus_pose_value);
-  hash = MiniHashUInt16(hash, state->samus_movement_type_value);
-  hash = MiniHashInt(hash, state->projectile_count);
+  hash = MiniHashInt(hash, state->viewport.width);
+  hash = MiniHashInt(hash, state->viewport.height);
+  hash = MiniHashInt(hash, state->viewport.camera_x);
+  hash = MiniHashInt(hash, state->viewport.camera_y);
+  hash = MiniHashInt(hash, state->samus.world_x);
+  hash = MiniHashInt(hash, state->samus.world_y);
+  hash = MiniHashInt(hash, state->samus.x_velocity);
+  hash = MiniHashInt(hash, state->samus.y_velocity);
+  hash = MiniHashInt(hash, state->samus.screen_x);
+  hash = MiniHashInt(hash, state->samus.screen_y);
+  hash = MiniHashUInt16(hash, state->samus.x_radius);
+  hash = MiniHashUInt16(hash, state->samus.y_radius);
+  hash = MiniHashUInt16(hash, state->samus.pose);
+  hash = MiniHashUInt16(hash, state->samus.movement_type);
+  hash = MiniHashByte(hash, (uint8)state->samus.suit);
+  hash = MiniHashBool(hash, state->samus.on_ground);
+  hash = MiniHashInt(hash, state->projectile_state.count);
   for (int i = 0; i < kMiniProjectileViewCapacity; i++) {
-    const SamusProjectileView *projectile = &state->projectiles[i];
+    const SamusProjectileView *projectile = &state->projectile_state.views[i];
     hash = MiniHashBool(hash, projectile->active);
     hash = MiniHashBool(hash, projectile->is_beam);
     hash = MiniHashBool(hash, projectile->is_basic_beam);
@@ -255,30 +350,52 @@ uint64_t MiniGameState_ComputeHash(const MiniGameState *state) {
     hash = MiniHashUInt16(hash, projectile->y_radius);
     hash = MiniHashUInt16(hash, projectile->damage);
   }
-  hash = MiniHashUInt16(hash, state->last_buttons);
-  hash = MiniHashBool(hash, state->quit_requested);
-  hash = MiniHashBool(hash, room.has_room);
-  hash = MiniHashBool(hash, room.uses_rom_room);
-  hash = MiniHashBool(hash, room.booted_from_save_slot);
-  hash = MiniHashBool(hash, room.has_editor_room_visuals);
-  hash = MiniHashBool(hash, room.uses_original_gameplay_runtime);
-  hash = MiniHashBool(hash, room.has_original_enemies);
-  hash = MiniHashBool(hash, room.has_original_plms);
-  hash = MiniHashByte(hash, (uint8)room.samus_suit);
-  hash = MiniHashUInt16(hash, room.room_id);
-  hash = MiniHashByte(hash, (uint8)room.room_source);
-  hash = MiniHashInt(hash, room.room_left);
-  hash = MiniHashInt(hash, room.room_top);
-  hash = MiniHashInt(hash, room.room_right);
-  hash = MiniHashInt(hash, room.room_bottom);
-  hash = MiniHashInt(hash, room.room_width_blocks);
-  hash = MiniHashInt(hash, room.room_height_blocks);
-  hash = MiniHashInt(hash, room.camera_x);
-  hash = MiniHashInt(hash, room.camera_y);
-  hash = MiniHashInt(hash, room.spawn_x);
-  hash = MiniHashInt(hash, room.spawn_y);
-  hash = MiniHashBytes(hash, room.room_handle, sizeof(room.room_handle));
-  hash = MiniHashBytes(hash, room.room_name, sizeof(room.room_name));
+  hash = MiniHashUInt16(hash, state->controls.buttons);
+  hash = MiniHashUInt16(hash, state->controls.previous_buttons);
+  hash = MiniHashUInt16(hash, state->controls.new_buttons);
+  hash = MiniHashBool(hash, state->controls.quit_requested);
+  hash = MiniHashBool(hash, state->room.has_room);
+  hash = MiniHashBool(hash, state->room.uses_rom_room);
+  hash = MiniHashBool(hash, state->room.booted_from_save_slot);
+  hash = MiniHashBool(hash, state->room.has_editor_room_visuals);
+  hash = MiniHashBool(hash, state->room.uses_original_gameplay_runtime);
+  hash = MiniHashBool(hash, state->room.has_original_enemies);
+  hash = MiniHashBool(hash, state->room.has_original_plms);
+  hash = MiniHashByte(hash, (uint8)state->room.samus_suit);
+  hash = MiniHashUInt16(hash, state->room.room_id);
+  hash = MiniHashByte(hash, (uint8)state->room.room_source);
+  hash = MiniHashInt(hash, state->room.room_left);
+  hash = MiniHashInt(hash, state->room.room_top);
+  hash = MiniHashInt(hash, state->room.room_right);
+  hash = MiniHashInt(hash, state->room.room_bottom);
+  hash = MiniHashInt(hash, state->room.room_width_blocks);
+  hash = MiniHashInt(hash, state->room.room_height_blocks);
+  hash = MiniHashInt(hash, state->room.camera_x);
+  hash = MiniHashInt(hash, state->room.camera_y);
+  hash = MiniHashInt(hash, state->room.spawn_x);
+  hash = MiniHashInt(hash, state->room.spawn_y);
+  hash = MiniHashInt(hash, state->room.camera_target_x_percent);
+  hash = MiniHashInt(hash, state->room.camera_target_y_percent);
+  hash = MiniHashBytes(hash, state->room.room_handle, sizeof(state->room.room_handle));
+  hash = MiniHashBytes(hash, state->room.room_name, sizeof(state->room.room_name));
+  hash = MiniHashInt(hash, state->room.doorway_count);
+  for (int i = 0; i < kMiniDoorwayTransitionCapacity; i++) {
+    const MiniDoorwayTransition *doorway = &state->room.doorways[i];
+    hash = MiniHashBool(hash, doorway->active);
+    hash = MiniHashInt(hash, doorway->source_block_x);
+    hash = MiniHashInt(hash, doorway->source_block_y);
+    hash = MiniHashInt(hash, doorway->destination_x);
+    hash = MiniHashInt(hash, doorway->destination_y);
+    hash = MiniHashInt(hash, doorway->camera_x);
+    hash = MiniHashInt(hash, doorway->camera_y);
+  }
+  hash = MiniHashInt(hash, state->collision_map.block_size);
+  hash = MiniHashInt(hash, state->collision_map.width_blocks);
+  hash = MiniHashInt(hash, state->collision_map.height_blocks);
+  hash = MiniHashInt(hash, state->collision_map.world_left);
+  hash = MiniHashInt(hash, state->collision_map.world_top);
+  hash = MiniHashInt(hash, state->collision_map.world_right);
+  hash = MiniHashInt(hash, state->collision_map.world_bottom);
   hash = MiniHashBytes(hash, g_ram, sizeof(g_ram));
   hash = MiniHashBytes(hash, g_sram, 0x2000);
   hash = MiniHashBytes(hash, MiniPpu_GetVram(), kMiniPpuVramSize);

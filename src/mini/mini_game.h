@@ -1,7 +1,7 @@
 #ifndef SM_MINI_GAME_H_
 #define SM_MINI_GAME_H_
 
-#include "stubs_mini.h"
+#include "mini_room_adapter.h"
 #include "samus_projectile_view.h"
 #include "types.h"
 #include <stddef.h>
@@ -19,7 +19,79 @@ typedef struct MiniInputState {
   bool quit_requested;
 } MiniInputState;
 
+typedef struct MiniViewportState {
+  int width;
+  int height;
+  int camera_x;
+  int camera_y;
+} MiniViewportState;
+
+typedef struct MiniControlState {
+  uint16 buttons;
+  uint16 previous_buttons;
+  uint16 new_buttons;
+  bool quit_requested;
+} MiniControlState;
+
+typedef struct MiniSamusCoreState {
+  int world_x;
+  int world_y;
+  int x_velocity;
+  int y_velocity;
+  int screen_x;
+  int screen_y;
+  uint16 x_radius;
+  uint16 y_radius;
+  uint16 pose;
+  uint16 movement_type;
+  MiniSamusSuit suit;
+  bool on_ground;
+} MiniSamusCoreState;
+
+typedef struct MiniRoomState {
+  bool has_room;
+  bool uses_rom_room;
+  bool booted_from_save_slot;
+  bool has_editor_room_visuals;
+  bool uses_original_gameplay_runtime;
+  bool has_original_enemies;
+  bool has_original_plms;
+  MiniSamusSuit samus_suit;
+  uint16 room_id;
+  char room_handle[kMiniRoomHandleCapacity];
+  char room_name[kMiniRoomNameCapacity];
+  MiniRoomSource room_source;
+  int room_left;
+  int room_top;
+  int room_right;
+  int room_bottom;
+  int room_width_blocks;
+  int room_height_blocks;
+  int camera_x;
+  int camera_y;
+  int spawn_x;
+  int spawn_y;
+  int camera_target_x_percent;
+  int camera_target_y_percent;
+  int doorway_count;
+  MiniDoorwayTransition doorways[kMiniDoorwayTransitionCapacity];
+} MiniRoomState;
+
+typedef struct MiniProjectileState {
+  int count;
+  SamusProjectileView views[kMiniProjectileViewCapacity];
+} MiniProjectileState;
+
 typedef struct MiniGameState {
+  MiniViewportState viewport;
+  MiniRoomState room;
+  MiniCollisionMapView collision_map;
+  MiniSamusCoreState samus;
+  MiniControlState controls;
+  MiniProjectileState projectile_state;
+
+  // Compatibility fields for existing mini callers. Prefer the typed views above
+  // for new mini-facing code.
   int frame;
   int viewport_width;
   int viewport_height;

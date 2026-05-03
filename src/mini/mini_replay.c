@@ -7,7 +7,7 @@
 #include <string.h>
 
 #include "mini_content_scope.h"
-#include "stubs_mini.h"
+#include "mini_room_adapter.h"
 #include "third_party/cJSON.h"
 
 enum {
@@ -256,9 +256,6 @@ bool MiniReplay_Write(const char *path, const MiniReplayWriteInfo *info,
       info->frames < 0 || info->frames > kMiniReplayMaxFrames)
     return false;
 
-  MiniRoomInfo room;
-  MiniStubs_GetRoomInfo(&room);
-
   FILE *f = fopen(path, "wb");
   if (f == NULL) {
     fprintf(stderr, "mini: could not write replay artifact %s\n", path);
@@ -277,21 +274,21 @@ bool MiniReplay_Write(const char *path, const MiniReplayWriteInfo *info,
   fputs(",\n  \"background\": ", f);
   MiniReplay_WriteJsonString(f, info->background != NULL ? info->background : "");
   fputs(",\n  \"room\": {\n", f);
-  fprintf(f, "    \"id\": %u,\n", state->room_id);
+  fprintf(f, "    \"id\": %u,\n", state->room.room_id);
   fputs("    \"source\": ", f);
-  MiniReplay_WriteJsonString(f, MiniStubs_RoomSourceName(state->room_source));
+  MiniReplay_WriteJsonString(f, MiniStubs_RoomSourceName(state->room.room_source));
   fputs(",\n    \"handle\": ", f);
-  MiniReplay_WriteJsonString(f, state->room_handle);
+  MiniReplay_WriteJsonString(f, state->room.room_handle);
   fputs(",\n    \"name\": ", f);
-  MiniReplay_WriteJsonString(f, state->room_name);
+  MiniReplay_WriteJsonString(f, state->room.room_name);
   fputs(",\n    \"export_path\": ", f);
   MiniReplay_WriteJsonString(f, info->room_export_path != NULL ? info->room_export_path : "");
-  fprintf(f, ",\n    \"uses_rom_room\": %s,\n", state->uses_rom_room ? "true" : "false");
+  fprintf(f, ",\n    \"uses_rom_room\": %s,\n", state->room.uses_rom_room ? "true" : "false");
   fprintf(f, "    \"original_runtime\": %s,\n",
-          state->uses_original_gameplay_runtime ? "true" : "false");
+          state->room.uses_original_gameplay_runtime ? "true" : "false");
   fprintf(f, "    \"bounds\": {\"left\": %d, \"top\": %d, \"right\": %d, \"bottom\": %d},\n",
-          room.room_left, room.room_top, room.room_right, room.room_bottom);
-  fprintf(f, "    \"spawn\": {\"x\": %d, \"y\": %d}\n", room.spawn_x, room.spawn_y);
+          state->room.room_left, state->room.room_top, state->room.room_right, state->room.room_bottom);
+  fprintf(f, "    \"spawn\": {\"x\": %d, \"y\": %d}\n", state->room.spawn_x, state->room.spawn_y);
   fputs("  },\n  \"initial_hash\": ", f);
   MiniReplay_WriteHash(f, info->initial_hash);
   fputs(",\n  \"final_hash\": ", f);

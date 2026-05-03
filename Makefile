@@ -1,5 +1,6 @@
 TARGET_EXEC := sm_rev
 MINI_TARGET_EXEC := sm_rev_mini
+MODDABLE_TARGET_EXEC := sm_rev_moddable
 
 PYTHON := /usr/bin/env python3
 CFLAGS := $(if $(CFLAGS),$(CFLAGS),-O2 -fno-strict-aliasing -Werror)
@@ -59,6 +60,9 @@ MINI_RUST_HOST := sm_rev_mini_rs
 MINI_ASSET_DEPS := src/mini/mini_generated_background_data.inc
 MINI_CFLAGS = $(CFLAGS) -DCURRENT_BUILD=BUILD_MINI -ffunction-sections -fdata-sections
 MINI_LDFLAGS = $(LDFLAGS) $(SDLFLAGS) -Wl,--gc-sections
+MODDABLE_SRCS := $(MINI_SRCS)
+MODDABLE_CFLAGS = $(CFLAGS) -DCURRENT_BUILD=BUILD_MODDABLE -ffunction-sections -fdata-sections
+MODDABLE_LDFLAGS = $(MINI_LDFLAGS)
 
 ifeq ($(BUNDLE_ASSETS),1)
   # Regenerate embedded files if sources are newer
@@ -81,7 +85,7 @@ else
     SDLFLAGS := $(shell sdl2-config --libs) -lm
 endif
 
-.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-rust-host
+.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-rust-host moddable moddable-test
 
 all: $(TARGET_EXEC)
 
@@ -95,6 +99,11 @@ mini: $(MINI_TARGET_EXEC)
 
 $(MINI_TARGET_EXEC): $(MINI_SRCS) $(MINI_ASSET_DEPS)
 	$(CC) $(MINI_CFLAGS) $(MINI_SRCS) -o $@ $(MINI_LDFLAGS)
+
+moddable: $(MODDABLE_TARGET_EXEC)
+
+$(MODDABLE_TARGET_EXEC): $(MODDABLE_SRCS) $(MINI_ASSET_DEPS)
+	$(CC) $(MODDABLE_CFLAGS) $(MODDABLE_SRCS) -o $@ $(MODDABLE_LDFLAGS)
 
 %.mini.o: %.c
 	$(CC) -c $(MINI_CFLAGS) $< -o $@
@@ -119,12 +128,15 @@ run: all
 mini-test: mini mini-rollback-test
 	./$(MINI_TARGET_EXEC) --headless --frames 3
 
+moddable-test: moddable
+	./$(MODDABLE_TARGET_EXEC) --headless --frames 3
+
 mini-mac: NATIVE_MAC=1
 mini-mac: mini
 
 clean: clean_obj
 clean_obj:
-	@$(RM) $(OBJS) $(TARGET_EXEC) $(MINI_TARGET_EXEC) $(MINI_KERNEL_OBJS) $(MINI_KERNEL_LIB) $(MINI_ROLLBACK_TEST) $(MINI_RUST_HOST) src/embedded/*.o src/embedded/*.c
+	@$(RM) $(OBJS) $(TARGET_EXEC) $(MINI_TARGET_EXEC) $(MODDABLE_TARGET_EXEC) $(MINI_KERNEL_OBJS) $(MINI_KERNEL_LIB) $(MINI_ROLLBACK_TEST) $(MINI_RUST_HOST) src/embedded/*.o src/embedded/*.c
 
 test: all
 	$(PYTHON) tests/run_tests.py -v

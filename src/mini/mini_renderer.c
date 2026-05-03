@@ -7,9 +7,11 @@
 #include "block_reaction.h"
 #include "funcs.h"
 #include "ida_types.h"
+#include "mini_asset_bootstrap.h"
 #include "mini_defs.h"
 #include "mini_generated_background.h"
 #include "mini_ppu_stub.h"
+#include "mini_room_adapter.h"
 #include "mini_room_fx.h"
 #include "samus_asset_bridge.h"
 #include "variables.h"
@@ -164,7 +166,7 @@ static void MiniRenderBgLayer(uint32_t *pixels, int pitch_pixels, const uint8 *v
 
 static void MiniRenderEditorRoomTiles(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
   MiniEditorTilesetView view;
-  MiniStubs_GetEditorTilesetView(&view);
+  MiniAssetBootstrap_GetEditorTilesetView(&view);
   if (!view.loaded)
     return;
 
@@ -217,7 +219,7 @@ static int MiniComputeEditorLayer2Pos(int layer1_pos, uint8 scroll_mode) {
 static void MiniRenderEditorBg2(uint32_t *pixels, int pitch_pixels, const MiniGameState *state,
                                 const MiniEditorTilesetView *tileset_view) {
   MiniEditorBg2View bg2_view;
-  MiniStubs_GetEditorBg2View(&bg2_view);
+  MiniAssetBootstrap_GetEditorBg2View(&bg2_view);
   if (!bg2_view.loaded || bg2_view.tilemap_words == NULL || !tileset_view->loaded)
     return;
 
@@ -268,7 +270,7 @@ static void MiniRenderObjTileWithPalette(uint32_t *pixels, int pitch_pixels, con
 static void MiniRenderEditorRoomSprites(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
   enum { kMiniEditorRoomSpriteTileBase = 0x100 };
   const MiniEditorRoomSpriteView *sprites = NULL;
-  int count = MiniStubs_GetEditorRoomSpriteViews(&sprites);
+  int count = MiniAssetBootstrap_GetEditorRoomSpriteViews(&sprites);
   if (count <= 0 || sprites == NULL)
     return;
 
@@ -311,7 +313,7 @@ static void MiniRenderRoom(uint32_t *pixels, int pitch_pixels, const MiniGameSta
   bool use_generated_backdrop = g_backdrop_mode == kMiniBackdropMode_Generated;
   if (!state->uses_rom_room) {
     MiniEditorTilesetView tileset_view;
-    MiniStubs_GetEditorTilesetView(&tileset_view);
+    MiniAssetBootstrap_GetEditorTilesetView(&tileset_view);
     if (use_generated_backdrop) {
       MiniGeneratedBackground_Render(pixels, pitch_pixels);
     } else {
@@ -345,12 +347,11 @@ static void MiniRenderRoom(uint32_t *pixels, int pitch_pixels, const MiniGameSta
     int last_block_y = (state->camera_y + kMiniGameHeight + kMiniBlockSize - 1) / kMiniBlockSize;
     for (int block_y = first_block_y; block_y <= last_block_y; block_y++) {
       for (int block_x = first_block_x; block_x <= last_block_x; block_x++) {
-        uint16 level = MiniStubs_GetLevelBlock(block_x, block_y);
-        uint16 block_type = BlockTypeFromTile(level);
+        BlockType block_type = MiniStubs_GetCollisionMaterial(block_x, block_y);
         if (block_type == kBlockType_Air)
           continue;
         uint8 bts = MiniStubs_GetBts(block_x, block_y);
-        uint32_t color = MiniConvertBgr555(kCollisionPalette[BlockTypeIndexFromTile(level)]);
+        uint32_t color = MiniConvertBgr555(kCollisionPalette[BlockTypeIndexFromTile((uint16)block_type)]);
         uint32_t shade = MiniBlendColor(color, 0xFF000000u, 1, 4);
         uint32_t hilite = MiniBlendColor(color, 0xFFFFFFFFu, 1, 5);
         int screen_left = block_x * kMiniBlockSize - state->camera_x;
@@ -519,11 +520,74 @@ static void MiniRenderCurrentOam(uint32_t *pixels, int pitch_pixels, int oam_nex
   }
 }
 
+static const MiniEditorSamusRenderedFrameView *MiniFindSamusRenderedFrame(
+    const MiniEditorSamusRenderedSpritesView *view) {
+  const MiniEditorSamusRenderedFrameView *fallback = NULL;
+  for (int i = 0; i < view->frame_count; i++) {
+    const MiniEditorSamusRenderedFrameView *frame = &view->frames[i];
+    if (frame->pose != samus_pose)
+      continue;
+    if (frame->anim_frame == samus_anim_frame)
+      return frame;
+    if (frame->anim_frame == 0)
+      fallback = frame;
+  }
+  return fallback;
+}
+
+static uint32_t MiniBlendRgbaOver(uint32_t dst, uint8 r, uint8 g, uint8 b, uint8 a) {
+  if (a == 255)
+    return 0xFF000000u | ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
+  uint32_t dr = (dst >> 16) & 0xFF, dg = (dst >> 8) & 0xFF, db = dst & 0xFF;
+  uint32_t inv = 255u - a;
+  return 0xFF000000u |
+         (((uint32_t)r * a + dr * inv) / 255u << 16) |
+         (((uint32_t)g * a + dg * inv) / 255u << 8) |
+         (((uint32_t)b * a + db * inv) / 255u);
+}
+
+static bool MiniRenderSamusRenderedSprite(uint32_t *pixels, int pitch_pixels) {
+  MiniEditorSamusRenderedSpritesView view;
+  MiniAssetBootstrap_GetEditorSamusRenderedSpritesView(&view);
+  if (!view.loaded || view.frame_width <= 0 || view.frame_height <= 0)
+    return false;
+
+  const MiniEditorSamusRenderedFrameView *frame = MiniFindSamusRenderedFrame(&view);
+  if (frame == NULL)
+    return false;
+
+  size_t frame_size = (size_t)view.frame_width * (size_t)view.frame_height * 4u;
+  if ((size_t)frame->data_offset + frame_size > view.rgba_size)
+    return false;
+
+  const uint8 *src = view.rgba + frame->data_offset;
+  int dst_left = (int)samus_x_pos - (int)layer1_x_pos - frame->origin_x;
+  int dst_top = (int)samus_y_pos - (int)layer1_y_pos - frame->origin_y;
+  for (int py = 0; py < view.frame_height; py++) {
+    int out_y = dst_top + py;
+    if ((unsigned)out_y >= kMiniGameHeight)
+      continue;
+    for (int px = 0; px < view.frame_width; px++) {
+      int out_x = dst_left + px;
+      if ((unsigned)out_x >= kMiniGameWidth)
+        continue;
+      const uint8 *rgba = src + ((size_t)py * (size_t)view.frame_width + (size_t)px) * 4u;
+      if (rgba[3] == 0)
+        continue;
+      pixels[out_y * pitch_pixels + out_x] =
+          MiniBlendRgbaOver(pixels[out_y * pitch_pixels + out_x], rgba[0], rgba[1], rgba[2], rgba[3]);
+    }
+  }
+  return true;
+}
+
 static void MiniRenderSamus(uint32_t *pixels, int pitch_pixels) {
   memset(oam_ext, 0, sizeof(uint16) * 16);
   oam_next_ptr = 0;
   nmi_copy_samus_halves = 0;
   Samus_DrawWhenNotAnimatingOrDying();
+  if (MiniRenderSamusRenderedSprite(pixels, pitch_pixels))
+    return;
   MiniPrepareSamusObjTiles();
 
   MiniRenderCurrentOam(pixels, pitch_pixels, oam_next_ptr);

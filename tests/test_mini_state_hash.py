@@ -9,6 +9,11 @@ import pytest
 SM_REV_DIR = Path(__file__).parent.parent
 MINI_BINARY = SM_REV_DIR / "sm_rev_mini"
 LANDING_SITE_EXPORT = SM_REV_DIR.parent / "super_metroid_editor" / "export" / "sm_nav" / "rooms" / "room_91F8.json"
+ROM_CANDIDATES = [
+    SM_REV_DIR / "sm.smc",
+    SM_REV_DIR.parent / "sm" / "sm.smc",
+    SM_REV_DIR.parent / "roms" / "rom.sfc",
+]
 
 
 def run(cmd: list[str], **kw) -> subprocess.CompletedProcess:
@@ -83,3 +88,41 @@ class TestMiniStateHash:
 
         assert idle_state_a["state_hash"] == idle_state_b["state_hash"]
         assert idle_state_a["state_hash"] != spin_state["state_hash"]
+
+    def test_rom_landing_site_state_hash_is_deterministic_across_frame_contracts(self):
+        if not any(path.exists() for path in ROM_CANDIDATES):
+            pytest.skip("ROM-backed Landing Site state hash test requires a local ROM")
+
+        def run_rom_state(frames: int) -> dict:
+            result = run([
+                str(MINI_BINARY),
+                "--headless",
+                "--frames",
+                str(frames),
+            ])
+            assert result.returncode == 0, (
+                f"ROM mini hash run for {frames} frames failed:\n{result.stderr}\n{result.stdout}"
+            )
+            return parse_json_payload(result.stdout)
+
+        state_1_a = run_rom_state(1)
+        state_1_b = run_rom_state(1)
+        state_8_a = run_rom_state(8)
+        state_8_b = run_rom_state(8)
+
+        assert state_1_a == state_1_b
+        assert state_8_a == state_8_b
+        assert state_1_a["frames"] == 1
+        assert state_8_a["frames"] == 8
+        assert state_1_a["state_hash"] != state_8_a["state_hash"]
+        for state in (state_1_a, state_8_a):
+            assert state["rom_room"] is True
+            assert state["original_runtime"] is True
+            assert state["room_source"] in ("rom_demo", "rom_save")
+            assert state["room_handle"] == "landingSite"
+            assert state["room_width"] == 2304
+            assert state["room_height"] == 1280
+            assert 0 <= state["camera_x"] <= state["room_width"] - 256
+            assert 0 <= state["camera_y"] <= state["room_height"] - 224
+            assert 0 <= state["samus_world_x"] <= state["room_width"]
+            assert 0 <= state["samus_world_y"] <= state["room_height"]

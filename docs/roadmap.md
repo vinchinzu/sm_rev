@@ -9,6 +9,8 @@ but this file is the top-level map for modability and portability work.
 - `make` remains the full-game parity target.
 - `make mini` now links the shared gameplay engine under a Landing Site content
   scope instead of being only a shell.
+- `make moddable` builds the authored movement sandbox variant on the same
+  mini-family kernel while avoiding the ROM save/demo runtime by default.
 - `src/mini/` owns the deterministic mini API, replay/rollback helpers, editor
   bridge, mini renderer, and remaining mini shims.
 - `src/host/` owns desktop OpenGL/GLSL renderer code that should stay outside
@@ -29,8 +31,8 @@ but this file is the top-level map for modability and portability work.
   movement states, pose groups, slope/material flags, and camera/nav rules.
 - Treat `src/block_reaction.h` as the shared block material contract for full,
   mini, and editor-exported collision data.
-- Keep shrinking `src/mini/stubs_mini.c` into named mini modules when a shim
-  becomes a stable boundary.
+- Keep stable mini seams in named modules such as `mini_room_adapter.c`,
+  `mini_system.c`, and `mini_platform_stubs.c`.
 - Prefer typed snapshots and config structs for mini-facing state instead of
   adding more direct global reads.
 - Keep boss/mod work behind explicit config and deterministic save-state tests.
@@ -42,8 +44,11 @@ Authoring and tuning should move toward:
 - typed projectile snapshots for mini telemetry
 - named collision materials and room geometry contracts built on the shared
   block type helpers
+- room-authored camera/nav contracts such as mini `cameraFollow` targets
 - boss-specific config modules, starting with Torizo
 - editor-exported Landing Site data for mini rooms and assets
+- `BUILD_MODDABLE` as the authored room/movement sandbox while `BUILD_MINI`
+  remains the scoped parity harness
 
 Avoid expanding mods by adding unrelated globals or patching one-off hex values
 in the middle of behavior code.

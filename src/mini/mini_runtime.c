@@ -15,18 +15,22 @@
 #include "mini_record.h"
 #include "mini_replay.h"
 #include "mini_renderer.h"
-#include "stubs_mini.h"
+#include "mini_room_adapter.h"
 
-#if CURRENT_BUILD != BUILD_MINI
-#error "mini_runtime.c must be compiled with CURRENT_BUILD=BUILD_MINI"
+#if !BUILD_IS_MINI && !BUILD_IS_MODDABLE
+#error "mini_runtime.c must be compiled with CURRENT_BUILD=BUILD_MINI or BUILD_MODDABLE"
 #endif
+
+static const char *MiniRuntime_BuildName(void) {
+  return BUILD_IS_MODDABLE ? "moddable" : "mini";
+}
 
 static void PrintResult(const MiniOptions *options, const MiniGameState *state,
                         const char *record_path, bool replay_verified) {
   uint64_t state_hash = MiniStateHash(state);
   const SamusProjectileView *first_projectile =
-      state->projectile_count > 0 ? &state->projectiles[0] : NULL;
-  printf("{\"build\":\"mini\",\"headless\":%s,\"frames\":%d,"
+      state->projectile_state.count > 0 ? &state->projectile_state.views[0] : NULL;
+  printf("{\"build\":\"%s\",\"headless\":%s,\"frames\":%d,"
          "\"content_scope\":\"%s\","
          "\"no_enemies\":%s,\"no_bosses\":true,\"no_rooms\":%s,"
          "\"room_ptr\":%u,\"room_width\":%d,\"room_height\":%d,"
@@ -36,34 +40,44 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          "\"samus_suit\":\"%s\",\"recording\":%s,\"record_path\":\"%s\","
          "\"replay_in\":\"%s\",\"replay_out\":\"%s\",\"replay_verified\":%s,"
          "\"rom_room\":%s,"
-         "\"samus_x\":%d,\"samus_y\":%d,\"samus_pose\":%u,\"samus_movement_type\":%u,"
+         "\"camera_x\":%d,\"camera_y\":%d,"
+         "\"camera_target_x_percent\":%d,\"camera_target_y_percent\":%d,"
+         "\"samus_x\":%d,\"samus_y\":%d,"
+         "\"samus_world_x\":%d,\"samus_world_y\":%d,\"samus_on_ground\":%s,"
+         "\"samus_pose\":%u,\"samus_movement_type\":%u,"
          "\"projectile_count\":%d,\"first_projectile_type\":%u,"
          "\"first_projectile_x\":%u,\"first_projectile_y\":%u,"
          "\"first_projectile_dir\":%u,"
          "\"state_hash\":\"0x%016llx\"}\n",
+         MiniRuntime_BuildName(),
          options->headless ? "true" : "false", state->frame,
          MiniContentScope_Name(),
-         state->has_original_enemies ? "false" : "true",
-         state->has_room ? "false" : "true",
-         state->room_id,
-         state->room_width_blocks * kMiniBlockSize,
-         state->room_height_blocks * kMiniBlockSize,
-         MiniStubs_RoomSourceName(state->room_source),
-         state->uses_rom_room ? "rom" : (state->has_editor_room_visuals ? "editor_tileset" : "placeholder"),
-         state->room_handle,
+         state->room.has_original_enemies ? "false" : "true",
+         state->room.has_room ? "false" : "true",
+         state->room.room_id,
+         state->room.room_width_blocks * kMiniBlockSize,
+         state->room.room_height_blocks * kMiniBlockSize,
+         MiniStubs_RoomSourceName(state->room.room_source),
+         state->room.uses_rom_room ? "rom" : (state->room.has_editor_room_visuals ? "editor_tileset" : "placeholder"),
+         state->room.room_handle,
          MiniBackdropMode_Name(options->backdrop_mode),
-         state->uses_original_gameplay_runtime ? "true" : "false",
-         state->has_original_enemies ? "true" : "false",
-         state->has_original_plms ? "true" : "false",
-         MiniStubs_SamusSuitName(state->samus_suit),
+         state->room.uses_original_gameplay_runtime ? "true" : "false",
+         state->room.has_original_enemies ? "true" : "false",
+         state->room.has_original_plms ? "true" : "false",
+         MiniStubs_SamusSuitName(state->samus.suit),
          options->record ? "true" : "false",
          record_path != NULL ? record_path : "",
          options->replay_in_path != NULL ? options->replay_in_path : "",
          options->replay_out_path != NULL ? options->replay_out_path : "",
          replay_verified ? "true" : "false",
-         state->uses_rom_room ? "true" : "false",
-         state->samus_x, state->samus_y, state->samus_pose_value, state->samus_movement_type_value,
-         state->projectile_count,
+         state->room.uses_rom_room ? "true" : "false",
+         state->viewport.camera_x, state->viewport.camera_y,
+         state->room.camera_target_x_percent, state->room.camera_target_y_percent,
+         state->samus.screen_x, state->samus.screen_y,
+         state->samus.world_x, state->samus.world_y,
+         state->samus.on_ground ? "true" : "false",
+         state->samus.pose, state->samus.movement_type,
+         state->projectile_state.count,
          first_projectile != NULL ? first_projectile->type : 0,
          first_projectile != NULL ? first_projectile->x_pos : 0,
          first_projectile != NULL ? first_projectile->y_pos : 0,
@@ -154,12 +168,12 @@ static bool ValidateReplayInitialState(const MiniReplayArtifact *replay,
                                        uint64_t initial_hash) {
   if (replay == NULL)
     return true;
-  if (replay->viewport_width != state->viewport_width ||
-      replay->viewport_height != state->viewport_height) {
+  if (replay->viewport_width != state->viewport.width ||
+      replay->viewport_height != state->viewport.height) {
     fprintf(stderr,
             "mini: replay viewport mismatch (artifact=%dx%d runtime=%dx%d)\n",
             replay->viewport_width, replay->viewport_height,
-            state->viewport_width, state->viewport_height);
+            state->viewport.width, state->viewport.height);
     return false;
   }
   if (replay->initial_hash != initial_hash) {
@@ -193,8 +207,8 @@ static bool WriteReplayOutput(const MiniOptions *options, const MiniGameState *s
     return true;
   MiniReplayWriteInfo info = {
     .frames = frames->count,
-    .viewport_width = state->viewport_width,
-    .viewport_height = state->viewport_height,
+    .viewport_width = state->viewport.width,
+    .viewport_height = state->viewport.height,
     .initial_hash = initial_hash,
     .final_hash = final_hash,
     .content_scope = MiniContentScope_Name(),
@@ -328,7 +342,7 @@ static int RunWindowed(const MiniOptions *options) {
   }
   sdl_initialized = true;
 
-  window = SDL_CreateWindow("sm_rev mini",
+  window = SDL_CreateWindow(BUILD_IS_MODDABLE ? "sm_rev moddable" : "sm_rev mini",
                             SDL_WINDOWPOS_CENTERED,
                             SDL_WINDOWPOS_CENTERED,
                             kMiniWindowWidth,

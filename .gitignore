@@ -3,6 +3,7 @@
 *.sfc
 sm_rev
 sm_rev_mini
+sm_rev_moddable
 .claude/
 *.mp4
 

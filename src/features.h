@@ -18,9 +18,9 @@ enum {
 #define BUILD_IS_MINI (CURRENT_BUILD == BUILD_MINI)
 #define BUILD_IS_MODDABLE (CURRENT_BUILD == BUILD_MODDABLE)
 
-#if CURRENT_BUILD == BUILD_MINI
-// Mini links shared game systems and constrains content/runtime entry to the
-// Landing Site slice instead of compiling broad systems out.
+#if CURRENT_BUILD == BUILD_MINI || CURRENT_BUILD == BUILD_MODDABLE
+// Mini-family builds link shared game systems and constrain content/runtime
+// entry to the Landing Site slice instead of compiling broad systems out.
 #define MINI_LANDING_SITE_ONLY 1
 #define NO_SOUND 1
 #endif

@@ -12,8 +12,13 @@ For the current top-level plan and source ownership rules, see
 
 Current scope:
 - `make mini` builds `sm_rev_mini`.
+- `make moddable` builds `sm_rev_moddable`, the user-facing authored movement
+  sandbox variant compiled with `CURRENT_BUILD=BUILD_MODDABLE`.
 - `sm_rev_mini` now defaults to the ROM-backed Landing Site slice when a ROM
   and compatible save/demo entry are available.
+- `sm_rev_moddable` shares the mini host/kernel modules but defaults to
+  editor-authored or fallback room data instead of selecting the ROM save/demo
+  runtime.
 - The default ROM path steps the shared original gameplay loop for that room,
   including original room runtime, PLMs, enemy setup, OAM drawing, Samus, physics,
   projectiles, palette FX, HDMA objects, and room main code.
@@ -39,7 +44,9 @@ The mini target is now split into clearer responsibilities under [`src/mini/`](.
 - [mini_ppu_stub.c](../src/mini/mini_ppu_stub.c): mini-owned VRAM/CGRAM/DMA register emulation for rendering and asset uploads
 - [mini_game.c](../src/mini/mini_game.c): gameplay-state setup and per-frame update
 - [mini_content_scope.c](../src/mini/mini_content_scope.c): allowed mini content boundary, currently Landing Site only
-- [stubs_mini.c](../src/mini/stubs_mini.c): parity adapter layer for ROM/editor room selection, remaining legacy globals, and host shims
+- [mini_room_adapter.c](../src/mini/mini_room_adapter.c): editor/ROM/fallback room selection, collision-map setup, and room-boundary metadata
+- [mini_system.c](../src/mini/mini_system.c): mini reset orchestration across WRAM, PPU, assets, and ROM bootstrap state
+- [mini_platform_stubs.c](../src/mini/mini_platform_stubs.c): mini low-level platform, RTL, SRAM/audio no-op, and error shims
 
 That split is intentional for future portability work. A Rust or other-language port
 can replace the host loop and renderer independently before touching the gameplay
@@ -48,6 +55,8 @@ update path.
 Linux:
 - `make mini`
 - `make mini-test`
+- `make moddable`
+- `make moddable-test`
 
 Replay artifact smoke:
 - `./sm_rev_mini --headless --frames 4 --input-script path/to/script.txt --replay-out out/mini_replay.json`
@@ -87,13 +96,20 @@ Mini has moved past the first negative-only shell. The target is now:
 
 The editor-export path remains valuable, but it is not the parity authority. It is
 the fast authoring/movement lane. The ROM-backed Landing Site path is the parity
-lane.
+lane. `sm_rev_moddable` makes that authoring lane explicit by reporting
+`"build":"moddable"` and avoiding the ROM save/demo runtime by default.
+
+Current deterministic coverage includes editor/authored-room state hashes,
+authored slope/door/morph-tunnel/wall-jump/bomb-jump/doorway-transition
+traversal checks, authored camera-follow target checks, rollback save/load
+checks, and non-Landing editor-export rejection checks. ROM-backed Landing Site
+frame-progression hash contracts run when a local ROM is available.
 
 ## Forward Plan
 
 1. Keep the host layer thin: `src/mini/mini_main.c` and `src/mini/mini_runtime.c` should stay free of gameplay rules.
-2. Shrink `src/mini/stubs_mini.c` further by peeling ROM loading, SRAM/save-slot selection, and room boot into narrower modules.
+2. Keep new mini seams in named modules instead of reintroducing catch-all facade files.
 3. Move remaining mini-only rendering substitutions toward shared original OAM/VRAM paths before expanding beyond Landing Site.
 4. Keep full-build behavior authoritative: shared modules must continue to build and run in `sm_rev`.
 5. Keep non-Landing Site content blocked until each dependency has an intentional parity boundary.
-6. Add deterministic assertions around the ROM-backed Landing Site path once its frame state stabilizes.
+6. Broaden ROM-backed Landing Site assertions toward transition and room-state semantics once those contracts are stable enough.

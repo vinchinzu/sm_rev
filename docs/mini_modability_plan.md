@@ -20,6 +20,50 @@ Current baseline on 2026-05-02:
   assets are present; explicit editor exports remain the fast authoring path.
 - Physics tuning already has a data seam in [src/physics_config.c](../src/physics_config.c).
 
+Implemented checkpoint on 2026-05-02:
+- editor exports can provide named `materials` grids backed by
+  [`src/block_reaction.h`](../src/block_reaction.h) block types instead of raw
+  collision/BTS grids
+- material-only authored Landing Site rooms can run deterministic Samus
+  traversal without ROM-backed pose tables through
+  [`src/mini/mini_authored_movement.c`](../src/mini/mini_authored_movement.c)
+- authored traversal now includes a room-authored camera-follow target that is
+  clamped to the authored room bounds
+- the authored mini movement path reads the existing `PhysicsParams` /
+  `sm_mods.json` tuning seam
+- [`src/mini/mini_game.h`](../src/mini/mini_game.h) exposes typed viewport,
+  room, collision-map, Samus, control, and projectile views while keeping
+  compatibility fields synchronized for existing callers
+- stable low-level mini platform/RTL shims have been split from `stubs_mini.c` into
+  [`src/mini/mini_platform_stubs.c`](../src/mini/mini_platform_stubs.c)
+- stable editor/ROM/fallback room selection and collision-map adapter code has
+  been split from `stubs_mini.c` into
+  [`src/mini/mini_room_adapter.c`](../src/mini/mini_room_adapter.c) and
+  [`src/mini/mini_room_adapter.h`](../src/mini/mini_room_adapter.h)
+- the remaining reset facade has been retired into
+  [`src/mini/mini_system.c`](../src/mini/mini_system.c), and editor asset views
+  are exposed directly from
+  [`src/mini/mini_asset_bootstrap.h`](../src/mini/mini_asset_bootstrap.h)
+- deterministic authored traversal coverage now includes a multi-tile authored
+  slope segment, a passable door marker at the camera boundary, an airborne
+  wall-jump contact, a morph-ball tunnel, a Down+Shoot authored bomb-jump
+  impulse, and configured doorway transitions
+- authored room exports can tune `cameraFollow.targetXPercent` /
+  `targetYPercent`, and the resulting camera target is covered by deterministic
+  headless state-hash assertions
+- non-Landing authored room exports have deterministic content-scope coverage so
+  mini keeps rejecting or falling back until those dependencies have parity
+  boundaries
+- ROM-backed Landing Site runs now have deterministic frame-progression
+  state-hash assertions when a local ROM is available
+- `BUILD_MODDABLE` now builds as `sm_rev_moddable`, reports
+  `"build":"moddable"` in headless JSON, and defaults to authored/editor or
+  fallback room data instead of selecting the ROM save/demo parity runtime
+- focused coverage lives in
+  [`tests/test_mini_authored_room.py`](../tests/test_mini_authored_room.py) and
+  typed-boundary rollback assertions live in
+  [`tests/mini_rollback_api.c`](../tests/mini_rollback_api.c)
+
 ## Target Shape
 
 The long-term target is a split architecture:
@@ -177,22 +221,30 @@ Tests should assert world-state outcomes, not just "program exits 0".
 
 ## Phase 7: Promote `BUILD_MODDABLE` From Placeholder To Product Shape
 
-[src/features.h](/
-already reserves `BUILD_MODDABLE`.
+Status: Initial product shape promoted.
 
-Use it only after the mini kernel is stable enough to be a user-facing sandbox.
-Suggested meaning:
+[`src/features.h`](../src/features.h) reserves `BUILD_MODDABLE`, and the
+Makefile now exposes it through `make moddable` / `sm_rev_moddable`.
+
+Current meaning:
 - `BUILD_MINI`: scoped parity/bring-up harness
 - `BUILD_MODDABLE`: actual movement sandbox with authored maps and stable gameplay contracts
 - `BUILD_FULL`: full ROM-parity game
 
-That keeps experimentation separate from the current parity harness while preserving the full build.
+`BUILD_MODDABLE` intentionally shares the mini host/kernel modules, but its
+default room selection skips the ROM save/demo runtime and lands on editor
+exports or fallback authored geometry. Explicit `--room-export` remains the
+primary authored-map path. The build still keeps the Landing Site content scope
+until non-Landing Site dependencies have deliberate parity boundaries.
+
+That keeps experimentation separate from the current parity harness while
+preserving the full build.
 
 ## Recommended Execution Order
 
 1. Keep `src/mini/mini_runtime.c` and `src/mini/mini_main.c` host-only.
-2. Shrink `src/mini/stubs_mini.c` by moving stable ROM bootstrap, room scope,
-   rendering, and editor bridge responsibilities into named mini modules.
+2. Keep stable room, rendering, reset, and editor bridge responsibilities in
+   named mini modules rather than catch-all facade files.
 3. Clean magic values only in the active movement/collision slice:
    - movement-state and pose constants
    - collision material and slope flags
@@ -203,21 +255,49 @@ That keeps experimentation separate from the current parity harness while preser
 6. Add or widen mod config only after the target behavior has deterministic
    save/load coverage.
 
-## Next Three Concrete Tasks
+## Completed Current Tasks
 
 1. **Name more collision semantics**
-   - continue replacing proven block/slope/material masks with
+   - material-grid editor exports now use
      [`src/block_reaction.h`](../src/block_reaction.h) constants and helpers
-   - keep unsigned SNES-era arithmetic intact while naming the rule being applied
+   - the mini collision view exposes block material names through typed accessors
 
 2. **Type the mini-facing state boundary**
-   - add narrow snapshots for Samus state, controls, projectiles, and room
-     collision where mini currently reads broad globals
-   - keep full-build adapters beside existing globals until parity is proven
+   - `MiniGameState` now carries narrow snapshots for viewport, room,
+     collision-map metadata, Samus state, controls, and projectiles
+   - compatibility fields remain populated beside the typed state until callers
+     are migrated
 
 3. **Make authored rooms less ROM-shaped**
-   - load spawn/camera/material metadata from editor export data
+   - material-only room exports can define spawn/camera/material metadata without
+     numeric ROM-shaped collision grids
    - keep the ROM-backed Landing Site path as the parity reference
+
+4. **Broaden authored traversal assertions**
+   - authored movement now has deterministic coverage for multi-tile slope
+     traversal, door-marker pass-through at the camera boundary, morph-ball
+     tunnel traversal, wall-jump contact, bomb-jump launch, and configured
+     doorway transitions
+   - headless mini JSON now exposes world-position and grounded state telemetry
+     for traversal assertions
+
+5. **Split stable mini adapters**
+   - low-level platform/RTL shims now live in
+     [`src/mini/mini_platform_stubs.c`](../src/mini/mini_platform_stubs.c)
+   - room selection, collision-map setup, room metadata, and camera clamping now
+     live in [`src/mini/mini_room_adapter.c`](../src/mini/mini_room_adapter.c)
+   - reset orchestration now lives in
+     [`src/mini/mini_system.c`](../src/mini/mini_system.c), and editor asset
+     view access is direct through
+     [`src/mini/mini_asset_bootstrap.h`](../src/mini/mini_asset_bootstrap.h)
+
+## Remaining Strategic Follow-Ups
+
+- Grow `BUILD_MODDABLE` beyond the current Landing Site content scope only after
+  room transitions, rendering substitutions, and collision dependencies have
+  explicit parity boundaries.
+- Continue adding broader authored gameplay config in small room-data contracts
+  once each behavior has deterministic save/load or state-hash coverage.
 
 ## Success Criteria
 
