@@ -144,8 +144,8 @@ Current weapon boundary for mini:
 - projectile slot reset/clear/kill lifecycle now lives in `src/samus_projectile_state.c`, so the original full build and mini both use the same cleaner module boundary
 - beam fire/cooldown/palette setup now lives in `src/samus_projectile_weapon.c`, keeping mini shooting and the original `sm_rev` build on the same weapon path
 - `src/samus_projectile_view.c` exposes a typed read-only projectile snapshot for mini telemetry and rendering
-- editor/fallback mini still renders active beam projectiles from projectile state directly for the movement sandbox
 - ROM-backed mini frames render original OAM/VRAM state instead of layering mini projectile or room-sprite substitutes on top
+- two-player mini defaults to that ROM-backed path and draws both Samus actors through the shared original OAM path
 - scripted `SHOOT` input now has a deterministic mini regression that asserts a basic power-beam projectile is spawned
 
 Completed visual extraction order:

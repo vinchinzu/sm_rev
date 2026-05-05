@@ -18,6 +18,12 @@
 
 enum {
   kMiniEditorAirMetatile = 0xFF,
+  kMiniRenderPlayerRuntimePreProjectileOffset = 0xA94,
+  kMiniRenderPlayerRuntimePostProjectileOffset = 0xCCC,
+  kMiniRenderOamOffset = 0x370,
+  kMiniRenderOamSize = 0x200,
+  kMiniRenderSamusTilesVramOffset = 0x6000u << 1,
+  kMiniRenderSamusTilesVramSize = 0x400,
 };
 
 static MiniBackdropMode g_backdrop_mode = kMiniBackdropMode_Game;
@@ -593,61 +599,165 @@ static void MiniRenderSamus(uint32_t *pixels, int pitch_pixels) {
   MiniRenderCurrentOam(pixels, pitch_pixels, oam_next_ptr);
 }
 
-static void MiniRenderPlayerMarker(uint32_t *pixels, int pitch_pixels,
-                                   const MiniGameState *state, int player_index) {
-  const MiniSamusCoreState *samus = &state->players[player_index].samus;
-  int left = samus->world_x - state->camera_x - samus->x_radius;
-  int top = samus->world_y - state->camera_y - samus->y_radius;
-  int width = samus->x_radius * 2 + 1;
-  int height = samus->y_radius * 2;
-  uint32_t body = player_index == 1 ? MiniConvertBgr555(0x7C1F) : MiniConvertBgr555(0x03E0);
-  uint32_t edge = MiniBlendColor(body, 0xFFFFFFFFu, 1, 3);
-  MiniFillRect(pixels, pitch_pixels, left, top, width, height, body);
-  MiniFillRect(pixels, pitch_pixels, left, top, width, 2, edge);
-  MiniFillRect(pixels, pitch_pixels, left, top, 2, height, edge);
-  MiniFillRect(pixels, pitch_pixels, left + width - 2, top, 2, height,
-               MiniBlendColor(body, 0xFF000000u, 1, 3));
+typedef struct MiniRenderSamusGlobals {
+  uint16 x_pos;
+  uint16 y_pos;
+  uint16 prev_x_pos;
+  uint16 prev_y_pos;
+  uint16 x_radius;
+  uint16 y_radius;
+  uint16 pose;
+  uint16 movement_type;
+  uint16 camera_x;
+  uint16 camera_y;
+} MiniRenderSamusGlobals;
+
+typedef struct MiniRenderSamusScratch {
+  MiniRenderSamusGlobals globals;
+  uint8 runtime_pre_projectile[kMiniPlayerRuntimePreProjectileSize];
+  uint8 runtime_post_projectile[kMiniPlayerRuntimePostProjectileSize];
+  uint8 oam[kMiniRenderOamSize];
+  uint16 oam_ext_words[16];
+  uint16 oam_next;
+  uint16 nmi_halves;
+  uint16 nmi_top_half_src;
+  uint16 nmi_bottom_half_src;
+  uint8 samus_tiles_vram[kMiniRenderSamusTilesVramSize];
+} MiniRenderSamusScratch;
+
+static MiniRenderSamusGlobals MiniSaveSamusRenderGlobals(void) {
+  return (MiniRenderSamusGlobals){
+    .x_pos = samus_x_pos,
+    .y_pos = samus_y_pos,
+    .prev_x_pos = samus_prev_x_pos,
+    .prev_y_pos = samus_prev_y_pos,
+    .x_radius = samus_x_radius,
+    .y_radius = samus_y_radius,
+    .pose = samus_pose,
+    .movement_type = samus_movement_type,
+    .camera_x = layer1_x_pos,
+    .camera_y = layer1_y_pos,
+  };
 }
 
-static void MiniRenderProjectiles(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
-  int count = state->projectile_count < kMiniProjectileViewCapacity
-                  ? state->projectile_count
-                  : kMiniProjectileViewCapacity;
-  for (int i = 0; i < count; i++) {
-    const SamusProjectileView *projectile = &state->projectiles[i];
-    if (!projectile->active || !projectile->is_beam)
+static void MiniSaveSamusRenderScratch(MiniRenderSamusScratch *scratch) {
+  scratch->globals = MiniSaveSamusRenderGlobals();
+  memcpy(scratch->runtime_pre_projectile,
+         g_ram + kMiniRenderPlayerRuntimePreProjectileOffset,
+         sizeof(scratch->runtime_pre_projectile));
+  memcpy(scratch->runtime_post_projectile,
+         g_ram + kMiniRenderPlayerRuntimePostProjectileOffset,
+         sizeof(scratch->runtime_post_projectile));
+  memcpy(scratch->oam, g_ram + kMiniRenderOamOffset, sizeof(scratch->oam));
+  memcpy(scratch->oam_ext_words, oam_ext, sizeof(scratch->oam_ext_words));
+  scratch->oam_next = oam_next_ptr;
+  scratch->nmi_halves = nmi_copy_samus_halves;
+  scratch->nmi_top_half_src = nmi_copy_samus_top_half_src;
+  scratch->nmi_bottom_half_src = nmi_copy_samus_bottom_half_src;
+  memcpy(scratch->samus_tiles_vram,
+         MiniPpu_GetVram() + kMiniRenderSamusTilesVramOffset,
+         sizeof(scratch->samus_tiles_vram));
+}
+
+static void MiniRestoreSamusRenderGlobals(const MiniRenderSamusGlobals *saved) {
+  samus_x_pos = saved->x_pos;
+  samus_y_pos = saved->y_pos;
+  samus_prev_x_pos = saved->prev_x_pos;
+  samus_prev_y_pos = saved->prev_y_pos;
+  samus_x_radius = saved->x_radius;
+  samus_y_radius = saved->y_radius;
+  samus_pose = saved->pose;
+  samus_movement_type = saved->movement_type;
+  layer1_x_pos = saved->camera_x;
+  layer1_y_pos = saved->camera_y;
+}
+
+static void MiniRestoreSamusRenderScratch(const MiniRenderSamusScratch *scratch) {
+  MiniRestoreSamusRenderGlobals(&scratch->globals);
+  memcpy(g_ram + kMiniRenderPlayerRuntimePreProjectileOffset,
+         scratch->runtime_pre_projectile,
+         sizeof(scratch->runtime_pre_projectile));
+  memcpy(g_ram + kMiniRenderPlayerRuntimePostProjectileOffset,
+         scratch->runtime_post_projectile,
+         sizeof(scratch->runtime_post_projectile));
+  memcpy(g_ram + kMiniRenderOamOffset, scratch->oam, sizeof(scratch->oam));
+  memcpy(oam_ext, scratch->oam_ext_words, sizeof(scratch->oam_ext_words));
+  oam_next_ptr = scratch->oam_next;
+  nmi_copy_samus_halves = scratch->nmi_halves;
+  nmi_copy_samus_top_half_src = scratch->nmi_top_half_src;
+  nmi_copy_samus_bottom_half_src = scratch->nmi_bottom_half_src;
+  memcpy(MiniPpu_GetVram() + kMiniRenderSamusTilesVramOffset,
+         scratch->samus_tiles_vram,
+         sizeof(scratch->samus_tiles_vram));
+}
+
+static void MiniApplySamusRenderRuntime(const MiniGameState *state, int player_index) {
+  memcpy(g_ram + kMiniRenderPlayerRuntimePreProjectileOffset,
+         state->player_runtime_pre_projectile[player_index],
+         kMiniPlayerRuntimePreProjectileSize);
+  memcpy(g_ram + kMiniRenderPlayerRuntimePostProjectileOffset,
+         state->player_runtime_post_projectile[player_index],
+         kMiniPlayerRuntimePostProjectileSize);
+}
+
+static void MiniApplySamusRenderGlobals(const MiniGameState *state, int player_index) {
+  const MiniSamusCoreState *samus = &state->players[player_index].samus;
+  samus_x_pos = (uint16)samus->world_x;
+  samus_y_pos = (uint16)samus->world_y;
+  samus_prev_x_pos = samus_x_pos;
+  samus_prev_y_pos = samus_y_pos;
+  samus_x_radius = samus->x_radius;
+  samus_y_radius = samus->y_radius;
+  samus_pose = samus->pose;
+  samus_movement_type = samus->movement_type;
+  layer1_x_pos = (uint16)state->viewport.camera_x;
+  layer1_y_pos = (uint16)state->viewport.camera_y;
+}
+
+static bool MiniSamusPlayerHitboxVisible(const MiniGameState *state, int player_index) {
+  const MiniSamusCoreState *samus = &state->players[player_index].samus;
+  int width = samus->x_radius * 2 + 1;
+  int height = samus->y_radius * 2 + 1;
+  return samus->screen_x < state->viewport.width &&
+         samus->screen_x + width > 0 &&
+         samus->screen_y < state->viewport.height &&
+         samus->screen_y + height > 0;
+}
+
+static void MiniRenderSamusPlayers(uint32_t *pixels, int pitch_pixels, const MiniGameState *state,
+                                   int first_player, bool use_player_runtime) {
+  MiniRenderSamusScratch saved;
+  MiniSaveSamusRenderScratch(&saved);
+  int player_count = state->player_count;
+  if (player_count < 1)
+    player_count = 1;
+  if (player_count > kMiniMaxPlayers)
+    player_count = kMiniMaxPlayers;
+  if (first_player < 0)
+    first_player = 0;
+  for (int player = first_player; player < player_count; player++) {
+    if (!MiniSamusPlayerHitboxVisible(state, player))
       continue;
-
-    int x = (int)projectile->x_pos - state->camera_x;
-    int y = (int)projectile->y_pos - state->camera_y;
-    uint16 dir = projectile->direction & 0xF;
-    bool vertical = dir == 0 || dir == 4;
-    bool horizontal = dir == 2 || dir == 7;
-    int width = horizontal ? 10 : (vertical ? 4 : 8);
-    int height = vertical ? 10 : (horizontal ? 4 : 8);
-    uint32_t core = projectile->is_basic_beam ? MiniConvertBgr555(0x03FF) : MiniConvertBgr555(0x7FE0);
-    uint32_t edge = MiniBlendColor(core, 0xFFFFFFFFu, 1, 3);
-
-    MiniFillRect(pixels, pitch_pixels, x - width / 2, y - height / 2,
-                 width, height, core);
-    MiniFillRect(pixels, pitch_pixels, x - width / 2, y - height / 2,
-                 width, 1, edge);
+    if (use_player_runtime)
+      MiniApplySamusRenderRuntime(state, player);
+    MiniApplySamusRenderGlobals(state, player);
+    MiniRenderSamus(pixels, pitch_pixels);
   }
+  MiniRestoreSamusRenderScratch(&saved);
 }
 
 void MiniRenderFrameToPixels(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
   MiniRenderRoom(pixels, pitch_pixels, state);
   if (state->uses_original_gameplay_runtime) {
     MiniRenderCurrentOam(pixels, pitch_pixels, state->original_oam_next_ptr);
+    if (state->player_count > 1)
+      MiniRenderSamusPlayers(pixels, pitch_pixels, state, 1, true);
     return;
   }
   if (state->uses_rom_room)
     return;
   MiniRenderEditorRoomSprites(pixels, pitch_pixels, state);
-  MiniRenderSamus(pixels, pitch_pixels);
-  for (int player = 1; player < state->player_count && player < kMiniMaxPlayers; player++)
-    MiniRenderPlayerMarker(pixels, pitch_pixels, state, player);
-  MiniRenderProjectiles(pixels, pitch_pixels, state);
+  MiniRenderSamusPlayers(pixels, pitch_pixels, state, 0, false);
 }
 
 bool MiniSaveScreenshot(const char *path, const MiniGameState *state) {

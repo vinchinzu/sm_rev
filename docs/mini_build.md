@@ -18,10 +18,10 @@ Current scope:
   sandbox variant compiled with `CURRENT_BUILD=BUILD_MODDABLE`.
 - `sm_rev_mini` now defaults to the ROM-backed Landing Site slice when a ROM
   and compatible save/demo entry are available.
-- `sm_rev_mini --players 2` switches to the editor-authored/fallback mini
-  gameplay lane so both local players can move, fire, and register hits today.
+- `sm_rev_mini --players 2` keeps the ROM-backed Landing Site runtime when it is
+  available and enables the shared MultiSamus two-actor path.
 - `sm_rev_mini --multiplayer-demo` enables two players and drives a built-in
-  exchange-fire script for quick headless or windowed verification.
+  local input script for quick headless or windowed verification.
 - `sm_rev_moddable` shares the mini host/kernel modules but defaults to
   editor-authored or fallback room data instead of selecting the ROM save/demo
   runtime.

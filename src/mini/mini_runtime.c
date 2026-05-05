@@ -16,6 +16,7 @@
 #include "mini_replay.h"
 #include "mini_renderer.h"
 #include "mini_room_adapter.h"
+#include "variables.h"
 
 #if !BUILD_IS_MINI && !BUILD_IS_MODDABLE
 #error "mini_runtime.c must be compiled with CURRENT_BUILD=BUILD_MINI or BUILD_MODDABLE"
@@ -43,7 +44,8 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          "\"room_source\":\"%s\",\"room_visuals\":\"%s\",\"room_handle\":\"%s\","
          "\"background\":\"%s\","
          "\"original_runtime\":%s,\"original_enemies\":%s,\"original_plms\":%s,"
-         "\"samus_suit\":\"%s\",\"recording\":%s,\"record_path\":\"%s\","
+         "\"samus_suit\":\"%s\",\"equipped_items\":%u,\"equipped_beams\":%u,"
+         "\"recording\":%s,\"record_path\":\"%s\","
          "\"replay_in\":\"%s\",\"replay_out\":\"%s\",\"replay_verified\":%s,"
          "\"rom_room\":%s,"
          "\"camera_x\":%d,\"camera_y\":%d,"
@@ -80,6 +82,8 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          state->room.has_original_enemies ? "true" : "false",
          state->room.has_original_plms ? "true" : "false",
          MiniStubs_SamusSuitName(state->samus.suit),
+         equipped_items,
+         equipped_beams,
          options->record ? "true" : "false",
          record_path != NULL ? record_path : "",
          options->replay_in_path != NULL ? options->replay_in_path : "",
@@ -287,9 +291,12 @@ static bool WriteReplayOutput(const MiniOptions *options, const MiniGameState *s
 static void ApplyMultiplayerDemoFrame(int frame_index, MiniScriptFrame *frame) {
   memset(frame, 0, sizeof(*frame));
   frame->player_count = kMiniMaxPlayers;
-  if (frame_index == 0) {
+  if (frame_index < 6) {
+    frame->player_buttons[0] = kButton_Right;
+    frame->player_buttons[1] = kButton_Left;
+  } else if (frame_index < 10) {
     frame->player_buttons[0] = kButton_X;
-    frame->player_buttons[1] = kButton_Left | kButton_X;
+    frame->player_buttons[1] = kButton_X;
   }
   frame->buttons = frame->player_buttons[0];
 }

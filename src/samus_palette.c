@@ -23,24 +23,6 @@
 #define off_91DC28 ((uint16*)RomFixedPtr(0x91dc28))
 #define kSuitPickupBeamOffsets ((uint8*)RomFixedPtr(0x88e3c9))
 
-static void ApplyPad2PalettePrototype(void);
-static void ApplyPad2VisorFlare(uint16 pad2);
-
-static uint16 ClampPaletteComponent(int value) {
-  if (value < 0)
-    return 0;
-  if (value > 31)
-    return 31;
-  return value;
-}
-
-static uint16 TintBgr555(uint16 color, int red_delta, int green_delta, int blue_delta) {
-  int red = ClampPaletteComponent((color & 0x1f) + red_delta);
-  int green = ClampPaletteComponent(((color >> 5) & 0x1f) + green_delta);
-  int blue = ClampPaletteComponent(((color >> 10) & 0x1f) + blue_delta);
-  return red | (green << 5) | (blue << 10);
-}
-
 void VariaSuitPickup(void) {  // 0x91D4E4
   suit_pickup_color_math_R = 48;
   suit_pickup_color_math_G = 80;
@@ -426,7 +408,6 @@ void Samus_HandlePalette(void) {
     CopyToSamusSuitPalette(off_91D727[samus_suit_palette_index >> 1]);
   }
   HandleMiscSamusPalette();
-  ApplyPad2PalettePrototype();
 }
 
 uint8 HandleBeamChargePalettes(void) {  // 0x91D743
@@ -747,83 +728,6 @@ uint8 Samus_HandleXrayPals(void) {  // 0x91DCB4
 
 uint8 nullsub_164(void) {  // 0x91DD31
   return 0;
-}
-
-static void ApplyPad2PalettePrototype(void) {
-  uint16 pad2 = joypad2_last;
-  int red_delta = 0;
-  int green_delta = 0;
-  int blue_delta = 0;
-
-  if (!pad2)
-    return;
-
-  // Prototype only: prove pad 2 reaches live gameplay code without rewriting Samus.
-  if (pad2 & kButton_Down)
-    red_delta += 6;
-  if (pad2 & kButton_Left)
-    green_delta += 6;
-  if (pad2 & kButton_Up)
-    blue_delta += 6;
-  if (pad2 & kButton_Right) {
-    red_delta += 4;
-    green_delta += 4;
-  }
-  if (pad2 & kButton_B) {
-    red_delta += 4;
-    blue_delta += 2;
-  }
-  if (pad2 & kButton_Y) {
-    green_delta += 3;
-    blue_delta += 3;
-  }
-  if (pad2 & kButton_A) {
-    red_delta += 2;
-    blue_delta += 4;
-  }
-  if (pad2 & kButton_X) {
-    red_delta += 2;
-    green_delta += 2;
-    blue_delta += 2;
-  }
-
-  for (int i = 193; i < 208; i++)
-    palette_buffer[i] = TintBgr555(palette_buffer[i], red_delta, green_delta, blue_delta);
-  ApplyPad2VisorFlare(pad2);
-}
-
-static void ApplyPad2VisorFlare(uint16 pad2) {
-  int red_delta = 0;
-  int green_delta = 0;
-  int blue_delta = 0;
-
-  if ((pad2 & (kButton_A | kButton_X | kButton_B | kButton_Y)) == 0)
-    return;
-
-  if (pad2 & kButton_X) {
-    green_delta += 10;
-    blue_delta += 10;
-  }
-  if (pad2 & kButton_A) {
-    red_delta += 8;
-    blue_delta += 10;
-  }
-  if (pad2 & kButton_Y) {
-    green_delta += 12;
-    blue_delta += 4;
-  }
-  if (pad2 & kButton_B) {
-    red_delta += 10;
-    green_delta += 5;
-  }
-  if ((nmi_frame_counter_word & 2) == 0) {
-    red_delta += 2;
-    green_delta += 2;
-    blue_delta += 2;
-  }
-
-  // Keep the flare focused on the visor so P2 has a readable assist cue.
-  palette_buffer[196] = TintBgr555(palette_buffer[196], red_delta, green_delta, blue_delta);
 }
 
 void CopyToSamusSuitPalette(uint16 k) {  // 0x91DD5B

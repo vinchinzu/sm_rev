@@ -20,6 +20,9 @@ enum {
   kMiniLandingSiteSamusX = 1153,
   kMiniLandingSiteSamusY = 1088,
   kMiniDemoRoomSetTable = 0x82876c,
+  kMiniDemoBombs = 0x1000,
+  kMiniDemoItems = kSamusEquip_MorphBall | kMiniDemoBombs,
+  kMiniDemoMaxHealth = 99,
 };
 
 static uint8 g_mini_sram[kMiniSramSize];
@@ -150,6 +153,27 @@ static void MiniRomBootstrap_ApplyLandingSiteDefaults(int *spawn_x, int *spawn_y
   *spawn_y = kMiniLandingSiteSamusY;
 }
 
+static void MiniRomBootstrap_ApplyDemoLoadout(void) {
+  equipped_items = kMiniDemoItems;
+  collected_items = kMiniDemoItems;
+  equipped_beams = 0;
+  collected_beams = 0;
+  hyper_beam_flag = 0;
+  samus_suit_palette_index = kSamusSuitPalette_Power;
+
+  samus_max_health = kMiniDemoMaxHealth;
+  samus_health = kMiniDemoMaxHealth;
+  samus_max_reserve_health = 0;
+  samus_reserve_health = 0;
+  reserve_health_mode = 0;
+  samus_missiles = 0;
+  samus_max_missiles = 0;
+  samus_super_missiles = 0;
+  samus_max_super_missiles = 0;
+  samus_power_bombs = 0;
+  samus_max_power_bombs = 0;
+}
+
 void MiniRomBootstrap_Reset(void) {
   memset(g_mini_sram, 0, sizeof(g_mini_sram));
   memset(g_mini_rom, 0, sizeof(g_mini_rom));
@@ -213,6 +237,7 @@ bool MiniRomBootstrap_TryConfigureDemoRoom(MiniRoomInfo *info) {
   int spawn_x = layer1_x_pos + 128 + drd->samus_y_offs;
   int spawn_y = layer1_y_pos + drd->samus_x_offs;
   MiniRomBootstrap_ApplyLandingSiteDefaults(&spawn_x, &spawn_y);
+  MiniRomBootstrap_ApplyDemoLoadout();
   MiniAssetBootstrap_LoadCurrentRoomAssets();
   MiniRomBootstrap_LoadRoomTilemaps();
   MiniRomBootstrap_FillRoomInfo(info, false, spawn_x, spawn_y);

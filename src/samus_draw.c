@@ -1,9 +1,10 @@
 // Samus draw/render helpers extracted from sm_90.c: sprite composition,
-// arm-cannon rendering, draw-handler dispatch, and multiplayer drone mirroring.
+// arm-cannon rendering, draw-handler dispatch, and multiplayer Samus drawing.
 
 #include "ida_types.h"
 #include "variables.h"
 #include "variables_extra.h"
+#include "features.h"
 #include "sm_rtl.h"
 #include "funcs.h"
 #include "multi_samus.h"
@@ -15,10 +16,6 @@ enum {
   kTransitionBottomFrameTwoPoseStart = 0xDD,
 };
 
-static uint8 GetPackedOamExtBits(uint16 idx);
-static void SetPackedOamExtBits(uint16 idx, uint8 bits);
-static void DrawPad2DronePing(const OamEnt *src, uint8 src_ext_bits, int x, int y);
-static void DrawPad2Drone(uint16 samus_oam_start, uint16 samus_oam_end);
 static void CallSamusDrawHandler(uint32 ea);
 static uint16 SamusPoseBaseSpritemapIndexTop(uint16 pose);
 static uint16 SamusPoseBaseSpritemapIndexBottom(uint16 pose);
@@ -529,139 +526,23 @@ void Samus_ArmCannon_Draw(void) {  // 0x90C663
   }
 }
 
-static uint8 GetPackedOamExtBits(uint16 idx) {
-  int shift = 2 * ((idx >> 2) & 7);
-  return (oam_ext[idx >> 5] >> shift) & 3;
-}
-
-static void SetPackedOamExtBits(uint16 idx, uint8 bits) {
-  int shift = 2 * ((idx >> 2) & 7);
-  uint16 mask = 3 << shift;
-  oam_ext[idx >> 5] = (oam_ext[idx >> 5] & ~mask) | ((bits & 3) << shift);
-}
-
-static void DrawPad2DronePing(const OamEnt *src, uint8 src_ext_bits, int x, int y) {
-  if ((joypad2_last & (kButton_R | kButton_Select)) == 0)
-    return;
-
-  int dx = 0;
-  int dy = 0;
-  int len = 2 + ((nmi_frame_counter_word >> 1) & 1);
-
-  if (joypad2_last & kButton_Left)
-    dx = -1;
-  else if (joypad2_last & kButton_Right)
-    dx = 1;
-  else
-    dx = (samus_pose & 1) ? 1 : -1;
-
-  if (joypad2_last & kButton_Up)
-    dy = -1;
-  else if (joypad2_last & kButton_Down)
-    dy = 1;
-
-  if ((joypad2_new_keys & (kButton_R | kButton_Select)) != 0)
-    len = 4;
-
-  for (int i = 1; i <= len && oam_next_ptr <= 0x1FB; i++) {
-    int px = x + dx * (6 * i);
-    int py = y + dy * (6 * i);
-
-    if (dx == 0)
-      px += (i & 1) ? -1 : 1;
-    if (dy == 0)
-      py += (i & 1) ? -1 : 1;
-    if (px < 0 || px >= 256 || py < 0 || py >= 224)
-      break;
-
-    uint16 idx = oam_next_ptr;
-    OamEnt *ping = gOamEnt(idx);
-    *ping = *src;
-    ping->xcoord = px;
-    ping->ycoord = py;
-    ping->flags ^= (i & 1) ? 0x40 : 0x80;
-    SetPackedOamExtBits(idx, src_ext_bits);
-    oam_next_ptr = idx + 4;
-  }
-}
-
-static void DrawPad2Drone(uint16 samus_oam_start, uint16 samus_oam_end) {
-  if (samus_oam_start == samus_oam_end || oam_next_ptr > 0x1FB)
-    return;
-
-  uint16 src_idx = (samus_oam_end - 4) & 0x1FF;
-  OamEnt *src = gOamEnt(src_idx);
-  uint16 firefly_phase = nmi_frame_counter_word & 0xF;
-  bool firefly_bright = firefly_phase < 6 || (joypad2_last & (kButton_A | kButton_B | kButton_X | kButton_Y)) != 0;
-  int x = (int)samus_x_pos - (int)layer1_x_pos + ((samus_pose & 1) ? -20 : 20);
-  int y = (int)samus_y_pos - (int)layer1_y_pos - 24 + ((nmi_frame_counter_word >> 2) & 1);
-
-  // Prototype only: keep the helper as a hover sprite until we have real actor state.
-  if (joypad2_last & kButton_Left)
-    x -= 12;
-  if (joypad2_last & kButton_Right)
-    x += 12;
-  if (joypad2_last & kButton_Up)
-    y -= 12;
-  if (joypad2_last & kButton_Down)
-    y += 12;
-  if (joypad2_last & kButton_Y)
-    y -= 6;
-  if (joypad2_last & kButton_B)
-    y += 6;
-  if (joypad2_last & kButton_A)
-    x += (samus_pose & 1) ? 6 : -6;
-  if (joypad2_last & kButton_X)
-    x += (samus_pose & 1) ? -6 : 6;
-
-  // Give the helper a cheap firefly read: soft drift, blink, and a brief twin sparkle.
-  x += (firefly_phase & 4) ? 1 : -1;
-  if ((firefly_phase & 2) != 0)
-    y += 1;
-  if (!firefly_bright && firefly_phase >= 12)
-    return;
-
-  if (x < 0 || x >= 256 || y < 0 || y >= 224)
-    return;
-
-  uint8 src_ext_bits = GetPackedOamExtBits(src_idx) & 2;
-  uint16 dst_idx = oam_next_ptr;
-  OamEnt *dst = gOamEnt(dst_idx);
-  *dst = *src;
-  dst->xcoord = x;
-  dst->ycoord = y;
-  dst->flags ^= (nmi_frame_counter_word & 8) ? 0x40 : 0;
-  SetPackedOamExtBits(dst_idx, src_ext_bits);
-  oam_next_ptr = dst_idx + 4;
-
-  if (firefly_bright && firefly_phase < 2 && oam_next_ptr <= 0x1FB) {
-    uint16 glow_idx = oam_next_ptr;
-    OamEnt *glow = gOamEnt(glow_idx);
-    *glow = *src;
-    glow->xcoord = x + 1;
-    glow->ycoord = y + 1;
-    glow->flags ^= 0xC0;
-    SetPackedOamExtBits(glow_idx, src_ext_bits);
-    oam_next_ptr = glow_idx + 4;
-  }
-
-  DrawPad2DronePing(src, src_ext_bits, x, y);
-}
-
 void DrawSamusAndProjectiles(void) {  // 0x90EB35
   int num_samus = MultiSamus_GetNumSamus();
-  bool draw_pad2_drone = num_samus > 1;
+  int drawn_samus = num_samus;
+#if BUILD_IS_MINI || BUILD_IS_MODDABLE
+  drawn_samus = 1;
+#endif
+  for (int i = 0; i < drawn_samus; i++) {
+    MultiSamus_Switch(i);
+    SamusDrawSprites();
+  }
+  DrawPlayerExplosions2();
   for (int i = 0; i < num_samus; i++) {
     MultiSamus_Switch(i);
-    uint16 samus_oam_start = oam_next_ptr;
-    SamusDrawSprites();
-    if (draw_pad2_drone)
-      DrawPad2Drone(samus_oam_start, oam_next_ptr);
-    DrawPlayerExplosions2();
+    Samus_JumpCheck();
+    Samus_ShootCheck();
   }
   MultiSamus_Switch(0);
-  Samus_JumpCheck();
-  Samus_ShootCheck();
 }
 
 static void CallSamusDrawHandler(uint32 ea) {

@@ -10,29 +10,20 @@ other player. Damage can stay internal until the HUD and rules are ready.
 
 ## Current Implementation Status
 
-Status after the current implementation pass:
+Status after the current repair pass:
 
-- `sm_rev_mini --players 2` enables a local two-player mini state and routes
-  room selection through the editor-authored/fallback mini gameplay lane instead
-  of the original ROM gameplay loop.
+- `sm_rev_mini --players 2` enables two local players while keeping the
+  ROM-backed Landing Site runtime when a ROM save/demo path is available.
 - `sm_rev_mini --multiplayer-demo --frames 21 --headless` runs a built-in
-  exchange-fire script: Player 1 and Player 2 both fire, both receive a hit,
-  and the final JSON reports `player1_hit_count`, `player2_hit_count`, and
-  per-player pending damage.
+  two-player input script against the same ROM-backed path.
 - Headless input scripts accept `P1:` and `P2:` prefixes while legacy
   unprefixed tokens still drive Player 1.
 - Replay artifacts preserve `player_count` and per-player button arrays.
 - The mini kernel exposes `MiniStepPlayers(...)` for future Rust/browser hosts.
-- Editor/fallback mini multiplayer uses the authored mini movement path for both
-  players so local keyboard tests can move both actors immediately.
 - Player 2 starts 48 pixels to the right of Player 1.
-- Non-ROM mini rendering draws Player 2 with a deterministic mini-only marker.
-- Authored mini multiplayer can spawn a basic beam with owner metadata.
-- Projectile-vs-player collision records hit reception in
-  `MiniPlayerCombatState` without decrementing HUD health.
-- ROM-backed original-runtime mini remains the single-player parity path. Local
-  two-player mini currently avoids that path because full two-actor ROM
-  gameplay/rendering is not implemented yet.
+- ROM-backed rendering draws both actors through the original Samus OAM path.
+- Projectile visuals come from the original projectile runtime; the mini-only
+  rectangle projectile substitute is not used for multiplayer.
 
 Covered checks:
 
@@ -253,10 +244,9 @@ Tests:
 
 Goal: both players can move in Landing Site using the existing Samus runtime.
 
-Current playable status: `--players 2` uses the authored/fallback mini movement
-lane so both players can move and fight immediately. The original shared Samus
-runtime state-swap remains the longer-term parity direction, not the active
-local multiplayer path.
+Current playable status: `--players 2` uses the shared original Samus runtime
+state-swap when the ROM-backed Landing Site path is available. Authored/fallback
+rooms remain explicit sandbox inputs, not the default two-player route.
 
 Tasks:
 
