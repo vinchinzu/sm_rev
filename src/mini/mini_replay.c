@@ -92,6 +92,22 @@ static bool MiniReplay_GetInt(cJSON *parent, const char *name, int *value) {
   return true;
 }
 
+static bool MiniReplay_GetOptionalInt(cJSON *parent, const char *name,
+                                      int default_value, int *value) {
+  cJSON *item = cJSON_GetObjectItemCaseSensitive(parent, name);
+  if (item == NULL) {
+    *value = default_value;
+    return true;
+  }
+  if (!cJSON_IsNumber(item))
+    return false;
+  int parsed = item->valueint;
+  if ((double)parsed != item->valuedouble)
+    return false;
+  *value = parsed;
+  return true;
+}
+
 static bool MiniReplay_GetString(cJSON *parent, const char *name,
                                  char *dst, size_t dst_size) {
   cJSON *item = cJSON_GetObjectItemCaseSensitive(parent, name);
@@ -154,8 +170,28 @@ static bool MiniReplay_ParseInputs(MiniReplayArtifact *artifact, cJSON *root) {
 
     MiniScriptFrame frame = {
       .buttons = (uint16)buttons,
+      .player_buttons = { (uint16)buttons, 0 },
+      .player_count = artifact->player_count,
       .quit_requested = cJSON_IsTrue(quit),
     };
+    cJSON *player_buttons = cJSON_GetObjectItemCaseSensitive(item, "player_buttons");
+    if (player_buttons != NULL) {
+      if (!cJSON_IsArray(player_buttons) ||
+          cJSON_GetArraySize(player_buttons) != artifact->player_count) {
+        return false;
+      }
+      for (int player = 0; player < artifact->player_count; player++) {
+        cJSON *player_item = cJSON_GetArrayItem(player_buttons, player);
+        if (!cJSON_IsNumber(player_item))
+          return false;
+        int player_value = player_item->valueint;
+        if ((double)player_value != player_item->valuedouble ||
+            player_value < 0 || player_value > 0xFFFF)
+          return false;
+        frame.player_buttons[player] = (uint16)player_value;
+      }
+      frame.buttons = frame.player_buttons[0];
+    }
     if (!MiniReplayFrames_Append(&artifact->inputs, frame))
       return false;
   }
@@ -185,6 +221,8 @@ bool MiniReplay_Load(MiniReplayArtifact *artifact, const char *path) {
             artifact->version == kMiniReplayVersion &&
             MiniReplay_GetInt(root, "frames", &artifact->frames) &&
             artifact->frames >= 0 && artifact->frames <= kMiniReplayMaxFrames &&
+            MiniReplay_GetOptionalInt(root, "player_count", 1, &artifact->player_count) &&
+            artifact->player_count >= 1 && artifact->player_count <= kMiniMaxPlayers &&
             MiniReplay_ParseHash(root, "initial_hash", &artifact->initial_hash) &&
             MiniReplay_ParseHash(root, "final_hash", &artifact->final_hash) &&
             MiniReplay_GetObject(root, "viewport") != NULL &&
@@ -265,7 +303,13 @@ bool MiniReplay_Write(const char *path, const MiniReplayWriteInfo *info,
   const MiniGameState *state = info->final_state;
   fputs("{\n  \"format\": ", f);
   MiniReplay_WriteJsonString(f, kMiniReplayFormat);
-  fprintf(f, ",\n  \"version\": %d,\n  \"frames\": %d,\n", kMiniReplayVersion, info->frames);
+  int player_count = info->player_count > 0 ? info->player_count : state->player_count;
+  if (player_count < 1)
+    player_count = 1;
+  if (player_count > kMiniMaxPlayers)
+    player_count = kMiniMaxPlayers;
+  fprintf(f, ",\n  \"version\": %d,\n  \"frames\": %d,\n  \"player_count\": %d,\n",
+          kMiniReplayVersion, info->frames, player_count);
   fprintf(f, "  \"viewport\": {\"width\": %d, \"height\": %d},\n",
           info->viewport_width, info->viewport_height);
   fputs("  \"content_scope\": ", f);
@@ -301,10 +345,17 @@ bool MiniReplay_Write(const char *path, const MiniReplayWriteInfo *info,
   fputs("}\n  ],\n  \"inputs\": [\n", f);
 
   for (int i = 0; i < inputs->count; i++) {
-    fprintf(f, "    {\"frame\": %d, \"buttons\": %u, \"buttons_hex\": \"0x%04x\", \"quit\": %s}%s\n",
+    fprintf(f, "    {\"frame\": %d, \"buttons\": %u, \"buttons_hex\": \"0x%04x\", \"player_buttons\": [",
             i,
             inputs->frames[i].buttons,
-            inputs->frames[i].buttons,
+            inputs->frames[i].buttons);
+    for (int player = 0; player < player_count; player++) {
+      uint16 buttons = player < inputs->frames[i].player_count
+          ? inputs->frames[i].player_buttons[player]
+          : 0;
+      fprintf(f, "%s%u", player == 0 ? "" : ", ", buttons);
+    }
+    fprintf(f, "], \"quit\": %s}%s\n",
             inputs->frames[i].quit_requested ? "true" : "false",
             i + 1 == inputs->count ? "" : ",");
   }

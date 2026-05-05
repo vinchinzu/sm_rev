@@ -16,9 +16,12 @@ int g_active_samus = 0;
 int g_num_samus = 1;
 bool g_initialized = false;
 
-void MultiSamus_Init(void) {
-  const char *multi_samus = getenv("SM_MULTI_SAMUS");
-  g_num_samus = (multi_samus && multi_samus[0] == '1' && multi_samus[1] == '\0') ? 2 : 1;
+static void MultiSamus_InitWithCount(int num_samus) {
+  if (num_samus < 1)
+    num_samus = 1;
+  if (num_samus > MAX_SAMUS)
+    num_samus = MAX_SAMUS;
+  g_num_samus = num_samus;
   g_active_samus = 0;
   g_initialized = true;
   
@@ -37,6 +40,16 @@ void MultiSamus_Init(void) {
     uint16 *s2_x = (uint16 *)&g_samus_states[1].samus_block[0xAF6 - 0x9A2];
     *s2_x += 20;
   }
+}
+
+void MultiSamus_Init(void) {
+  const char *multi_samus = getenv("SM_MULTI_SAMUS");
+  MultiSamus_InitWithCount(
+      (multi_samus && multi_samus[0] == '1' && multi_samus[1] == '\0') ? 2 : 1);
+}
+
+void MultiSamus_SetNumSamus(int num_samus) {
+  MultiSamus_InitWithCount(num_samus);
 }
 
 void MultiSamus_Switch(int index) {

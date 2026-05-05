@@ -593,6 +593,22 @@ static void MiniRenderSamus(uint32_t *pixels, int pitch_pixels) {
   MiniRenderCurrentOam(pixels, pitch_pixels, oam_next_ptr);
 }
 
+static void MiniRenderPlayerMarker(uint32_t *pixels, int pitch_pixels,
+                                   const MiniGameState *state, int player_index) {
+  const MiniSamusCoreState *samus = &state->players[player_index].samus;
+  int left = samus->world_x - state->camera_x - samus->x_radius;
+  int top = samus->world_y - state->camera_y - samus->y_radius;
+  int width = samus->x_radius * 2 + 1;
+  int height = samus->y_radius * 2;
+  uint32_t body = player_index == 1 ? MiniConvertBgr555(0x7C1F) : MiniConvertBgr555(0x03E0);
+  uint32_t edge = MiniBlendColor(body, 0xFFFFFFFFu, 1, 3);
+  MiniFillRect(pixels, pitch_pixels, left, top, width, height, body);
+  MiniFillRect(pixels, pitch_pixels, left, top, width, 2, edge);
+  MiniFillRect(pixels, pitch_pixels, left, top, 2, height, edge);
+  MiniFillRect(pixels, pitch_pixels, left + width - 2, top, 2, height,
+               MiniBlendColor(body, 0xFF000000u, 1, 3));
+}
+
 static void MiniRenderProjectiles(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
   int count = state->projectile_count < kMiniProjectileViewCapacity
                   ? state->projectile_count
@@ -629,6 +645,8 @@ void MiniRenderFrameToPixels(uint32_t *pixels, int pitch_pixels, const MiniGameS
     return;
   MiniRenderEditorRoomSprites(pixels, pitch_pixels, state);
   MiniRenderSamus(pixels, pitch_pixels);
+  for (int player = 1; player < state->player_count && player < kMiniMaxPlayers; player++)
+    MiniRenderPlayerMarker(pixels, pitch_pixels, state, player);
   MiniRenderProjectiles(pixels, pitch_pixels, state);
 }
 

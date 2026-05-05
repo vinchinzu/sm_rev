@@ -2,9 +2,12 @@
 #define SM_MINI_INPUT_SCRIPT_H_
 
 #include "types.h"
+#include "mini_defs.h"
 
 typedef struct MiniScriptFrame {
   uint16 buttons;
+  uint16 player_buttons[kMiniMaxPlayers];
+  int player_count;
   bool quit_requested;
 } MiniScriptFrame;
 

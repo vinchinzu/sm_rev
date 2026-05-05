@@ -8,6 +8,7 @@ enum {
   kMiniWindowWidth = 1440,
   kMiniWindowHeight = 900,
   kMiniFrameDelayMs = 16,
+  kMiniMaxPlayers = 2,
 };
 
 #endif  // SM_MINI_DEFS_H_

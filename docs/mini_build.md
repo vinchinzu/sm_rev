@@ -7,6 +7,8 @@ collision, and authored map/nav rules, see [mini_modability_plan.md](mini_modabi
 For the staged path from the current mini runtime to a deterministic multiplayer-ready
 kernel, including the next `physics.c` extraction target, see
 [mini_multiplayer_roadmap.md](mini_multiplayer_roadmap.md).
+For the concrete local two-player melee MVP and browser/WASM staging plan, see
+[mini_multiplayer_melee_plan.md](mini_multiplayer_melee_plan.md).
 For the current top-level plan and source ownership rules, see
 [roadmap.md](roadmap.md) and [source_layout.md](source_layout.md).
 
@@ -16,6 +18,10 @@ Current scope:
   sandbox variant compiled with `CURRENT_BUILD=BUILD_MODDABLE`.
 - `sm_rev_mini` now defaults to the ROM-backed Landing Site slice when a ROM
   and compatible save/demo entry are available.
+- `sm_rev_mini --players 2` switches to the editor-authored/fallback mini
+  gameplay lane so both local players can move, fire, and register hits today.
+- `sm_rev_mini --multiplayer-demo` enables two players and drives a built-in
+  exchange-fire script for quick headless or windowed verification.
 - `sm_rev_moddable` shares the mini host/kernel modules but defaults to
   editor-authored or fallback room data instead of selecting the ROM save/demo
   runtime.

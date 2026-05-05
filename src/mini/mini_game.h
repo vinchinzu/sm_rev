@@ -2,6 +2,7 @@
 #define SM_MINI_GAME_H_
 
 #include "mini_room_adapter.h"
+#include "mini_defs.h"
 #include "samus_projectile_view.h"
 #include "types.h"
 #include <stddef.h>
@@ -12,10 +13,14 @@ enum {
   kMiniSamusHeight = 40,
   kMiniGroundSpeed = 3,
   kMiniProjectileViewCapacity = kSamusBeamProjectileSlotCount,
+  kMiniPlayerRuntimePreProjectileSize = 0xB64 - 0xA94,
+  kMiniPlayerRuntimePostProjectileSize = 0xDC4 - 0xCCC,
 };
 
 typedef struct MiniInputState {
   uint16 buttons;
+  uint16 player_buttons[kMiniMaxPlayers];
+  int player_count;
   bool quit_requested;
 } MiniInputState;
 
@@ -33,6 +38,12 @@ typedef struct MiniControlState {
   bool quit_requested;
 } MiniControlState;
 
+typedef struct MiniPlayerInputState {
+  uint16 buttons;
+  uint16 previous_buttons;
+  uint16 new_buttons;
+} MiniPlayerInputState;
+
 typedef struct MiniSamusCoreState {
   int world_x;
   int world_y;
@@ -47,6 +58,19 @@ typedef struct MiniSamusCoreState {
   MiniSamusSuit suit;
   bool on_ground;
 } MiniSamusCoreState;
+
+typedef struct MiniPlayerCombatState {
+  uint16 hit_count;
+  uint16 pending_damage;
+  uint16 hitstun_frames;
+  uint16 invulnerable_frames;
+  uint8 last_hit_by_player;
+} MiniPlayerCombatState;
+
+typedef struct MiniPlayerState {
+  MiniSamusCoreState samus;
+  MiniPlayerCombatState combat;
+} MiniPlayerState;
 
 typedef struct MiniRoomState {
   bool has_room;
@@ -80,6 +104,7 @@ typedef struct MiniRoomState {
 typedef struct MiniProjectileState {
   int count;
   SamusProjectileView views[kMiniProjectileViewCapacity];
+  uint8 owner_by_slot[kSamusProjectileSlotCount];
 } MiniProjectileState;
 
 typedef struct MiniGameState {
@@ -89,6 +114,11 @@ typedef struct MiniGameState {
   MiniSamusCoreState samus;
   MiniControlState controls;
   MiniProjectileState projectile_state;
+  int player_count;
+  MiniPlayerInputState player_inputs[kMiniMaxPlayers];
+  MiniPlayerState players[kMiniMaxPlayers];
+  uint8 player_runtime_pre_projectile[kMiniMaxPlayers][kMiniPlayerRuntimePreProjectileSize];
+  uint8 player_runtime_post_projectile[kMiniMaxPlayers][kMiniPlayerRuntimePostProjectileSize];
 
   // Compatibility fields for existing mini callers. Prefer the typed views above
   // for new mini-facing code.
@@ -131,8 +161,11 @@ void MiniUpdate(MiniGameState *state, const MiniInputState *input);
 uint64_t MiniGameState_ComputeHash(const MiniGameState *state);
 
 void MiniInit(MiniGameState *state, int viewport_width, int viewport_height);
+void MiniSetPlayerCount(MiniGameState *state, int player_count);
 void MiniStep(MiniGameState *state, const MiniInputState *input);
 void MiniStepButtons(MiniGameState *state, uint16 buttons, bool quit_requested);
+void MiniStepPlayers(MiniGameState *state, const uint16 *player_buttons,
+                     int player_count, bool quit_requested);
 uint64_t MiniStateHash(const MiniGameState *state);
 size_t MiniSaveStateSize(void);
 bool MiniSaveState(const MiniGameState *state, void *buffer, size_t buffer_size);

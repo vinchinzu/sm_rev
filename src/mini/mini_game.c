@@ -9,6 +9,7 @@
 #include "mini_authored_movement.h"
 #include "mini_ppu_stub.h"
 #include "mini_system.h"
+#include "multi_samus.h"
 #include "physics_config.h"
 #include "samus_projectile_view.h"
 #include "sm_rtl.h"
@@ -18,9 +19,12 @@ enum {
   kMiniItem_VariaSuit = 1,
   kMiniItem_GravitySuit = 0x20,
   kMiniSnapshotMagic = 0x4D53534D,
-  kMiniSnapshotVersion = 2,
+  kMiniSnapshotVersion = 4,
   kMiniRamSnapshotSize = 0x20000,
   kMiniSramSnapshotSize = 0x2000,
+  kMiniPlayerRuntimePreProjectileOffset = 0xA94,
+  kMiniPlayerRuntimePostProjectileOffset = 0xCCC,
+  kMiniPlayerTwoSpawnOffsetX = 48,
 };
 
 typedef struct MiniStateSnapshot {
@@ -65,6 +69,14 @@ static uint64_t MiniHashBool(uint64_t hash, bool value) {
   return MiniHashBytes(hash, &normalized, sizeof(normalized));
 }
 
+static int MiniClampInt(int value, int min_value, int max_value) {
+  if (value < min_value)
+    return min_value;
+  if (value > max_value)
+    return max_value;
+  return value;
+}
+
 static MiniRoomState MiniRoomState_FromInfo(const MiniRoomInfo *room) {
   MiniRoomState state = {
     .has_room = room->has_room,
@@ -97,7 +109,106 @@ static MiniRoomState MiniRoomState_FromInfo(const MiniRoomInfo *room) {
   return state;
 }
 
+static int MiniNormalizePlayerCount(int player_count) {
+  if (player_count < 1)
+    return 1;
+  if (player_count > kMiniMaxPlayers)
+    return kMiniMaxPlayers;
+  return player_count;
+}
+
+static uint16 MiniInputButtonsForPlayer(const MiniInputState *input, int player_index) {
+  if (player_index == 0 && input->buttons != 0)
+    return input->buttons;
+  return input->player_buttons[player_index];
+}
+
+static MiniSamusCoreState MiniSamusCoreFromGlobals(const MiniGameState *state) {
+  return (MiniSamusCoreState){
+    .world_x = samus_x_pos,
+    .world_y = samus_y_pos,
+    .x_velocity = state->samus.x_velocity,
+    .y_velocity = state->samus.y_velocity,
+    .screen_x = samus_x_pos - state->viewport.camera_x - samus_x_radius,
+    .screen_y = samus_y_pos - state->viewport.camera_y - samus_y_radius,
+    .x_radius = samus_x_radius,
+    .y_radius = samus_y_radius,
+    .pose = samus_pose,
+    .movement_type = samus_movement_type,
+    .suit = state->room.samus_suit,
+    .on_ground = state->samus.on_ground,
+  };
+}
+
+static MiniSamusCoreState MiniSamusCoreWithScreen(const MiniGameState *state,
+                                                  MiniSamusCoreState samus) {
+  samus.screen_x = samus.world_x - state->viewport.camera_x - samus.x_radius;
+  samus.screen_y = samus.world_y - state->viewport.camera_y - samus.y_radius;
+  samus.suit = state->room.samus_suit;
+  return samus;
+}
+
+static void MiniSavePlayerRuntime(MiniGameState *state, int player_index) {
+  memcpy(state->player_runtime_pre_projectile[player_index],
+         g_ram + kMiniPlayerRuntimePreProjectileOffset,
+         kMiniPlayerRuntimePreProjectileSize);
+  memcpy(state->player_runtime_post_projectile[player_index],
+         g_ram + kMiniPlayerRuntimePostProjectileOffset,
+         kMiniPlayerRuntimePostProjectileSize);
+}
+
+static void MiniLoadPlayerRuntime(const MiniGameState *state, int player_index) {
+  memcpy(g_ram + kMiniPlayerRuntimePreProjectileOffset,
+         state->player_runtime_pre_projectile[player_index],
+         kMiniPlayerRuntimePreProjectileSize);
+  memcpy(g_ram + kMiniPlayerRuntimePostProjectileOffset,
+         state->player_runtime_post_projectile[player_index],
+         kMiniPlayerRuntimePostProjectileSize);
+}
+
+static void MiniCopySamusCoreToGlobals(const MiniSamusCoreState *samus) {
+  samus_x_pos = (uint16)samus->world_x;
+  samus_y_pos = (uint16)samus->world_y;
+  samus_prev_x_pos = samus_x_pos;
+  samus_prev_y_pos = samus_y_pos;
+  samus_x_radius = samus->x_radius;
+  samus_y_radius = samus->y_radius;
+  samus_pose = samus->pose;
+  samus_movement_type = samus->movement_type;
+}
+
+static void MiniUpdatePlayerScreenPositions(MiniGameState *state) {
+  for (int i = 0; i < kMiniMaxPlayers; i++)
+    state->players[i].samus = MiniSamusCoreWithScreen(state, state->players[i].samus);
+  state->samus = state->players[0].samus;
+}
+
+static void MiniInitializePlayerOneFromCurrentSamus(MiniGameState *state) {
+  state->players[0].samus = state->samus;
+  state->players[0].combat = (MiniPlayerCombatState){0};
+  MiniSavePlayerRuntime(state, 0);
+}
+
+static void MiniInitializePlayerTwoFromPlayerOne(MiniGameState *state) {
+  state->players[1] = state->players[0];
+  state->players[1].samus.world_x = state->players[0].samus.world_x + kMiniPlayerTwoSpawnOffsetX;
+  int min_x = state->room.room_left + state->players[1].samus.x_radius;
+  int max_x = state->room.room_right - state->players[1].samus.x_radius - 1;
+  if (max_x >= min_x)
+    state->players[1].samus.world_x = MiniClampInt(state->players[1].samus.world_x, min_x, max_x);
+  state->players[1].combat = (MiniPlayerCombatState){0};
+
+  MiniLoadPlayerRuntime(state, 0);
+  MiniCopySamusCoreToGlobals(&state->players[1].samus);
+  MiniSavePlayerRuntime(state, 1);
+  MiniLoadPlayerRuntime(state, 0);
+  MiniUpdatePlayerScreenPositions(state);
+}
+
 static void MiniSyncLegacyPublicFields(MiniGameState *state) {
+  state->player_count = MiniNormalizePlayerCount(state->player_count);
+  if (state->players[0].samus.x_radius != 0 || state->players[0].samus.y_radius != 0)
+    state->samus = state->players[0].samus;
   state->viewport_width = state->viewport.width;
   state->viewport_height = state->viewport.height;
   state->camera_x = state->viewport.camera_x;
@@ -139,37 +250,50 @@ static void MiniSyncRenderState(MiniGameState *state) {
   bool on_ground = state->samus.on_ground;
   state->viewport.camera_x = layer1_x_pos;
   state->viewport.camera_y = layer1_y_pos;
-  state->samus = (MiniSamusCoreState){
-    .world_x = samus_x_pos,
-    .world_y = samus_y_pos,
-    .x_velocity = x_velocity,
-    .y_velocity = y_velocity,
-    .screen_x = samus_x_pos - state->viewport.camera_x - samus_x_radius,
-    .screen_y = samus_y_pos - state->viewport.camera_y - samus_y_radius,
-    .x_radius = samus_x_radius,
-    .y_radius = samus_y_radius,
-    .pose = samus_pose,
-    .movement_type = samus_movement_type,
-    .suit = state->room.samus_suit,
-    .on_ground = on_ground,
-  };
+  state->samus.x_velocity = x_velocity;
+  state->samus.y_velocity = y_velocity;
+  state->samus.on_ground = on_ground;
+  state->samus = MiniSamusCoreFromGlobals(state);
+  state->players[0].samus = state->samus;
+  MiniUpdatePlayerScreenPositions(state);
   state->projectile_state.count = SamusProjectile_GetActiveViews(
       state->projectile_state.views, kMiniProjectileViewCapacity);
   MiniSyncLegacyPublicFields(state);
 }
 
 static void MiniUpdateButtons(MiniGameState *state, const MiniInputState *input) {
-  state->controls.previous_buttons = state->controls.buttons;
-  state->controls.buttons = input->buttons;
+  int input_player_count = input->player_count != 0 ? input->player_count : state->player_count;
+  int old_player_count = state->player_count;
+  state->player_count = MiniNormalizePlayerCount(input_player_count);
+  if (old_player_count < state->player_count && state->player_count > 1)
+    MiniPrepareAuthoredMultiplayerPlayers(state);
+  for (int i = 0; i < kMiniMaxPlayers; i++) {
+    uint16 buttons = i < state->player_count ? MiniInputButtonsForPlayer(input, i) : 0;
+    state->player_inputs[i].previous_buttons = state->player_inputs[i].buttons;
+    state->player_inputs[i].buttons = buttons;
+    state->player_inputs[i].new_buttons =
+        buttons & (state->player_inputs[i].previous_buttons ^ buttons);
+  }
+
+  state->controls.previous_buttons = state->player_inputs[0].previous_buttons;
+  state->controls.buttons = state->player_inputs[0].buttons;
   joypad1_prev = state->controls.previous_buttons;
-  joypad1_lastkeys = input->buttons;
-  joypad1_newkeys = input->buttons & (joypad1_prev ^ input->buttons);
+  joypad1_lastkeys = state->controls.buttons;
+  joypad1_newkeys = state->player_inputs[0].new_buttons;
   joypad1_newkeys2_UNUSED = joypad1_newkeys;
-  joypad2_last = 0;
-  joypad2_new_keys = 0;
-  joypad2_newkeys2 = 0;
+  joypad2_prev = state->player_inputs[1].previous_buttons;
+  joypad2_last = state->player_inputs[1].buttons;
+  joypad2_new_keys = state->player_inputs[1].new_buttons;
+  joypad2_newkeys2 = joypad2_new_keys;
   state->controls.new_buttons = joypad1_newkeys;
   state->last_buttons = state->controls.buttons;
+}
+
+static void MiniApplyPlayerJoypadState(const MiniGameState *state, int player_index) {
+  joypad1_prev = state->player_inputs[player_index].previous_buttons;
+  joypad1_lastkeys = state->player_inputs[player_index].buttons;
+  joypad1_newkeys = state->player_inputs[player_index].new_buttons;
+  joypad1_newkeys2_UNUSED = joypad1_newkeys;
 }
 
 static uint16 MiniInitialPoseForRoom(const MiniRoomInfo *room) {
@@ -226,6 +350,7 @@ void MiniGameState_Init(MiniGameState *state, int viewport_width, int viewport_h
   MiniStubs_GetCollisionMapView(&state->collision_map);
   state->original_oam_next_ptr = 0;
   state->controls = (MiniControlState){0};
+  state->player_count = 1;
   state->samus.suit = room.samus_suit;
   MiniSyncLegacyPublicFields(state);
 
@@ -253,8 +378,11 @@ void MiniGameState_Init(MiniGameState *state, int viewport_width, int viewport_h
   MiniSyncRenderState(state);
   if (MiniAuthoredMovement_ShouldUseState(state)) {
     MiniAuthoredMovement_SyncGrounded(state);
-    MiniSyncLegacyPublicFields(state);
+    state->players[0].samus = state->samus;
   }
+  MiniInitializePlayerOneFromCurrentSamus(state);
+  MiniInitializePlayerTwoFromPlayerOne(state);
+  MiniSyncLegacyPublicFields(state);
 }
 
 static uint16 MiniStepOriginalGameplayFrame(void) {
@@ -281,6 +409,186 @@ static uint16 MiniStepOriginalGameplayFrame(void) {
   return original_oam_next_ptr;
 }
 
+static MiniControlState MiniControlStateForPlayer(const MiniGameState *state, int player_index) {
+  return (MiniControlState){
+    .buttons = state->player_inputs[player_index].buttons,
+    .previous_buttons = state->player_inputs[player_index].previous_buttons,
+    .new_buttons = state->player_inputs[player_index].new_buttons,
+    .quit_requested = state->controls.quit_requested,
+  };
+}
+
+static void MiniRestorePlayerOneAsPrimary(MiniGameState *state) {
+  state->samus = state->players[0].samus;
+  state->controls = MiniControlStateForPlayer(state, 0);
+  MiniCopySamusCoreToGlobals(&state->samus);
+  MiniUpdatePlayerScreenPositions(state);
+  MiniSyncLegacyPublicFields(state);
+}
+
+static void MiniSpawnAuthoredBasicBeam(MiniGameState *state, int player_index);
+static void MiniAdvanceAuthoredProjectiles(MiniGameState *state);
+static void MiniHandleAuthoredProjectileHits(MiniGameState *state);
+
+static void MiniStepAuthoredMultiplayerFrame(MiniGameState *state) {
+  int player_one_camera_x = layer1_x_pos;
+  int player_one_camera_y = layer1_y_pos;
+  for (int i = 0; i < state->player_count; i++) {
+    state->samus = state->players[i].samus;
+    state->controls = MiniControlStateForPlayer(state, i);
+    MiniApplyPlayerJoypadState(state, i);
+    MiniAuthoredMovement_Step(state);
+    state->players[i].samus = state->samus;
+    MiniCopySamusCoreToGlobals(&state->players[i].samus);
+    if ((state->controls.new_buttons & button_config_shoot_x) != 0)
+      MiniSpawnAuthoredBasicBeam(state, i);
+    if (i == 0) {
+      player_one_camera_x = layer1_x_pos;
+      player_one_camera_y = layer1_y_pos;
+    }
+  }
+
+  layer1_x_pos = player_one_camera_x;
+  layer1_y_pos = player_one_camera_y;
+  MiniAdvanceAuthoredProjectiles(state);
+  MiniHandleAuthoredProjectileHits(state);
+  MiniRestorePlayerOneAsPrimary(state);
+}
+
+static void MiniClearAuthoredProjectileSlot(MiniGameState *state, int slot) {
+  projectile_type[slot] = 0;
+  projectile_damage[slot] = 0;
+  projectile_x_pos[slot] = 0;
+  projectile_y_pos[slot] = 0;
+  projectile_x_radius[slot] = 0;
+  projectile_y_radius[slot] = 0;
+  projectile_dir[slot] = 0;
+  projectile_timers[slot] = 0;
+  projectile_bomb_instruction_ptr[slot] = 0;
+  projectile_bomb_pre_instructions[slot] = 0;
+  projectile_variables[slot] = 0;
+  state->projectile_state.owner_by_slot[slot] = 0;
+}
+
+static bool MiniPlayerFacesLeft(const MiniSamusCoreState *samus) {
+  return samus->pose == kPose_0A_MoveL_NoAim ||
+         samus->pose == kPose_1A_FaceL_SpinJump ||
+         samus->pose == kPose_41_FaceL_Morphball_Ground ||
+         samus->x_velocity < 0;
+}
+
+static void MiniSpawnAuthoredBasicBeam(MiniGameState *state, int player_index) {
+  int slot = -1;
+  for (int i = 0; i < kMiniProjectileViewCapacity; i++) {
+    if (projectile_type[i] == 0 && projectile_damage[i] == 0) {
+      slot = i;
+      break;
+    }
+  }
+  if (slot < 0)
+    return;
+
+  const MiniSamusCoreState *samus = &state->players[player_index].samus;
+  bool faces_left = MiniPlayerFacesLeft(samus);
+  projectile_type[slot] = kProjectileType_DontInteractWithSamus;
+  projectile_damage[slot] = 20;
+  projectile_x_radius[slot] = 4;
+  projectile_y_radius[slot] = 4;
+  projectile_dir[slot] = faces_left ? 7 : 2;
+  projectile_x_pos[slot] = (uint16)(samus->world_x + (faces_left ? -samus->x_radius - 8
+                                                               : samus->x_radius + 8));
+  projectile_y_pos[slot] = (uint16)(samus->world_y - 8);
+  projectile_timers[slot] = 0;
+  projectile_bomb_instruction_ptr[slot] = 0;
+  projectile_bomb_pre_instructions[slot] = 0;
+  projectile_variables[slot] = 0;
+  state->projectile_state.owner_by_slot[slot] = (uint8)(player_index + 1);
+}
+
+static void MiniAdvanceAuthoredProjectiles(MiniGameState *state) {
+  for (int slot = 0; slot < kMiniProjectileViewCapacity; slot++) {
+    if (projectile_type[slot] == 0 && projectile_damage[slot] == 0)
+      continue;
+    if (!SamusProjectile_IsBeamType(projectile_type[slot]))
+      continue;
+    if ((projectile_dir[slot] & 0xF) == 7)
+      projectile_x_pos[slot] -= 8;
+    else
+      projectile_x_pos[slot] += 8;
+    if (projectile_x_pos[slot] < state->room.room_left ||
+        projectile_x_pos[slot] > state->room.room_right) {
+      MiniClearAuthoredProjectileSlot(state, slot);
+    }
+  }
+}
+
+static bool MiniRectsOverlap(int ax, int ay, int arx, int ary,
+                             int bx, int by, int brx, int bry) {
+  return abs(ax - bx) <= arx + brx && abs(ay - by) <= ary + bry;
+}
+
+static void MiniHandleAuthoredProjectileHits(MiniGameState *state) {
+  for (int player = 0; player < state->player_count; player++) {
+    if (state->players[player].combat.invulnerable_frames != 0)
+      state->players[player].combat.invulnerable_frames--;
+  }
+
+  for (int slot = 0; slot < kMiniProjectileViewCapacity; slot++) {
+    if (projectile_type[slot] == 0 && projectile_damage[slot] == 0)
+      continue;
+    uint8 owner_plus_one = state->projectile_state.owner_by_slot[slot];
+    if (owner_plus_one == 0)
+      continue;
+    int owner = owner_plus_one - 1;
+    for (int player = 0; player < state->player_count; player++) {
+      if (player == owner || state->players[player].combat.invulnerable_frames != 0)
+        continue;
+      MiniSamusCoreState *samus = &state->players[player].samus;
+      if (!MiniRectsOverlap(projectile_x_pos[slot], projectile_y_pos[slot],
+                            projectile_x_radius[slot], projectile_y_radius[slot],
+                            samus->world_x, samus->world_y,
+                            samus->x_radius, samus->y_radius)) {
+        continue;
+      }
+      state->players[player].combat.hit_count++;
+      state->players[player].combat.pending_damage = projectile_damage[slot];
+      state->players[player].combat.invulnerable_frames = 10;
+      state->players[player].combat.last_hit_by_player = (uint8)owner;
+      MiniClearAuthoredProjectileSlot(state, slot);
+      break;
+    }
+  }
+}
+
+static void MiniStepSharedSamusMultiplayerFrame(MiniGameState *state) {
+  for (int i = 0; i < state->player_count; i++) {
+    state->samus = state->players[i].samus;
+    state->controls = MiniControlStateForPlayer(state, i);
+    MiniLoadPlayerRuntime(state, i);
+    MiniApplyPlayerJoypadState(state, i);
+    HandleControllerInputForGamePhysics();
+    HandleSamusMovementAndPause();
+    state->players[i].samus = MiniSamusCoreFromGlobals(state);
+    MiniSavePlayerRuntime(state, i);
+  }
+
+  MiniLoadPlayerRuntime(state, 0);
+  state->samus = state->players[0].samus;
+  MiniApplyPlayerJoypadState(state, 0);
+  MainScrollingRoutine();
+  if (!state->room.uses_rom_room)
+    MiniStubs_ClampCameraToRoom();
+  CalculateLayer2PosAndScrollsWhenScrolling();
+  AnimtilesHandler();
+  NmiProcessAnimtilesVramTransfers();
+  NMI_ProcessVramWriteQueue();
+  MiniSyncRenderState(state);
+}
+
+static bool MiniMultiplayerUsesAuthoredMovement(const MiniGameState *state) {
+  return MiniRoomUsesAuthoredMultiplayerState(state);
+}
+
 void MiniUpdate(MiniGameState *state, const MiniInputState *input) {
   if (input->quit_requested) {
     state->controls.quit_requested = true;
@@ -288,7 +596,17 @@ void MiniUpdate(MiniGameState *state, const MiniInputState *input) {
   }
 
   MiniUpdateButtons(state, input);
-  if (state->room.uses_original_gameplay_runtime) {
+  if (state->player_count > 1 && !state->room.uses_original_gameplay_runtime) {
+    state->original_oam_next_ptr = 0;
+    nmi_frame_counter_word++;
+    HdmaObjectHandler();
+    PaletteFxHandler();
+    if (MiniMultiplayerUsesAuthoredMovement(state)) {
+      MiniStepAuthoredMultiplayerFrame(state);
+    } else {
+      MiniStepSharedSamusMultiplayerFrame(state);
+    }
+  } else if (state->room.uses_original_gameplay_runtime) {
     state->original_oam_next_ptr = MiniStepOriginalGameplayFrame();
   } else if (MiniAuthoredMovement_ShouldUseState(state)) {
     state->original_oam_next_ptr = 0;
@@ -335,6 +653,35 @@ uint64_t MiniGameState_ComputeHash(const MiniGameState *state) {
   hash = MiniHashUInt16(hash, state->samus.movement_type);
   hash = MiniHashByte(hash, (uint8)state->samus.suit);
   hash = MiniHashBool(hash, state->samus.on_ground);
+  hash = MiniHashInt(hash, state->player_count);
+  for (int i = 0; i < kMiniMaxPlayers; i++) {
+    const MiniPlayerInputState *input = &state->player_inputs[i];
+    const MiniPlayerState *player = &state->players[i];
+    hash = MiniHashUInt16(hash, input->buttons);
+    hash = MiniHashUInt16(hash, input->previous_buttons);
+    hash = MiniHashUInt16(hash, input->new_buttons);
+    hash = MiniHashInt(hash, player->samus.world_x);
+    hash = MiniHashInt(hash, player->samus.world_y);
+    hash = MiniHashInt(hash, player->samus.x_velocity);
+    hash = MiniHashInt(hash, player->samus.y_velocity);
+    hash = MiniHashInt(hash, player->samus.screen_x);
+    hash = MiniHashInt(hash, player->samus.screen_y);
+    hash = MiniHashUInt16(hash, player->samus.x_radius);
+    hash = MiniHashUInt16(hash, player->samus.y_radius);
+    hash = MiniHashUInt16(hash, player->samus.pose);
+    hash = MiniHashUInt16(hash, player->samus.movement_type);
+    hash = MiniHashByte(hash, (uint8)player->samus.suit);
+    hash = MiniHashBool(hash, player->samus.on_ground);
+    hash = MiniHashUInt16(hash, player->combat.hit_count);
+    hash = MiniHashUInt16(hash, player->combat.pending_damage);
+    hash = MiniHashUInt16(hash, player->combat.hitstun_frames);
+    hash = MiniHashUInt16(hash, player->combat.invulnerable_frames);
+    hash = MiniHashByte(hash, player->combat.last_hit_by_player);
+    hash = MiniHashBytes(hash, state->player_runtime_pre_projectile[i],
+                         sizeof(state->player_runtime_pre_projectile[i]));
+    hash = MiniHashBytes(hash, state->player_runtime_post_projectile[i],
+                         sizeof(state->player_runtime_post_projectile[i]));
+  }
   hash = MiniHashInt(hash, state->projectile_state.count);
   for (int i = 0; i < kMiniProjectileViewCapacity; i++) {
     const SamusProjectileView *projectile = &state->projectile_state.views[i];
@@ -406,6 +753,19 @@ void MiniInit(MiniGameState *state, int viewport_width, int viewport_height) {
   MiniGameState_Init(state, viewport_width, viewport_height);
 }
 
+void MiniSetPlayerCount(MiniGameState *state, int player_count) {
+  if (state == NULL)
+    return;
+  state->player_count = MiniNormalizePlayerCount(player_count);
+  for (int i = state->player_count; i < kMiniMaxPlayers; i++) {
+    state->player_inputs[i] = (MiniPlayerInputState){0};
+  }
+  if (state->player_count > 1)
+    MiniPrepareAuthoredMultiplayerPlayers(state);
+  MiniUpdatePlayerScreenPositions(state);
+  MiniSyncLegacyPublicFields(state);
+}
+
 void MiniStep(MiniGameState *state, const MiniInputState *input) {
   MiniUpdate(state, input);
 }
@@ -413,8 +773,22 @@ void MiniStep(MiniGameState *state, const MiniInputState *input) {
 void MiniStepButtons(MiniGameState *state, uint16 buttons, bool quit_requested) {
   MiniInputState input = {
     .buttons = buttons,
+    .player_buttons = { buttons, 0 },
+    .player_count = 1,
     .quit_requested = quit_requested,
   };
+  MiniStep(state, &input);
+}
+
+void MiniStepPlayers(MiniGameState *state, const uint16 *player_buttons,
+                     int player_count, bool quit_requested) {
+  MiniInputState input = {
+    .player_count = MiniNormalizePlayerCount(player_count),
+    .quit_requested = quit_requested,
+  };
+  for (int i = 0; i < input.player_count; i++)
+    input.player_buttons[i] = player_buttons != NULL ? player_buttons[i] : 0;
+  input.buttons = input.player_buttons[0];
   MiniStep(state, &input);
 }
 

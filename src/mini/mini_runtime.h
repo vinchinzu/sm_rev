@@ -10,6 +10,8 @@ typedef struct MiniOptions {
   bool record;
   int frames;
   bool frames_explicit;
+  int player_count;
+  bool multiplayer_demo;
   const char *screenshot_path;
   const char *input_script_path;
   const char *replay_in_path;

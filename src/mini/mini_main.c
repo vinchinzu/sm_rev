@@ -12,10 +12,12 @@
 
 static void PrintUsage(const char *argv0) {
   fprintf(stderr,
-          "Usage: %s [--headless] [--record] [--frames N] [--screenshot PATH] [--input-script PATH] [--replay-in PATH] [--replay-out PATH] [--room-export PATH] [--background MODE] [--ai-background]\n"
+          "Usage: %s [--headless] [--record] [--frames N] [--players N] [--multiplayer-demo] [--screenshot PATH] [--input-script PATH] [--replay-in PATH] [--replay-out PATH] [--room-export PATH] [--background MODE] [--ai-background]\n"
           "  --headless   Run the mini runtime without SDL video.\n"
           "  --record   Save a low-resolution quick clip under out/mini_recording_YYYYMMDD_HHMMSS.mp4.\n"
           "  --frames N   Limit the run to N frames. Windowed mode runs until quit by default.\n"
+          "  --players N   Run the mini kernel with 1 or 2 local players.\n"
+          "  --multiplayer-demo  Run two local players with built-in scripted exchange-fire input.\n"
           "  --screenshot PATH  Save the last rendered frame to a BMP file.\n"
           "  --input-script PATH  Replay one line of input tokens per frame in headless or windowed mode.\n"
           "  --replay-in PATH  Replay a mini artifact and verify its final state hash.\n"
@@ -40,6 +42,8 @@ static bool ParseArgs(int argc, char **argv, MiniOptions *options) {
   options->record = false;
   options->frames = kMiniDefaultFrames;
   options->frames_explicit = false;
+  options->player_count = 1;
+  options->multiplayer_demo = false;
   options->screenshot_path = NULL;
   options->input_script_path = NULL;
   options->replay_in_path = NULL;
@@ -56,6 +60,14 @@ static bool ParseArgs(int argc, char **argv, MiniOptions *options) {
         return false;
       options->frames_explicit = true;
       i++;
+    } else if (!strcmp(argv[i], "--players")) {
+      if (i + 1 >= argc || !ParseInt(argv[i + 1], &options->player_count) ||
+          options->player_count < 1 || options->player_count > kMiniMaxPlayers)
+        return false;
+      i++;
+    } else if (!strcmp(argv[i], "--multiplayer-demo")) {
+      options->multiplayer_demo = true;
+      options->player_count = kMiniMaxPlayers;
     } else if (!strcmp(argv[i], "--screenshot")) {
       if (i + 1 >= argc || argv[i + 1][0] == '\0')
         return false;
@@ -97,6 +109,9 @@ static bool ParseArgs(int argc, char **argv, MiniOptions *options) {
   if (options->replay_in_path != NULL && options->input_script_path != NULL)
     return false;
   if (options->replay_in_path != NULL && options->frames_explicit)
+    return false;
+  if (options->multiplayer_demo &&
+      (options->input_script_path != NULL || options->replay_in_path != NULL))
     return false;
   return true;
 }

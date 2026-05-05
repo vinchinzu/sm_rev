@@ -12,34 +12,58 @@ static void MiniUppercase(char *text) {
     *text = (char)toupper((unsigned char)*text);
 }
 
-static bool MiniParseInputToken(const char *token, MiniScriptFrame *frame) {
+static bool MiniParseButtonToken(const char *token, uint16 *buttons, bool *quit_requested) {
   if (!strcmp(token, ".") || !strcmp(token, "WAIT") || !strcmp(token, "NONE"))
     return true;
   if (!strcmp(token, "L") || !strcmp(token, "LEFT")) {
-    frame->buttons |= kButton_Left;
+    *buttons |= kButton_Left;
   } else if (!strcmp(token, "R") || !strcmp(token, "RIGHT")) {
-    frame->buttons |= kButton_Right;
+    *buttons |= kButton_Right;
   } else if (!strcmp(token, "U") || !strcmp(token, "UP")) {
-    frame->buttons |= kButton_Up;
+    *buttons |= kButton_Up;
   } else if (!strcmp(token, "D") || !strcmp(token, "DOWN")) {
-    frame->buttons |= kButton_Down;
+    *buttons |= kButton_Down;
   } else if (!strcmp(token, "J") || !strcmp(token, "JUMP")) {
-    frame->buttons |= kButton_A;
+    *buttons |= kButton_A;
   } else if (!strcmp(token, "RUN") || !strcmp(token, "B")) {
-    frame->buttons |= kButton_B;
+    *buttons |= kButton_B;
   } else if (!strcmp(token, "SHOOT") || !strcmp(token, "X")) {
-    frame->buttons |= kButton_X;
+    *buttons |= kButton_X;
   } else if (!strcmp(token, "ITEM") || !strcmp(token, "Y")) {
-    frame->buttons |= kButton_Y;
+    *buttons |= kButton_Y;
   } else if (!strcmp(token, "AIMUP") || !strcmp(token, "RU") || !strcmp(token, "RSHOULDER")) {
-    frame->buttons |= kButton_R;
+    *buttons |= kButton_R;
   } else if (!strcmp(token, "AIMDOWN") || !strcmp(token, "LU") || !strcmp(token, "LSHOULDER")) {
-    frame->buttons |= kButton_L;
+    *buttons |= kButton_L;
   } else if (!strcmp(token, "QUIT")) {
-    frame->quit_requested = true;
+    *quit_requested = true;
   } else {
     return false;
   }
+  return true;
+}
+
+static bool MiniParseInputToken(const char *token, MiniScriptFrame *frame) {
+  int player_index = 0;
+  const char *button_token = token;
+  if (!strncmp(token, "P1:", 3) || !strncmp(token, "P2:", 3)) {
+    player_index = token[1] == '2' ? 1 : 0;
+    button_token = token + 3;
+    if (*button_token == '\0')
+      return false;
+  }
+
+  uint16 buttons = 0;
+  bool quit_requested = false;
+  if (!MiniParseButtonToken(button_token, &buttons, &quit_requested))
+    return false;
+
+  frame->player_buttons[player_index] |= buttons;
+  frame->buttons = frame->player_buttons[0];
+  if (player_index + 1 > frame->player_count)
+    frame->player_count = player_index + 1;
+  if (quit_requested)
+    frame->quit_requested = true;
   return true;
 }
 
@@ -77,6 +101,9 @@ bool MiniInputScript_Load(MiniInputScript *script, const char *path) {
         return false;
       }
     }
+    frame.buttons = frame.player_buttons[0];
+    if (frame.player_count == 0)
+      frame.player_count = 1;
 
     if (script->count == capacity) {
       capacity = capacity ? capacity * 2 : 64;

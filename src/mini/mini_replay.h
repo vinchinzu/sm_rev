@@ -18,6 +18,7 @@ typedef struct MiniReplayFrames {
 typedef struct MiniReplayArtifact {
   int version;
   int frames;
+  int player_count;
   int viewport_width;
   int viewport_height;
   uint64 initial_hash;
@@ -28,6 +29,7 @@ typedef struct MiniReplayArtifact {
 
 typedef struct MiniReplayWriteInfo {
   int frames;
+  int player_count;
   int viewport_width;
   int viewport_height;
   uint64 initial_hash;

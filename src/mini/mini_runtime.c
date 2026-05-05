@@ -30,7 +30,13 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
   uint64_t state_hash = MiniStateHash(state);
   const SamusProjectileView *first_projectile =
       state->projectile_state.count > 0 ? &state->projectile_state.views[0] : NULL;
+  uint8 first_projectile_owner = 0;
+  if (first_projectile != NULL && first_projectile->slot_index < kSamusProjectileSlotCount)
+    first_projectile_owner = state->projectile_state.owner_by_slot[first_projectile->slot_index];
+  const MiniPlayerState *p1 = &state->players[0];
+  const MiniPlayerState *p2 = &state->players[1];
   printf("{\"build\":\"%s\",\"headless\":%s,\"frames\":%d,"
+         "\"player_count\":%d,"
          "\"content_scope\":\"%s\","
          "\"no_enemies\":%s,\"no_bosses\":true,\"no_rooms\":%s,"
          "\"room_ptr\":%u,\"room_width\":%d,\"room_height\":%d,"
@@ -44,13 +50,22 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          "\"camera_target_x_percent\":%d,\"camera_target_y_percent\":%d,"
          "\"samus_x\":%d,\"samus_y\":%d,"
          "\"samus_world_x\":%d,\"samus_world_y\":%d,\"samus_on_ground\":%s,"
+         "\"player1_world_x\":%d,\"player1_world_y\":%d,"
+         "\"player1_screen_x\":%d,\"player1_screen_y\":%d,"
+         "\"player1_buttons\":%u,\"player1_hit_count\":%u,"
+         "\"player1_pending_damage\":%u,\"player1_last_hit_by_player\":%u,"
+         "\"player2_world_x\":%d,\"player2_world_y\":%d,"
+         "\"player2_screen_x\":%d,\"player2_screen_y\":%d,"
+         "\"player2_buttons\":%u,\"player2_hit_count\":%u,"
+         "\"player2_pending_damage\":%u,\"player2_last_hit_by_player\":%u,"
          "\"samus_pose\":%u,\"samus_movement_type\":%u,"
          "\"projectile_count\":%d,\"first_projectile_type\":%u,"
          "\"first_projectile_x\":%u,\"first_projectile_y\":%u,"
-         "\"first_projectile_dir\":%u,"
+         "\"first_projectile_dir\":%u,\"first_projectile_owner\":%u,"
          "\"state_hash\":\"0x%016llx\"}\n",
          MiniRuntime_BuildName(),
          options->headless ? "true" : "false", state->frame,
+         state->player_count,
          MiniContentScope_Name(),
          state->room.has_original_enemies ? "false" : "true",
          state->room.has_room ? "false" : "true",
@@ -76,12 +91,21 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          state->samus.screen_x, state->samus.screen_y,
          state->samus.world_x, state->samus.world_y,
          state->samus.on_ground ? "true" : "false",
+         p1->samus.world_x, p1->samus.world_y,
+         p1->samus.screen_x, p1->samus.screen_y,
+         state->player_inputs[0].buttons, p1->combat.hit_count,
+         p1->combat.pending_damage, p1->combat.last_hit_by_player,
+         p2->samus.world_x, p2->samus.world_y,
+         p2->samus.screen_x, p2->samus.screen_y,
+         state->player_inputs[1].buttons, p2->combat.hit_count,
+         p2->combat.pending_damage, p2->combat.last_hit_by_player,
          state->samus.pose, state->samus.movement_type,
          state->projectile_state.count,
          first_projectile != NULL ? first_projectile->type : 0,
          first_projectile != NULL ? first_projectile->x_pos : 0,
          first_projectile != NULL ? first_projectile->y_pos : 0,
          first_projectile != NULL ? first_projectile->direction : 0,
+         first_projectile_owner,
          (unsigned long long)state_hash);
 }
 
@@ -111,10 +135,40 @@ static void MiniPollWindowEvents(MiniInputState *input) {
   }
 }
 
+static uint16 MiniPollPlayer2KeyboardButtons(const Uint8 *keys) {
+  uint16 buttons = 0;
+  if (keys[SDL_SCANCODE_W])
+    buttons |= kButton_Up;
+  if (keys[SDL_SCANCODE_S])
+    buttons |= kButton_Down;
+  if (keys[SDL_SCANCODE_A])
+    buttons |= kButton_Left;
+  if (keys[SDL_SCANCODE_D])
+    buttons |= kButton_Right;
+  if (keys[SDL_SCANCODE_F])
+    buttons |= kButton_A;
+  if (keys[SDL_SCANCODE_G])
+    buttons |= kButton_B;
+  if (keys[SDL_SCANCODE_H])
+    buttons |= kButton_X;
+  if (keys[SDL_SCANCODE_T])
+    buttons |= kButton_Select;
+  if (keys[SDL_SCANCODE_Y])
+    buttons |= kButton_Start;
+  if (keys[SDL_SCANCODE_Q])
+    buttons |= kButton_L;
+  if (keys[SDL_SCANCODE_E])
+    buttons |= kButton_R;
+  return buttons;
+}
+
 static void MiniPollLiveButtons(MiniInputState *input, SDL_GameController *controller) {
   SDL_PumpEvents();
   const Uint8 *keys = SDL_GetKeyboardState(NULL);
-  input->buttons |= SmDefaultButtonsForKeyboardState(keys);
+  input->player_buttons[0] |= SmDefaultButtonsForKeyboardState(keys);
+  input->buttons = input->player_buttons[0];
+  if (input->player_count > 1)
+    input->player_buttons[1] |= MiniPollPlayer2KeyboardButtons(keys);
 
   if (controller == NULL || !SDL_GameControllerGetAttached(controller))
     return;
@@ -122,14 +176,15 @@ static void MiniPollLiveButtons(MiniInputState *input, SDL_GameController *contr
   Sint16 axis_x = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX);
   Sint16 axis_y = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY);
   if (axis_y <= -16000 || SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_UP))
-    input->buttons |= kButton_Up;
+    input->player_buttons[0] |= kButton_Up;
   if (axis_y >= 16000 || SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN))
-    input->buttons |= kButton_Down;
+    input->player_buttons[0] |= kButton_Down;
   if (axis_x <= -16000 || SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT))
-    input->buttons |= kButton_Left;
+    input->player_buttons[0] |= kButton_Left;
   if (axis_x >= 16000 || SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT))
-    input->buttons |= kButton_Right;
-  input->buttons |= SmDefaultButtonsForControllerState(controller);
+    input->player_buttons[0] |= kButton_Right;
+  input->player_buttons[0] |= SmDefaultButtonsForControllerState(controller);
+  input->buttons = input->player_buttons[0];
 }
 
 static SDL_GameController *MiniOpenFirstController(void) {
@@ -161,6 +216,15 @@ static const char *RoomExportPathForRun(const MiniOptions *options,
   if (replay != NULL && replay->room_export_path[0] != '\0')
     return replay->room_export_path;
   return NULL;
+}
+
+static int PlayerCountForRun(const MiniOptions *options, const MiniReplayArtifact *replay) {
+  return replay != NULL ? replay->player_count : options->player_count;
+}
+
+static void ConfigureRoomSelectionForRun(const MiniOptions *options,
+                                         const MiniReplayArtifact *replay) {
+  MiniStubs_SetRoomExportPath(RoomExportPathForRun(options, replay));
 }
 
 static bool ValidateReplayInitialState(const MiniReplayArtifact *replay,
@@ -207,6 +271,7 @@ static bool WriteReplayOutput(const MiniOptions *options, const MiniGameState *s
     return true;
   MiniReplayWriteInfo info = {
     .frames = frames->count,
+    .player_count = state->player_count,
     .viewport_width = state->viewport.width,
     .viewport_height = state->viewport.height,
     .initial_hash = initial_hash,
@@ -217,6 +282,16 @@ static bool WriteReplayOutput(const MiniOptions *options, const MiniGameState *s
     .final_state = state,
   };
   return MiniReplay_Write(options->replay_out_path, &info, frames);
+}
+
+static void ApplyMultiplayerDemoFrame(int frame_index, MiniScriptFrame *frame) {
+  memset(frame, 0, sizeof(*frame));
+  frame->player_count = kMiniMaxPlayers;
+  if (frame_index == 0) {
+    frame->player_buttons[0] = kButton_X;
+    frame->player_buttons[1] = kButton_Left | kButton_X;
+  }
+  frame->buttons = frame->player_buttons[0];
 }
 
 static bool RunFrames(MiniGameState *state, const MiniOptions *options, SDL_Renderer *renderer,
@@ -234,13 +309,26 @@ static bool RunFrames(MiniGameState *state, const MiniOptions *options, SDL_Rend
                         : ((options->headless || options->frames_explicit) ? options->frames : INT_MAX);
   bool ok = true;
   for (int i = 0; i < frame_limit && !state->quit_requested; i++) {
-    MiniInputState input = {0};
+    MiniInputState input = {
+      .player_count = state->player_count,
+    };
     MiniScriptFrame scripted = {0};
     if (replay != NULL)
       scripted = replay->inputs.frames[i];
+    else if (options->multiplayer_demo)
+      ApplyMultiplayerDemoFrame(i, &scripted);
     else
       MiniInputScript_ApplyFrame(&script, i, &scripted);
     input.buttons = scripted.buttons;
+    input.player_count = scripted.player_count != 0 ? scripted.player_count : state->player_count;
+    if (input.player_count < state->player_count)
+      input.player_count = state->player_count;
+    if (input.player_count > kMiniMaxPlayers)
+      input.player_count = kMiniMaxPlayers;
+    for (int player = 0; player < input.player_count; player++)
+      input.player_buttons[player] = scripted.player_buttons[player];
+    input.player_buttons[0] = input.buttons != 0 ? input.buttons : input.player_buttons[0];
+    input.buttons = input.player_buttons[0];
     input.quit_requested = scripted.quit_requested;
 
     if (renderer != NULL) {
@@ -251,6 +339,8 @@ static bool RunFrames(MiniGameState *state, const MiniOptions *options, SDL_Rend
 
     MiniScriptFrame applied = {
       .buttons = input.buttons,
+      .player_buttons = { input.player_buttons[0], input.player_buttons[1] },
+      .player_count = input.player_count,
       .quit_requested = input.quit_requested,
     };
     if (replay_out_frames != NULL && !MiniReplayFrames_Append(replay_out_frames, applied)) {
@@ -287,8 +377,9 @@ static int RunHeadless(const MiniOptions *options) {
     goto done;
   replay_in = ReplayInputOrNull(options, &replay);
 
-  MiniStubs_SetRoomExportPath(RoomExportPathForRun(options, replay_in));
+  ConfigureRoomSelectionForRun(options, replay_in);
   MiniInit(&state, kMiniGameWidth, kMiniGameHeight);
+  MiniSetPlayerCount(&state, PlayerCountForRun(options, replay_in));
   uint64_t initial_hash = MiniStateHash(&state);
   if (!ValidateReplayInitialState(replay_in, &state, initial_hash))
     goto done;
@@ -372,8 +463,9 @@ static int RunWindowed(const MiniOptions *options) {
 
   controller = MiniOpenFirstController();
 
-  MiniStubs_SetRoomExportPath(RoomExportPathForRun(options, replay_in));
+  ConfigureRoomSelectionForRun(options, replay_in);
   MiniInit(&state, kMiniGameWidth, kMiniGameHeight);
+  MiniSetPlayerCount(&state, PlayerCountForRun(options, replay_in));
   initial_hash = MiniStateHash(&state);
   if (!ValidateReplayInitialState(replay_in, &state, initial_hash))
     goto done;

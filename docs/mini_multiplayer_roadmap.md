@@ -3,6 +3,10 @@
 This roadmap is for the long path from the current `mini` runtime to a
 deterministic, reusable, multiplayer-friendly Samus runtime.
 
+For the concrete local two-player melee MVP, including keyboard controls,
+projectile ownership, hit reception, Rust host expansion, and browser/WASM
+staging, see [mini_multiplayer_melee_plan.md](mini_multiplayer_melee_plan.md).
+
 It is intentionally staged:
 
 1. keep the current full build working
