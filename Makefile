@@ -55,6 +55,8 @@ MINI_KERNEL_RUNTIME_SRCS := $(filter-out src/mini/mini_main.c src/mini/mini_runt
 MINI_KERNEL_SRCS := $(MINI_KERNEL_RUNTIME_SRCS) $(MINI_SHARED_ENGINE_SRCS) $(MINI_EXTRA_SRCS)
 MINI_KERNEL_OBJS := $(MINI_KERNEL_SRCS:%.c=%.mini.o)
 MINI_KERNEL_LIB := libsm_rev_mini_kernel.a
+MINI_BROWSER_SRCS := $(MINI_KERNEL_SRCS) src/mini/mini_renderer.c
+MINI_BROWSER_LIB := libsm_rev_mini_net.so
 MINI_ROLLBACK_TEST := sm_rev_mini_rollback_test
 MINI_RUST_HOST := sm_rev_mini_rs
 MINI_ASSET_DEPS := src/mini/mini_generated_background_data.inc
@@ -85,7 +87,7 @@ else
     SDLFLAGS := $(shell sdl2-config --libs) -lm
 endif
 
-.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-rust-host moddable moddable-test
+.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-rust-host mini-browser-lib mini-browser-server moddable moddable-test
 
 all: $(TARGET_EXEC)
 
@@ -110,6 +112,14 @@ $(MODDABLE_TARGET_EXEC): $(MODDABLE_SRCS) $(MINI_ASSET_DEPS)
 
 $(MINI_KERNEL_LIB): $(MINI_KERNEL_OBJS) $(MINI_ASSET_DEPS)
 	$(AR) rcs $@ $(MINI_KERNEL_OBJS)
+
+mini-browser-lib: $(MINI_BROWSER_LIB)
+
+$(MINI_BROWSER_LIB): $(MINI_BROWSER_SRCS) src/mini/mini_net_bridge.h src/mini/mini_renderer.h $(MINI_ASSET_DEPS)
+	$(CC) $(MINI_CFLAGS) -fPIC -fvisibility=hidden -shared $(MINI_BROWSER_SRCS) -o $@ $(MINI_LDFLAGS)
+
+mini-browser-server: mini-browser-lib
+	$(PYTHON) tools/mini_browser_server.py
 
 mini-rollback-test: $(MINI_ROLLBACK_TEST)
 	./$(MINI_ROLLBACK_TEST)
@@ -136,7 +146,7 @@ mini-mac: mini
 
 clean: clean_obj
 clean_obj:
-	@$(RM) $(OBJS) $(TARGET_EXEC) $(MINI_TARGET_EXEC) $(MODDABLE_TARGET_EXEC) $(MINI_KERNEL_OBJS) $(MINI_KERNEL_LIB) $(MINI_ROLLBACK_TEST) $(MINI_RUST_HOST) src/embedded/*.o src/embedded/*.c
+	@$(RM) $(OBJS) $(TARGET_EXEC) $(MINI_TARGET_EXEC) $(MODDABLE_TARGET_EXEC) $(MINI_KERNEL_OBJS) $(MINI_KERNEL_LIB) $(MINI_BROWSER_LIB) $(MINI_ROLLBACK_TEST) $(MINI_RUST_HOST) src/embedded/*.o src/embedded/*.c
 
 test: all
 	$(PYTHON) tests/run_tests.py -v

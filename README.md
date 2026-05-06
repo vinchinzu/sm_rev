@@ -16,6 +16,8 @@ Full build:
 Mini:
 - `make mini`
 - `make mini-test`
+- `make mini-browser-lib`
+- `make mini-browser-server`
 
 Native macOS:
 - `make NATIVE_MAC=1`
@@ -24,7 +26,10 @@ Native macOS:
 
 The current `sm_rev_mini` binary supports headless smoke tests, deterministic
 replay/rollback checks, editor-export rooms, and a ROM-backed Landing Site path
-when compatible assets are available.
+when compatible assets are available. `make mini-browser-server` starts a local
+two-browser MVP; open `/p1` and `/p2` from the printed URL to control separate
+players in one shared mini kernel. Browser frames are streamed from the existing
+mini renderer, not redrawn by the web client.
 
 ## Mission
 
@@ -79,6 +84,7 @@ Use the smallest test that matches the change:
 - full build integrity: `python3 -m pytest tests/test_build.py -q`
 - full runtime smoke: `python3 tests/run_tests.py -v`
 - mini smoke: `make mini-test`
+- browser multiplayer MVP: `python3 -m pytest tests/test_mini_browser_server.py -q`
 
 ## Docs
 

@@ -49,6 +49,7 @@ The mini target is now split into clearer responsibilities under [`src/mini/`](.
 - [mini_asset_bootstrap.c](../src/mini/mini_asset_bootstrap.c): editor/ROM asset import, Samus visual bootstrap, and mini room sprite setup
 - [mini_ppu_stub.c](../src/mini/mini_ppu_stub.c): mini-owned VRAM/CGRAM/DMA register emulation for rendering and asset uploads
 - [mini_game.c](../src/mini/mini_game.c): gameplay-state setup and per-frame update
+- [mini_net_bridge.c](../src/mini/mini_net_bridge.c): narrow C ABI for local browser multiplayer host snapshots, inputs, and per-player cameras
 - [mini_content_scope.c](../src/mini/mini_content_scope.c): allowed mini content boundary, currently Landing Site only
 - [mini_room_adapter.c](../src/mini/mini_room_adapter.c): editor/ROM/fallback room selection, collision-map setup, and room-boundary metadata
 - [mini_system.c](../src/mini/mini_system.c): mini reset orchestration across WRAM, PPU, assets, and ROM bootstrap state
@@ -63,10 +64,30 @@ Linux:
 - `make mini-test`
 - `make moddable`
 - `make moddable-test`
+- `make mini-browser-lib`
+- `make mini-browser-server`
 
 Replay artifact smoke:
 - `./sm_rev_mini --headless --frames 4 --input-script path/to/script.txt --replay-out out/mini_replay.json`
 - `./sm_rev_mini --headless --replay-in out/mini_replay.json`
+
+Browser multiplayer MVP:
+- `make mini-browser-lib` builds `libsm_rev_mini_net.so`, a narrow `MiniNet*`
+  shared-library bridge over the C mini gameplay kernel and renderer.
+- `make mini-browser-server` starts a local Python stdlib HTTP server on
+  `127.0.0.1:8765` by default.
+- Open `http://127.0.0.1:8765/p1` and `http://127.0.0.1:8765/p2` in two browser
+  windows. Both windows drive the same running two-player kernel; each route
+  gets a separate token and a camera centered on its assigned player.
+- The browser client receives raw RGBA frames from `mini_renderer.c`; it does
+  not redraw rooms, Samus, or projectiles with approximate JavaScript shapes.
+- Use the same default mini keyboard layout in either browser window: arrows
+  move, `X` jumps, `Z` runs, `S` shoots, `A` item-cancels, `C`/`V` aim.
+- Override the bind address with `python3 tools/mini_browser_server.py --host 0.0.0.0 --port 8765`
+  when another device on the LAN should connect.
+
+Browser multiplayer tests:
+- `python3 -m pytest tests/test_mini_browser_server.py -q`
 
 macOS:
 - `make mini-mac`

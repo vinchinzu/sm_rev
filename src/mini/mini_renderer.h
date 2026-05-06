@@ -8,6 +8,9 @@
 
 void MiniRenderer_SetBackdropMode(MiniBackdropMode mode);
 void MiniRenderFrameToPixels(uint32_t *pixels, int pitch_pixels, const MiniGameState *state);
+void MiniRenderFrameToPixelsWithCamera(uint32_t *pixels, int pitch_pixels,
+                                       const MiniGameState *state,
+                                       int camera_x, int camera_y);
 bool MiniSaveScreenshot(const char *path, const MiniGameState *state);
 
 #endif  // SM_MINI_RENDERER_H_

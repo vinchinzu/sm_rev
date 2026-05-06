@@ -483,7 +483,9 @@ static void MiniRenderObjTile(uint32_t *pixels, int pitch_pixels, const uint8 *t
   }
 }
 
-static void MiniRenderCurrentOam(uint32_t *pixels, int pitch_pixels, int oam_next_ptr_limit) {
+static void MiniRenderCurrentOamWithOffset(uint32_t *pixels, int pitch_pixels,
+                                           int oam_next_ptr_limit,
+                                           int x_offset, int y_offset) {
   const uint8 *vram = MiniPpu_GetVram();
   int large_size = MiniObjSpriteSizePixels();
   int small_size = large_size / 2;
@@ -509,6 +511,8 @@ static void MiniRenderCurrentOam(uint32_t *pixels, int pitch_pixels, int oam_nex
       sprite_x -= 512;
     if (sprite_y >= 224)
       sprite_y -= 256;
+    sprite_x += x_offset;
+    sprite_y += y_offset;
     if (sprite_x <= -size || sprite_x >= kMiniGameWidth || sprite_y <= -size || sprite_y >= kMiniGameHeight)
       continue;
 
@@ -524,6 +528,10 @@ static void MiniRenderCurrentOam(uint32_t *pixels, int pitch_pixels, int oam_nex
       }
     }
   }
+}
+
+static void MiniRenderCurrentOam(uint32_t *pixels, int pitch_pixels, int oam_next_ptr_limit) {
+  MiniRenderCurrentOamWithOffset(pixels, pitch_pixels, oam_next_ptr_limit, 0, 0);
 }
 
 static const MiniEditorSamusRenderedFrameView *MiniFindSamusRenderedFrame(
@@ -758,6 +766,67 @@ void MiniRenderFrameToPixels(uint32_t *pixels, int pitch_pixels, const MiniGameS
     return;
   MiniRenderEditorRoomSprites(pixels, pitch_pixels, state);
   MiniRenderSamusPlayers(pixels, pitch_pixels, state, 0, false);
+}
+
+static void MiniRenderUpdateScreenPositionsForCamera(MiniGameState *state) {
+  for (int player = 0; player < kMiniMaxPlayers; player++) {
+    MiniSamusCoreState *samus = &state->players[player].samus;
+    samus->screen_x = samus->world_x - state->viewport.camera_x - samus->x_radius;
+    samus->screen_y = samus->world_y - state->viewport.camera_y - samus->y_radius;
+  }
+  state->samus = state->players[0].samus;
+  state->camera_x = state->viewport.camera_x;
+  state->camera_y = state->viewport.camera_y;
+  state->samus_x = state->samus.screen_x;
+  state->samus_y = state->samus.screen_y;
+}
+
+void MiniRenderFrameToPixelsWithCamera(uint32_t *pixels, int pitch_pixels,
+                                       const MiniGameState *state,
+                                       int camera_x, int camera_y) {
+  MiniGameState render_state = *state;
+  uint16 saved_layer1_x = layer1_x_pos;
+  uint16 saved_layer1_y = layer1_y_pos;
+  uint16 saved_bg1_hofs = reg_BG1HOFS;
+  uint16 saved_bg1_vofs = reg_BG1VOFS;
+  uint16 saved_bg2_hofs = reg_BG2HOFS;
+  uint16 saved_bg2_vofs = reg_BG2VOFS;
+  int delta_x = camera_x - state->viewport.camera_x;
+  int delta_y = camera_y - state->viewport.camera_y;
+  bool preserve_native_room = state->uses_original_gameplay_runtime && (delta_x != 0 || delta_y != 0);
+
+  render_state.viewport.camera_x = camera_x;
+  render_state.viewport.camera_y = camera_y;
+  MiniRenderUpdateScreenPositionsForCamera(&render_state);
+
+  if (preserve_native_room)
+    MiniRenderRoom(pixels, pitch_pixels, state);
+
+  layer1_x_pos = (uint16)camera_x;
+  layer1_y_pos = (uint16)camera_y;
+  reg_BG1HOFS = (uint16)camera_x;
+  reg_BG1VOFS = (uint16)camera_y;
+  reg_BG2HOFS = (uint16)(saved_bg2_hofs + delta_x);
+  reg_BG2VOFS = (uint16)(saved_bg2_vofs + delta_y);
+
+  if (!preserve_native_room)
+    MiniRenderRoom(pixels, pitch_pixels, &render_state);
+  if (render_state.uses_original_gameplay_runtime) {
+    MiniRenderCurrentOamWithOffset(
+        pixels, pitch_pixels, render_state.original_oam_next_ptr, -delta_x, -delta_y);
+    if (render_state.player_count > 1)
+      MiniRenderSamusPlayers(pixels, pitch_pixels, &render_state, 1, true);
+  } else if (!render_state.uses_rom_room) {
+    MiniRenderEditorRoomSprites(pixels, pitch_pixels, &render_state);
+    MiniRenderSamusPlayers(pixels, pitch_pixels, &render_state, 0, false);
+  }
+
+  layer1_x_pos = saved_layer1_x;
+  layer1_y_pos = saved_layer1_y;
+  reg_BG1HOFS = saved_bg1_hofs;
+  reg_BG1VOFS = saved_bg1_vofs;
+  reg_BG2HOFS = saved_bg2_hofs;
+  reg_BG2VOFS = saved_bg2_vofs;
 }
 
 bool MiniSaveScreenshot(const char *path, const MiniGameState *state) {
