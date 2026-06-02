@@ -9,11 +9,13 @@
 #include "ida_types.h"
 #include "mini_asset_bootstrap.h"
 #include "mini_defs.h"
+#include "mini_editor_bridge.h"
 #include "mini_generated_background.h"
 #include "mini_ppu_stub.h"
 #include "mini_room_adapter.h"
 #include "mini_room_fx.h"
 #include "samus_asset_bridge.h"
+#include "sm_rtl.h"
 #include "variables.h"
 
 enum {
@@ -24,6 +26,10 @@ enum {
   kMiniRenderOamSize = 0x200,
   kMiniRenderSamusTilesVramOffset = 0x6000u << 1,
   kMiniRenderSamusTilesVramSize = 0x400,
+  kMiniLandingSiteSkyBg1TileRowLimit = 128,
+  kMiniLandingSiteUpperSkyFillY = 48,
+  kMiniLandingSiteUpperSkyRepairY = 64,
+  kMiniLandingSiteUpperSkyCameraY = 1000,
 };
 
 static MiniBackdropMode g_backdrop_mode = kMiniBackdropMode_Game;
@@ -65,6 +71,33 @@ static uint32_t MiniBlendColor(uint32_t a, uint32_t b, int numer, int denom) {
   uint32_t g = (ag * (uint32_t)(denom - numer) + bg * (uint32_t)numer) / (uint32_t)denom;
   uint32_t bl = (ab * (uint32_t)(denom - numer) + bb * (uint32_t)numer) / (uint32_t)denom;
   return 0xFF000000u | (r << 16) | (g << 8) | bl;
+}
+
+static bool MiniLandingUpperSkyRepairActive(const MiniGameState *state) {
+  return state != NULL &&
+         state->room.room_id == kMiniEditorBridgeRoomId_LandingSite &&
+         state->viewport.camera_y < kMiniLandingSiteUpperSkyCameraY;
+}
+
+static bool MiniLandingUpperSkyGarbageColor(uint32_t color) {
+  return color == 0xFFAC7BBDu || color == 0xFF73417Bu || color == 0xFF522952u;
+}
+
+static void MiniRepairLandingUpperSky(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
+  if (!MiniLandingUpperSkyRepairActive(state))
+    return;
+  uint32_t sky = MiniConvertBgr555(0x1CE8);
+  for (int y = 0; y < kMiniLandingSiteUpperSkyFillY; y++) {
+    for (int x = 0; x < kMiniGameWidth; x++)
+      pixels[y * pitch_pixels + x] = sky;
+  }
+  for (int y = 0; y < kMiniLandingSiteUpperSkyRepairY; y++) {
+    for (int x = 0; x < kMiniGameWidth; x++) {
+      uint32_t *pixel = &pixels[y * pitch_pixels + x];
+      if (MiniLandingUpperSkyGarbageColor(*pixel))
+        *pixel = sky;
+    }
+  }
 }
 
 static void MiniFillRect(uint32_t *pixels, int pitch_pixels, int left, int top,
@@ -163,6 +196,38 @@ static void MiniRenderBgLayer(uint32_t *pixels, int pitch_pixels, const uint8 *v
   for (int tile_y = first_tile_y; tile_y <= last_tile_y; tile_y++) {
     for (int tile_x = first_tile_x; tile_x <= last_tile_x; tile_x++) {
       uint16 tile_attr = MiniGetBgTilemapWord(vram, bg_sc, tile_x, tile_y);
+      int screen_x = tile_x * 8 - scroll_x;
+      int screen_y = tile_y * 8 - scroll_y;
+      MiniRenderTile(pixels, pitch_pixels, vram, target_palettes, tile_base, tile_attr, screen_x, screen_y);
+    }
+  }
+}
+
+static bool MiniRomBg1TileHasLevelVisual(const MiniGameState *state, int tile_x, int tile_y) {
+  int world_tile_x = (tile_x * 8 - (int)bg1_x_offset) / 8;
+  int world_tile_y = (tile_y * 8 - (int)bg1_y_offset) / 8;
+  if (state != NULL && state->room.room_id == kMiniEditorBridgeRoomId_LandingSite &&
+      world_tile_y < kMiniLandingSiteSkyBg1TileRowLimit)
+    return false;
+  int block_x = world_tile_x >> 1;
+  int block_y = world_tile_y >> 1;
+  uint16 level = MiniStubs_GetLevelBlock(block_x, block_y);
+  return BlockTileMetatileIndex(level) != kMiniEditorAirMetatile;
+}
+
+static void MiniRenderRomBg1Layer(uint32_t *pixels, int pitch_pixels,
+                                  const MiniGameState *state,
+                                  const uint8 *vram, int scroll_x, int scroll_y) {
+  int first_tile_x = scroll_x / 8;
+  int first_tile_y = scroll_y / 8;
+  int last_tile_x = (scroll_x + kMiniGameWidth + 7) / 8;
+  int last_tile_y = (scroll_y + kMiniGameHeight + 7) / 8;
+  int tile_base = MiniBgTileBase(1);
+  for (int tile_y = first_tile_y; tile_y <= last_tile_y; tile_y++) {
+    for (int tile_x = first_tile_x; tile_x <= last_tile_x; tile_x++) {
+      if (!MiniRomBg1TileHasLevelVisual(state, tile_x, tile_y))
+        continue;
+      uint16 tile_attr = MiniGetBgTilemapWord(vram, reg_BG1SC, tile_x, tile_y);
       int screen_x = tile_x * 8 - scroll_x;
       int screen_y = tile_y * 8 - scroll_y;
       MiniRenderTile(pixels, pitch_pixels, vram, target_palettes, tile_base, tile_attr, screen_x, screen_y);
@@ -315,6 +380,51 @@ static void MiniRenderEditorRoomSprites(uint32_t *pixels, int pitch_pixels, cons
   }
 }
 
+static void MiniRenderRomBackdropAndBg2(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
+  bool use_generated_backdrop = g_backdrop_mode == kMiniBackdropMode_Generated;
+  const uint8 *vram = MiniPpu_GetVram();
+  if (use_generated_backdrop) {
+    MiniGeneratedBackground_Render(pixels, pitch_pixels);
+  } else {
+    uint32_t clear = MiniConvertBgr555(target_palettes[0]);
+    for (int y = 0; y < kMiniGameHeight; y++) {
+      for (int x = 0; x < kMiniGameWidth; x++)
+        pixels[y * pitch_pixels + x] = clear;
+    }
+    MiniRenderBgLayer(pixels, pitch_pixels, vram, reg_BG2SC, MiniBgTileBase(2), reg_BG2HOFS, reg_BG2VOFS);
+  }
+}
+
+static void MiniRenderRomBg1(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
+  const uint8 *vram = MiniPpu_GetVram();
+  MiniRenderRomBg1Layer(pixels, pitch_pixels, state, vram, reg_BG1HOFS, reg_BG1VOFS);
+}
+
+static void MiniRenderRomRoomWithStreamedBg1Camera(uint32_t *pixels, int pitch_pixels,
+                                                   const MiniGameState *state) {
+  MiniRenderRomBackdropAndBg2(pixels, pitch_pixels, state);
+
+  MiniPpuSnapshot ppu_snapshot;
+  uint8 saved_ram[sizeof(g_ram)];
+  MiniPpu_SaveSnapshot(&ppu_snapshot);
+  memcpy(saved_ram, g_ram, sizeof(saved_ram));
+
+  layer1_x_pos = (uint16)state->viewport.camera_x;
+  layer1_y_pos = (uint16)state->viewport.camera_y;
+  layer1_x_subpos = 0;
+  layer1_y_subpos = 0;
+  CalculateLayer2Xpos();
+  CalculateLayer2Ypos();
+  CalculateBgScrolls();
+  DisplayViewablePartOfRoom();
+
+  MiniRenderRomBg1(pixels, pitch_pixels, state);
+  MiniRepairLandingUpperSky(pixels, pitch_pixels, state);
+
+  memcpy(g_ram, saved_ram, sizeof(saved_ram));
+  MiniPpu_LoadSnapshot(&ppu_snapshot);
+}
+
 static void MiniRenderRoom(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
   bool use_generated_backdrop = g_backdrop_mode == kMiniBackdropMode_Generated;
   if (!state->uses_rom_room) {
@@ -399,18 +509,9 @@ static void MiniRenderRoom(uint32_t *pixels, int pitch_pixels, const MiniGameSta
     return;
   }
 
-  const uint8 *vram = MiniPpu_GetVram();
-  if (use_generated_backdrop) {
-    MiniGeneratedBackground_Render(pixels, pitch_pixels);
-  } else {
-    uint32_t clear = MiniConvertBgr555(target_palettes[0]);
-    for (int y = 0; y < kMiniGameHeight; y++) {
-      for (int x = 0; x < kMiniGameWidth; x++)
-        pixels[y * pitch_pixels + x] = clear;
-    }
-    MiniRenderBgLayer(pixels, pitch_pixels, vram, reg_BG2SC, MiniBgTileBase(2), reg_BG2HOFS, reg_BG2VOFS);
-  }
-  MiniRenderBgLayer(pixels, pitch_pixels, vram, reg_BG1SC, MiniBgTileBase(1), reg_BG1HOFS, reg_BG1VOFS);
+  MiniRenderRomBackdropAndBg2(pixels, pitch_pixels, state);
+  MiniRenderRomBg1(pixels, pitch_pixels, state);
+  MiniRepairLandingUpperSky(pixels, pitch_pixels, state);
 }
 
 static void MiniTransferSamusHalfToObjTiles(uint16 tile_src, uint16 top_vram_addr, uint16 bottom_vram_addr) {
@@ -760,6 +861,7 @@ void MiniRenderFrameToPixels(uint32_t *pixels, int pitch_pixels, const MiniGameS
     MiniRenderCurrentOam(pixels, pitch_pixels, state->original_oam_next_ptr);
     if (state->player_count > 1)
       MiniRenderSamusPlayers(pixels, pitch_pixels, state, 1, true);
+    MiniRepairLandingUpperSky(pixels, pitch_pixels, state);
     return;
   }
   if (state->uses_rom_room)
@@ -793,14 +895,23 @@ void MiniRenderFrameToPixelsWithCamera(uint32_t *pixels, int pitch_pixels,
   uint16 saved_bg2_vofs = reg_BG2VOFS;
   int delta_x = camera_x - state->viewport.camera_x;
   int delta_y = camera_y - state->viewport.camera_y;
-  bool preserve_native_room = state->uses_original_gameplay_runtime && (delta_x != 0 || delta_y != 0);
+  bool stream_original_bg1 = state->uses_original_gameplay_runtime && (delta_x != 0 || delta_y != 0);
 
   render_state.viewport.camera_x = camera_x;
   render_state.viewport.camera_y = camera_y;
   MiniRenderUpdateScreenPositionsForCamera(&render_state);
 
-  if (preserve_native_room)
-    MiniRenderRoom(pixels, pitch_pixels, state);
+  if (stream_original_bg1) {
+    MiniRenderRomRoomWithStreamedBg1Camera(pixels, pitch_pixels, &render_state);
+  } else {
+    layer1_x_pos = (uint16)camera_x;
+    layer1_y_pos = (uint16)camera_y;
+    reg_BG1HOFS = (uint16)camera_x;
+    reg_BG1VOFS = (uint16)camera_y;
+    reg_BG2HOFS = (uint16)(saved_bg2_hofs + delta_x);
+    reg_BG2VOFS = (uint16)(saved_bg2_vofs + delta_y);
+    MiniRenderRoom(pixels, pitch_pixels, &render_state);
+  }
 
   layer1_x_pos = (uint16)camera_x;
   layer1_y_pos = (uint16)camera_y;
@@ -809,13 +920,12 @@ void MiniRenderFrameToPixelsWithCamera(uint32_t *pixels, int pitch_pixels,
   reg_BG2HOFS = (uint16)(saved_bg2_hofs + delta_x);
   reg_BG2VOFS = (uint16)(saved_bg2_vofs + delta_y);
 
-  if (!preserve_native_room)
-    MiniRenderRoom(pixels, pitch_pixels, &render_state);
   if (render_state.uses_original_gameplay_runtime) {
     MiniRenderCurrentOamWithOffset(
         pixels, pitch_pixels, render_state.original_oam_next_ptr, -delta_x, -delta_y);
     if (render_state.player_count > 1)
       MiniRenderSamusPlayers(pixels, pitch_pixels, &render_state, 1, true);
+    MiniRepairLandingUpperSky(pixels, pitch_pixels, &render_state);
   } else if (!render_state.uses_rom_room) {
     MiniRenderEditorRoomSprites(pixels, pitch_pixels, &render_state);
     MiniRenderSamusPlayers(pixels, pitch_pixels, &render_state, 0, false);

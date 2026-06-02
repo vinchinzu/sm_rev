@@ -397,6 +397,7 @@ def render_index(player_hint: int | None) -> bytes:
   --line: #2c3642;
   --text: #e8eef5;
   --muted: #91a3b8;
+  --screen-width: {GAME_WIDTH * 3}px;
 }}
 * {{ box-sizing: border-box; }}
 body {{
@@ -409,36 +410,50 @@ body {{
   font: 14px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }}
 main {{
-  width: min(100vw, 1160px);
-  padding: 18px;
+  width: 100vw;
+  min-height: 100vh;
+  padding: 12px;
+  display: grid;
+  place-items: center;
 }}
 .shell {{
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 260px;
-  gap: 14px;
-  align-items: start;
+  grid-template-rows: auto auto;
+  justify-items: center;
+  gap: 8px;
+  max-width: 100%;
 }}
 canvas {{
-  width: 100%;
-  aspect-ratio: 256 / 224;
+  box-sizing: content-box;
+  display: block;
+  width: {GAME_WIDTH * 3}px;
+  height: {GAME_HEIGHT * 3}px;
+  max-width: 100%;
   image-rendering: pixelated;
   background: #05070a;
   border: 1px solid var(--line);
 }}
 .side {{
+  width: min(100%, var(--screen-width));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
   border: 1px solid var(--line);
   background: var(--panel);
   border-radius: 6px;
-  padding: 12px;
+  padding: 6px 8px;
+  opacity: 0.78;
+  font-size: 12px;
 }}
 .row {{
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 5px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  justify-content: center;
+  gap: 5px;
+  padding: 0;
+  border-bottom: 0;
 }}
-.row:last-child {{ border-bottom: 0; }}
 .label {{ color: var(--muted); }}
 .badge {{
   display: inline-flex;
@@ -453,8 +468,7 @@ canvas {{
 }}
 @media (max-width: 820px) {{
   main {{ padding: 8px; }}
-  .shell {{ grid-template-columns: 1fr; }}
-  .side {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }}
+  .side {{ justify-content: flex-start; }}
 }}
 </style>
 </head>
@@ -492,12 +506,25 @@ const buttonMap = new Map([
 const canvas = document.getElementById("screen");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
+const side = document.querySelector(".side");
 const held = new Set();
 let token = null;
 let assignedPlayer = playerHint || 0;
 let latestState = null;
 let lastSentButtons = -1;
-const frameImage = ctx.createImageData(256, 224);
+const frameImage = ctx.createImageData({GAME_WIDTH}, {GAME_HEIGHT});
+
+function resizeCanvasForIntegerScale() {{
+  const sideHeight = side ? side.getBoundingClientRect().height : 0;
+  const maxScaleX = Math.floor((window.innerWidth - 32) / {GAME_WIDTH});
+  const maxScaleY = Math.floor((window.innerHeight - sideHeight - 28) / {GAME_HEIGHT});
+  const scale = Math.max(1, Math.min(4, maxScaleX, maxScaleY));
+  const width = {GAME_WIDTH} * scale;
+  const height = {GAME_HEIGHT} * scale;
+  canvas.style.width = `${{width}}px`;
+  canvas.style.height = `${{height}}px`;
+  document.documentElement.style.setProperty("--screen-width", `${{width}}px`);
+}}
 
 function storageKey() {{
   return `sm_rev_mini_token_${{playerHint || "auto"}}`;
@@ -601,8 +628,10 @@ window.addEventListener("blur", () => {{
   held.clear();
   sendInput(true);
 }});
+window.addEventListener("resize", resizeCanvasForIntegerScale);
 
 token = localStorage.getItem(storageKey());
+resizeCanvasForIntegerScale();
 pollState();
 setInterval(() => sendInput(), 33);
 renderFrames();

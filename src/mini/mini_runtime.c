@@ -9,6 +9,8 @@
 #include "default_controls.h"
 #include "features.h"
 #include "ida_types.h"
+#include "mini_audio.h"
+#include "mini_climb_endless.h"
 #include "mini_content_scope.h"
 #include "mini_game.h"
 #include "mini_input_script.h"
@@ -64,6 +66,7 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          "\"projectile_count\":%d,\"first_projectile_type\":%u,"
          "\"first_projectile_x\":%u,\"first_projectile_y\":%u,"
          "\"first_projectile_dir\":%u,\"first_projectile_owner\":%u,"
+         "\"climb_endless\":%s,\"virtual_floors\":%d,\"lava_enabled\":%s,\"lava_floor_y\":%d,"
          "\"state_hash\":\"0x%016llx\"}\n",
          MiniRuntime_BuildName(),
          options->headless ? "true" : "false", state->frame,
@@ -110,6 +113,10 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          first_projectile != NULL ? first_projectile->y_pos : 0,
          first_projectile != NULL ? first_projectile->direction : 0,
          first_projectile_owner,
+         options->climb_endless ? "true" : "false",
+         MiniClimbEndless_VirtualFloors(),
+         MiniClimbEndless_LavaEnabled() ? "true" : "false",
+         MiniClimbEndless_LavaFloorY(),
          (unsigned long long)state_hash);
 }
 
@@ -228,6 +235,14 @@ static int PlayerCountForRun(const MiniOptions *options, const MiniReplayArtifac
 
 static void ConfigureRoomSelectionForRun(const MiniOptions *options,
                                          const MiniReplayArtifact *replay) {
+  if (options->climb_endless) {
+    MiniClimbEndless_SetActive(true);
+    const char *room_path = RoomExportPathForRun(options, replay);
+    MiniStubs_SetRoomExportPath(room_path != NULL ? room_path
+                                                  : MiniClimbEndless_DefaultRoomExportPath());
+    return;
+  }
+  MiniClimbEndless_SetActive(false);
   MiniStubs_SetRoomExportPath(RoomExportPathForRun(options, replay));
 }
 
@@ -434,13 +449,17 @@ static int RunWindowed(const MiniOptions *options) {
     goto done;
   replay_in = ReplayInputOrNull(options, &replay);
 
-  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0) {
+  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS | SDL_INIT_TIMER |
+               SDL_INIT_GAMECONTROLLER) != 0) {
     fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
     goto done;
   }
   sdl_initialized = true;
+  MiniAudio_Init();
 
-  window = SDL_CreateWindow(BUILD_IS_MODDABLE ? "sm_rev moddable" : "sm_rev mini",
+  window = SDL_CreateWindow(
+      options->climb_endless ? "sm_rev mini — The Climb (endless)"
+                             : (BUILD_IS_MODDABLE ? "sm_rev moddable" : "sm_rev mini"),
                             SDL_WINDOWPOS_CENTERED,
                             SDL_WINDOWPOS_CENTERED,
                             kMiniWindowWidth,
@@ -505,6 +524,7 @@ done:
     SDL_DestroyRenderer(renderer);
   if (window != NULL)
     SDL_DestroyWindow(window);
+  MiniAudio_Shutdown();
   if (sdl_initialized)
     SDL_Quit();
   MiniReplay_Clear(&replay);

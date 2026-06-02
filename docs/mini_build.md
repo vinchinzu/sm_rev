@@ -59,6 +59,16 @@ That split is intentional for future portability work. A Rust or other-language 
 can replace the host loop and renderer independently before touching the gameplay
 update path.
 
+## The Climb (endless ascent)
+
+- `./sm_rev_mini --climb-endless` loads room `0x96BA` from `assets/local_mini/room_96BA.json`
+  (bundled export with blockWords, tileset 3, BG2, scroll, and Samus assets).
+- Regenerate climb assets from ROM after collision export changes:
+  `python3 tools/bundle_mini_room_assets.py --room 0x96BA`
+- Samus starts at the Pit Room entry `(521, 2187)` with Varia + Gravity + Morph.
+- When the camera nears the top of the shaft, the world wraps downward so the climb never ends.
+- Rising lava is stubbed (`lava_enabled` flips after 60s; damage/rise TBD).
+
 Linux:
 - `make mini`
 - `make mini-test`

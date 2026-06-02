@@ -6,7 +6,9 @@
 
 #include "funcs.h"
 #include "ida_types.h"
+#include "mini_audio.h"
 #include "mini_authored_movement.h"
+#include "mini_climb_endless.h"
 #include "mini_ppu_stub.h"
 #include "mini_system.h"
 #include "multi_samus.h"
@@ -334,6 +336,19 @@ static uint16 MiniInitialPoseForRoom(const MiniRoomInfo *room) {
              : kPose_00_FaceF_Powersuit;
 }
 
+static bool MiniPoseIsFaceForward(uint16 pose) {
+  return pose == kPose_00_FaceF_Powersuit ||
+         pose == kPose_9B_FaceF_VariaGravitySuit;
+}
+
+static void MiniRefreshSamusRuntimePose(void) {
+  SamusFunc_F433();
+  Samus_SetRadius();
+  Samus_SetAnimationFrameIfPoseChanged();
+  Samus_UpdatePreviousPose();
+  CallSomeSamusCode(1);
+}
+
 static void MiniInitializeSamusRuntime(const MiniRoomInfo *room) {
   if (!samus_max_health)
     samus_max_health = 99;
@@ -349,6 +364,8 @@ static void MiniInitializeSamusRuntime(const MiniRoomInfo *room) {
   samus_draw_handler = FUNC16(SamusDrawHandler_Default);
 
   Samus_Initialize();
+  if (MiniClimbEndless_IsActive())
+    MiniClimbEndless_ApplySamusLoadout();
   samus_pose = MiniInitialPoseForRoom(room);
   samus_movement_type = kMovementType_00_Standing;
   samus_anim_frame_skip = 0;
@@ -357,6 +374,40 @@ static void MiniInitializeSamusRuntime(const MiniRoomInfo *room) {
   Samus_SetAnimationFrameIfPoseChanged();
   Samus_UpdatePreviousPose();
   CallSomeSamusCode(1);
+}
+
+static void MiniSavePlayerCoreIntoRuntime(MiniGameState *state, int player_index) {
+  MiniLoadPlayerRuntime(state, player_index);
+  MiniCopySamusCoreToGlobals(&state->players[player_index].samus);
+  MiniRefreshSamusRuntimePose();
+  state->players[player_index].samus = MiniSamusCoreFromGlobals(state);
+  MiniSavePlayerRuntime(state, player_index);
+}
+
+static void MiniFaceMultiplayerPlayersAtEachOther(MiniGameState *state) {
+  if (state->player_count < 2)
+    return;
+
+  bool changed = false;
+  if (MiniPoseIsFaceForward(state->players[0].samus.pose)) {
+    state->players[0].samus.pose = kPose_01_FaceR_Normal;
+    changed = true;
+  }
+  if (MiniPoseIsFaceForward(state->players[1].samus.pose)) {
+    state->players[1].samus.pose = kPose_02_FaceL_Normal;
+    changed = true;
+  }
+  if (!changed)
+    return;
+
+  for (int player = 0; player < state->player_count; player++) {
+    MultiSamus_Switch(player);
+    MiniSavePlayerCoreIntoRuntime(state, player);
+  }
+  MultiSamus_Switch(0);
+  MiniLoadPlayerRuntime(state, 0);
+  state->samus = state->players[0].samus;
+  MiniUpdatePlayerScreenPositions(state);
 }
 
 void MiniGameState_Init(MiniGameState *state, int viewport_width, int viewport_height) {
@@ -393,6 +444,7 @@ void MiniGameState_Init(MiniGameState *state, int viewport_width, int viewport_h
 
   LoadPhysicsConfig();
   MiniInitializeSamusRuntime(&room);
+  MiniAudio_BootRoomMusic();
   EnablePaletteFx();
   EnableHdmaObjects();
   EnableAnimtiles();
@@ -598,6 +650,8 @@ static void MiniStepSharedSamusMultiplayerFrame(MiniGameState *state) {
 }
 
 void MiniUpdate(MiniGameState *state, const MiniInputState *input) {
+  bool music_already_ticked = false;
+
   if (input->quit_requested) {
     state->controls.quit_requested = true;
     state->quit_requested = true;
@@ -610,6 +664,7 @@ void MiniUpdate(MiniGameState *state, const MiniInputState *input) {
     state->original_oam_next_ptr = 0;
     nmi_frame_counter_word++;
     HdmaObjectHandler();
+    music_already_ticked = true;
     PaletteFxHandler();
     MiniStepSharedSamusMultiplayerFrame(state);
   } else if (MiniAuthoredMovement_ShouldUseState(state)) {
@@ -621,6 +676,7 @@ void MiniUpdate(MiniGameState *state, const MiniInputState *input) {
     state->original_oam_next_ptr = 0;
     nmi_frame_counter_word++;
     HdmaObjectHandler();
+    music_already_ticked = true;
     PaletteFxHandler();
     HandleControllerInputForGamePhysics();
     HandleSamusMovementAndPause();
@@ -632,8 +688,11 @@ void MiniUpdate(MiniGameState *state, const MiniInputState *input) {
     NmiProcessAnimtilesVramTransfers();
     NMI_ProcessVramWriteQueue();
   }
+  if (!state->room.uses_original_gameplay_runtime)
+    MiniAudio_TickQueues(music_already_ticked);
   MiniSyncRenderState(state);
   MiniUpdateMultiplayerCombat(state);
+  MiniClimbEndless_Tick(state);
   state->frame++;
 }
 
@@ -765,6 +824,7 @@ void MiniSetPlayerCount(MiniGameState *state, int player_count) {
     return;
   state->player_count = MiniNormalizePlayerCount(player_count);
   MultiSamus_SetNumSamus(state->player_count);
+  MiniFaceMultiplayerPlayersAtEachOther(state);
   for (int i = state->player_count; i < kMiniMaxPlayers; i++) {
     state->player_inputs[i] = (MiniPlayerInputState){0};
   }

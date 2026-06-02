@@ -34,6 +34,21 @@ def count_bright_samus_pixels_near(frame: bytes, center_x: int, half_width: int 
     return count
 
 
+def count_non_samus_pixel_diffs(left_frame: bytes, right_frame: bytes) -> int:
+    def is_bright_samus_pixel(offset: int, frame: bytes) -> bool:
+        red, green, blue, alpha = frame[offset:offset + 4]
+        return alpha == 255 and red > 120 and green > 80 and blue < 110
+
+    count = 0
+    for offset in range(0, len(left_frame), 4):
+        if left_frame[offset:offset + 4] == right_frame[offset:offset + 4]:
+            continue
+        if is_bright_samus_pixel(offset, left_frame) or is_bright_samus_pixel(offset, right_frame):
+            continue
+        count += 1
+    return count
+
+
 @pytest.fixture(scope="module")
 def mini_browser_module():
     result = run(["make", "mini-browser-lib"])
@@ -94,6 +109,7 @@ def test_kernel_snapshots_have_independent_player_follow_cameras(mini_browser_mo
             fresh_p2_state = fresh.state_for_token(fresh_p2["token"])[1]
             fresh_p1_frame = fresh.frame_for_token(fresh_p1["token"])[1]
             fresh_p2_frame = fresh.frame_for_token(fresh_p2["token"])[1]
+            assert count_non_samus_pixel_diffs(fresh_p1_frame, fresh_p2_frame) > 4000
             assert count_bright_samus_pixels_near(
                 fresh_p1_frame, fresh_p1_state["players"][0]["screen_x"]
             ) > 20
@@ -124,6 +140,8 @@ def test_http_join_input_and_state_routes_assign_p1_p2(mini_browser_module):
             page = urlopen(f"{base_url}/p1", timeout=5).read().decode("utf-8")
             assert "const playerHint = 1;" in page
             assert "/frame?token=" in page
+            assert "resizeCanvasForIntegerScale" in page
+            assert "grid-template-rows: auto auto" in page
             assert "drawRoom(" not in page
 
             p1 = json.loads(urlopen(f"{base_url}/join?player=1", timeout=5).read().decode("utf-8"))
@@ -165,3 +183,25 @@ def test_http_join_input_and_state_routes_assign_p1_p2(mini_browser_module):
             server.shutdown()
             server.server_close()
             thread.join(timeout=2)
+
+
+def test_browser_two_player_shooting_from_spawn_registers_hits(mini_browser_module):
+    with mini_browser_module.MiniKernel.from_repo(SM_REV_DIR, build=False) as kernel:
+        session = mini_browser_module.MiniBrowserSession(kernel)
+        p1 = session.join(1)
+        p2 = session.join(2)
+
+        initial = session.state_for_token(p1["token"])[1]
+        assert initial["players"][0]["pose"] != 0
+        assert initial["players"][1]["pose"] != 0
+
+        session.set_buttons(p1["token"], mini_browser_module.BUTTON_X)
+        session.set_buttons(p2["token"], mini_browser_module.BUTTON_X)
+        for _ in range(12):
+            session.step_once()
+
+        state = session.state_for_token(p1["token"])[1]
+        assert state["players"][0]["hit_count"] >= 1
+        assert state["players"][1]["hit_count"] >= 1
+        assert state["players"][0]["last_hit_by_player"] == 2
+        assert state["players"][1]["last_hit_by_player"] == 1

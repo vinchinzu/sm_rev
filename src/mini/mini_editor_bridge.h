@@ -8,6 +8,7 @@
 
 enum {
   kMiniEditorBridgeRoomId_LandingSite = 0x91F8,
+  kMiniEditorBridgeRoomId_Climb = 0x96BA,
   kMiniEditorBridgeSamusBank92Size = 0x8000,
   kMiniEditorBridgeTiles4bppSize = 1024 * 32,
   kMiniEditorBridgeMetatileWordCount = 1024 * 4,

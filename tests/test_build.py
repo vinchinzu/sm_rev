@@ -19,7 +19,9 @@ BINARY = SM_REV_DIR / "sm_rev"
 MINI_BINARY = SM_REV_DIR / "sm_rev_mini"
 MODDABLE_BINARY = SM_REV_DIR / "sm_rev_moddable"
 EDITOR_LANDING_SITE_EXPORT = SM_REV_DIR.parent / "super_metroid_editor" / "export" / "sm_nav" / "rooms" / "room_91F8.json"
+CLIMB_ROOM_EXPORT = SM_REV_DIR / "assets" / "local_mini" / "room_96BA.json"
 LANDING_SITE_ROOM_ID = 0x91F8
+CLIMB_ROOM_ID = 0x96BA
 RUN_SLOW_BUILD_TESTS = os.environ.get("SM_REV_RUN_SLOW_BUILD_TESTS") == "1"
 
 
@@ -158,6 +160,20 @@ class TestBuildMini:
         assert '"build":"mini"' in r.stdout
         assert '"frames":3' in r.stdout
         assert '"no_rooms":false' in r.stdout
+
+    def test_mini_climb_endless_headless_smoke(self):
+        """Climb endless mode loads The Climb export and starts at the pit entry."""
+        if not CLIMB_ROOM_EXPORT.exists():
+            return
+        r = run([str(MINI_BINARY), "--climb-endless", "--headless", "--frames", "4"])
+        assert r.returncode == 0, f"climb endless smoke failed:\n{r.stderr}\n{r.stdout}"
+        payload = parse_json_payload(r.stdout)
+        assert payload["content_scope"] == "climb_endless"
+        assert payload["room_handle"] == "climb"
+        assert payload["room_ptr"] == CLIMB_ROOM_ID
+        assert payload["climb_endless"] is True
+        assert payload["samus_world_y"] == 2187
+        assert '"room_visuals":"editor_tileset"' in r.stdout
 
     def test_mini_headless_smoke_outside_repo_cwd(self, tmp_path: Path):
         """Mini should still find its default room export when launched outside the repo cwd."""

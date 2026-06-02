@@ -24,7 +24,8 @@ static void PrintUsage(const char *argv0) {
           "  --replay-out PATH  Write a mini replay artifact for the completed run.\n"
           "  --room-export PATH  Load room collision data from a Super Metroid Editor export JSON file.\n"
           "  --background MODE  Select mini backdrop mode: game or generated.\n"
-          "  --ai-background  Alias for --background generated.\n",
+          "  --ai-background  Alias for --background generated.\n"
+          "  --climb-endless  The Climb only: bottom spawn, infinite ascent wrap (lava later).\n",
           argv0);
 }
 
@@ -50,6 +51,7 @@ static bool ParseArgs(int argc, char **argv, MiniOptions *options) {
   options->replay_out_path = NULL;
   options->room_export_path = NULL;
   options->backdrop_mode = kMiniBackdropMode_Game;
+  options->climb_endless = false;
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--headless")) {
       options->headless = true;
@@ -99,6 +101,8 @@ static bool ParseArgs(int argc, char **argv, MiniOptions *options) {
       i++;
     } else if (!strcmp(argv[i], "--ai-background")) {
       options->backdrop_mode = kMiniBackdropMode_Generated;
+    } else if (!strcmp(argv[i], "--climb-endless")) {
+      options->climb_endless = true;
     } else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
       PrintUsage(argv[0]);
       exit(0);

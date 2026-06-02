@@ -10,6 +10,7 @@
 #include "mini_defs.h"
 #include "mini_editor_bridge.h"
 #include "mini_ppu_stub.h"
+#include "mini_climb_endless.h"
 #include "mini_rom_bootstrap.h"
 #include "variables.h"
 
@@ -228,7 +229,12 @@ void MiniStubs_SetRoomExportPath(const char *path) {
 }
 
 void MiniStubs_ConfigureWorld(int viewport_width, int viewport_height) {
-  if (BUILD_IS_MODDABLE) {
+  if (MiniClimbEndless_IsActive()) {
+    if (MiniTryConfigureEditorRoom())
+      return;
+    fprintf(stderr,
+            "mini: climb endless requires The Climb editor export (room 0x96BA)\n");
+  } else if (BUILD_IS_MODDABLE) {
     if (MiniTryConfigureEditorRoom())
       return;
   } else if (g_mini_explicit_room_export_path) {

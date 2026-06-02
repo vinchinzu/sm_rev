@@ -148,6 +148,21 @@ Current weapon boundary for mini:
 - two-player mini defaults to that ROM-backed path and draws both Samus actors through the shared original OAM path
 - scripted `SHOOT` input now has a deterministic mini regression that asserts a basic power-beam projectile is spawned
 
+Current browser/netplay visual boundary:
+
+- `/p1` and `/p2` render server-produced ROM-backed pixel frames instead of
+  client-side redraw approximations
+- two-player browser spawn now faces the players toward each other so basic
+  `SHOOT` input can create real beam projectiles immediately
+- the browser canvas is integer-scaled and the debug HUD lives in a compact
+  bottom strip to avoid fractional row clipping
+- ROM-backed rendering masks BG1 air metatiles and repairs the Landing Site
+  upper-sky leak where stale room/OAM tile rows can show through during vertical
+  follow-camera motion
+- independent P2 rendering now streams BG1 for the focused camera; arbitrary
+  per-client BG2 and enemy/OAM camera generation remains the next deeper PPU
+  renderer pass before widening the room scope
+
 Completed visual extraction order:
 
 1. [x] split ROM loading/save-slot/demo-room selection out of the old mini stubs facade

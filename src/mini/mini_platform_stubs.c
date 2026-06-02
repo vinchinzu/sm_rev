@@ -16,15 +16,6 @@ int snes_frame_counter;
 SpcPlayer *g_spc_player;
 uint16 currently_installed_bug_fix_counter;
 
-void RtlApuWrite(uint32 adr, uint8 val) {
-  (void)adr;
-  (void)val;
-}
-
-void RtlApuUpload(const uint8 *p) {
-  (void)p;
-}
-
 void RtlWriteSram(void) {
 }
 

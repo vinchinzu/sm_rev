@@ -10,6 +10,7 @@
 #include "third_party/cJSON.h"
 
 #include "block_reaction.h"
+#include "mini_climb_endless.h"
 
 enum {
   kMiniLandingSiteCameraX = 1024,
@@ -22,6 +23,12 @@ static const char *g_room_export_path;
 static char g_resolved_room_export_path[512];
 static char g_base_path[512];
 static char g_git_common_base_path[512];
+
+static const char *const kDefaultClimbRoomExportCandidates[] = {
+  "assets/local_mini/room_96BA.json",
+  "/tmp/sm_export/rooms/room_96BA.json",
+  "../super_metroid_editor/export/sm_nav/rooms/room_96BA.json",
+};
 
 static const char *const kDefaultRoomExportCandidates[] = {
   "assets/mini/landing_site.room.json",
@@ -871,6 +878,11 @@ static void MiniAssignLandingSiteDefaults(MiniEditorRoom *room) {
   room->spawn_y = kMiniLandingSiteSamusY;
 }
 
+static void MiniAssignRoomDefaults(MiniEditorRoom *room) {
+  MiniClimbEndless_AssignRoomDefaults(room);
+  MiniAssignLandingSiteDefaults(room);
+}
+
 static bool MiniParseRoomJson(const char *path, MiniEditorRoom *room) {
   char *file_data = NULL;
   if (!MiniReadFile(path, &file_data))
@@ -988,7 +1000,7 @@ static bool MiniParseRoomJson(const char *path, MiniEditorRoom *room) {
       room->block_words[i] = BlockTileWithTypeIndex(0, room->collision_types[i]);
   }
   if (ok && !cJSON_IsObject(camera))
-    MiniAssignLandingSiteDefaults(room);
+    MiniAssignRoomDefaults(room);
   cJSON_Delete(root);
   if (!ok) {
     MiniEditorBridge_FreeRoom(room);
@@ -1036,8 +1048,16 @@ bool MiniEditorBridge_LoadRoom(MiniEditorRoom *room) {
     return MiniParseRoomJson(path, room);
   }
 
-  for (size_t i = 0; i < sizeof(kDefaultRoomExportCandidates) / sizeof(kDefaultRoomExportCandidates[0]); i++) {
-    if (MiniResolveSearchCandidate(kDefaultRoomExportCandidates[i], resolved_path, sizeof(resolved_path)) &&
+  const char *const *candidates = kDefaultRoomExportCandidates;
+  size_t candidate_count =
+      sizeof(kDefaultRoomExportCandidates) / sizeof(kDefaultRoomExportCandidates[0]);
+  if (MiniClimbEndless_IsActive()) {
+    candidates = kDefaultClimbRoomExportCandidates;
+    candidate_count =
+        sizeof(kDefaultClimbRoomExportCandidates) / sizeof(kDefaultClimbRoomExportCandidates[0]);
+  }
+  for (size_t i = 0; i < candidate_count; i++) {
+    if (MiniResolveSearchCandidate(candidates[i], resolved_path, sizeof(resolved_path)) &&
         MiniParseRoomJson(resolved_path, room)) {
       return true;
     }
