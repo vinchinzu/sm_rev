@@ -162,7 +162,7 @@ class TestBuildMini:
         assert '"no_rooms":false' in r.stdout
 
     def test_mini_climb_endless_headless_smoke(self):
-        """Climb endless mode loads The Climb export and starts at the pit entry."""
+        """Climb endless mode loads The Climb export and starts centered on the bottom platform."""
         if not CLIMB_ROOM_EXPORT.exists():
             return
         r = run([str(MINI_BINARY), "--climb-endless", "--headless", "--frames", "4"])
@@ -172,8 +172,47 @@ class TestBuildMini:
         assert payload["room_handle"] == "climb"
         assert payload["room_ptr"] == CLIMB_ROOM_ID
         assert payload["climb_endless"] is True
-        assert payload["samus_world_y"] == 2187
+        assert payload["samus_world_x"] == 384
+        assert payload["samus_world_y"] == 2192
+        assert payload["camera_y"] >= 2000
         assert '"room_visuals":"editor_tileset"' in r.stdout
+
+    def test_mini_climb_endless_keeps_spawn_camera_and_draws_samus(self, tmp_path: Path):
+        """Climb endless must not snap camera on frame 1 and should render Samus on screen."""
+        if not CLIMB_ROOM_EXPORT.exists():
+            return
+        frame = tmp_path / "climb_samus.bmp"
+        r = run([
+            str(MINI_BINARY),
+            "--climb-endless",
+            "--headless",
+            "--frames",
+            "1",
+            "--screenshot",
+            str(frame),
+        ])
+        assert r.returncode == 0, f"climb screenshot failed:\n{r.stderr}\n{r.stdout}"
+        payload = parse_json_payload(r.stdout)
+        assert payload["camera_y"] >= 2000, payload
+        assert 0 <= payload["samus_y"] < 224, payload
+        assert frame.exists()
+
+        width, height, pixels = read_bmp_argb_pixels(frame)
+        left = max(0, int(payload["samus_x"]) - 12)
+        right = min(width, int(payload["samus_x"]) + 36)
+        top = max(0, int(payload["samus_y"]) - 12)
+        bottom = min(height, int(payload["samus_y"]) + 48)
+        samus_pixels = 0
+        for y in range(top, bottom):
+            for x in range(left, right):
+                pixel = pixels[y][x]
+                red = (pixel >> 16) & 0xFF
+                green = (pixel >> 8) & 0xFF
+                blue = pixel & 0xFF
+                alpha = (pixel >> 24) & 0xFF
+                if alpha > 0 and (red > 24 or green > 24 or blue > 24):
+                    samus_pixels += 1
+        assert samus_pixels >= 8, f"expected visible Samus pixels near spawn, found {samus_pixels}"
 
     def test_mini_headless_smoke_outside_repo_cwd(self, tmp_path: Path):
         """Mini should still find its default room export when launched outside the repo cwd."""

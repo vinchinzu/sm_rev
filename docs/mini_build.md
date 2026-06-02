@@ -65,7 +65,7 @@ update path.
   (bundled export with blockWords, tileset 3, BG2, scroll, and Samus assets).
 - Regenerate climb assets from ROM after collision export changes:
   `python3 tools/bundle_mini_room_assets.py --room 0x96BA`
-- Samus starts at the Pit Room entry `(521, 2187)` with Varia + Gravity + Morph.
+- Samus starts centered on the bottom platform `(384, 2192)` with Varia + Gravity + Morph.
 - When the camera nears the top of the shaft, the world wraps downward so the climb never ends.
 - Rising lava is stubbed (`lava_enabled` flips after 60s; damage/rise TBD).
 

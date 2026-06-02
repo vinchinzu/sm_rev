@@ -1,6 +1,7 @@
 #include "mini_room_fx.h"
 
 #include "ida_types.h"
+#include "mini_climb_endless.h"
 #include "mini_defs.h"
 #include "mini_editor_bridge.h"
 #include "variables.h"
@@ -83,7 +84,7 @@ static void MiniRoomFx_RenderSkyLandOverlay(uint32_t *pixels, int pitch_pixels, 
 }
 
 static void MiniRoomFx_RenderLiquidOverlay(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
-  if (MiniRoomFx_IsLandingSite(state))
+  if (MiniClimbEndless_IsActive() || MiniRoomFx_IsLandingSite(state))
     return;
   if (fx_type != 2 && fx_type != 4 && fx_type != 6)
     return;

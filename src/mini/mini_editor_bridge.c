@@ -999,6 +999,8 @@ static bool MiniParseRoomJson(const char *path, MiniEditorRoom *room) {
     for (size_t i = 0; i < block_count; i++)
       room->block_words[i] = BlockTileWithTypeIndex(0, room->collision_types[i]);
   }
+  if (ok && MiniClimbEndless_IsActive())
+    MiniClimbEndless_AssignRoomDefaults(room);
   if (ok && !cJSON_IsObject(camera))
     MiniAssignRoomDefaults(room);
   cJSON_Delete(root);

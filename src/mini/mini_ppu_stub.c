@@ -118,7 +118,7 @@ void MiniPpu_InitGameplay(void) {
   reg_BG2SC = 0x49;
   reg_BG3SC = 0x5A;
   reg_BG4SC = 0;
-  reg_BG12NBA = 0;
+  reg_BG12NBA = 0x28;
   reg_BG34NBA = 4;
   reg_BG1HOFS = layer1_x_pos;
   reg_BG1VOFS = layer1_y_pos;

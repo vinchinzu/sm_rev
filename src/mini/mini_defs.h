@@ -2,6 +2,8 @@
 #define SM_MINI_DEFS_H_
 
 enum {
+  kMiniCreTilesByteOffset = 0x5000,
+  kMiniCreBg2TileBase = kMiniCreTilesByteOffset / 32,
   kMiniDefaultFrames = 180,
   kMiniGameWidth = 256,
   kMiniGameHeight = 224,

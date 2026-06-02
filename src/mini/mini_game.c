@@ -9,6 +9,7 @@
 #include "mini_audio.h"
 #include "mini_authored_movement.h"
 #include "mini_climb_endless.h"
+#include "mini_editor_camera.h"
 #include "mini_ppu_stub.h"
 #include "mini_system.h"
 #include "multi_samus.h"
@@ -639,10 +640,14 @@ static void MiniStepSharedSamusMultiplayerFrame(MiniGameState *state) {
   MiniLoadPlayerRuntime(state, 0);
   state->samus = state->players[0].samus;
   MiniApplyPlayerJoypadState(state, 0);
-  MainScrollingRoutine();
-  if (!state->room.uses_rom_room)
-    MiniStubs_ClampCameraToRoom();
-  CalculateLayer2PosAndScrollsWhenScrolling();
+  if (MiniEditorCamera_ShouldUseState(state)) {
+    MiniEditorCamera_Follow(state);
+  } else {
+    MainScrollingRoutine();
+    if (!state->room.uses_rom_room)
+      MiniStubs_ClampCameraToRoom();
+    CalculateLayer2PosAndScrollsWhenScrolling();
+  }
   AnimtilesHandler();
   NmiProcessAnimtilesVramTransfers();
   NMI_ProcessVramWriteQueue();
@@ -672,6 +677,18 @@ void MiniUpdate(MiniGameState *state, const MiniInputState *input) {
     nmi_frame_counter_word++;
     MiniAuthoredMovement_Step(state);
     MiniStubs_ClampCameraToRoom();
+  } else if (MiniEditorCamera_ShouldUseState(state)) {
+    state->original_oam_next_ptr = 0;
+    nmi_frame_counter_word++;
+    HdmaObjectHandler();
+    music_already_ticked = true;
+    PaletteFxHandler();
+    HandleControllerInputForGamePhysics();
+    HandleSamusMovementAndPause();
+    MiniEditorCamera_Follow(state);
+    AnimtilesHandler();
+    NmiProcessAnimtilesVramTransfers();
+    NMI_ProcessVramWriteQueue();
   } else {
     state->original_oam_next_ptr = 0;
     nmi_frame_counter_word++;

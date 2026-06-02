@@ -235,16 +235,24 @@ static void MiniRenderRomBg1Layer(uint32_t *pixels, int pitch_pixels,
   }
 }
 
+static void MiniRenderViewportCamera(const MiniGameState *state, int *camera_x, int *camera_y) {
+  *camera_x = state->viewport.camera_x;
+  *camera_y = state->viewport.camera_y;
+}
+
 static void MiniRenderEditorRoomTiles(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
   MiniEditorTilesetView view;
   MiniAssetBootstrap_GetEditorTilesetView(&view);
   if (!view.loaded)
     return;
 
-  int first_block_x = state->camera_x / kMiniBlockSize;
-  int first_block_y = state->camera_y / kMiniBlockSize;
-  int last_block_x = (state->camera_x + kMiniGameWidth + kMiniBlockSize - 1) / kMiniBlockSize;
-  int last_block_y = (state->camera_y + kMiniGameHeight + kMiniBlockSize - 1) / kMiniBlockSize;
+  int camera_x = 0;
+  int camera_y = 0;
+  MiniRenderViewportCamera(state, &camera_x, &camera_y);
+  int first_block_x = camera_x / kMiniBlockSize;
+  int first_block_y = camera_y / kMiniBlockSize;
+  int last_block_x = (camera_x + kMiniGameWidth + kMiniBlockSize - 1) / kMiniBlockSize;
+  int last_block_y = (camera_y + kMiniGameHeight + kMiniBlockSize - 1) / kMiniBlockSize;
   for (int block_y = first_block_y; block_y <= last_block_y; block_y++) {
     for (int block_x = first_block_x; block_x <= last_block_x; block_x++) {
       uint16 level = MiniStubs_GetLevelBlock(block_x, block_y);
@@ -256,8 +264,8 @@ static void MiniRenderEditorRoomTiles(uint32_t *pixels, int pitch_pixels, const 
       bool metatile_hflip = BlockTileHasHFlip(level);
       bool metatile_vflip = BlockTileHasVFlip(level);
       const uint16 *metatile = view.metatile_words + metatile_index * 4;
-      int screen_left = block_x * kMiniBlockSize - state->camera_x;
-      int screen_top = block_y * kMiniBlockSize - state->camera_y;
+      int screen_left = block_x * kMiniBlockSize - camera_x;
+      int screen_top = block_y * kMiniBlockSize - camera_y;
       for (int quadrant = 0; quadrant < 4; quadrant++) {
         int src_quadrant = quadrant;
         if (metatile_hflip)
@@ -276,6 +284,13 @@ static void MiniRenderEditorRoomTiles(uint32_t *pixels, int pitch_pixels, const 
       }
     }
   }
+}
+
+static int MiniEditorBg2TileBase(uint16 tile_attr) {
+  int tile_index = tile_attr & 0x3FF;
+  if (tile_index < 0x100)
+    return MiniBgTileBase(2);
+  return 0;
 }
 
 static int MiniComputeEditorLayer2Pos(int layer1_pos, uint8 scroll_mode) {
@@ -307,8 +322,8 @@ static void MiniRenderEditorBg2(uint32_t *pixels, int pitch_pixels, const MiniGa
       int wrapped_x = tile_x & 63;
       uint16 tile_attr = bg2_view.tilemap_words[wrapped_y * 64 + wrapped_x];
       int screen_x = tile_x * 8 - scroll_x;
-      MiniRenderTileScanline(pixels, pitch_pixels, tileset_view->tiles4bpp, tileset_view->palette,
-                             0, tile_attr, screen_x, screen_y, tile_row);
+      MiniRenderTileScanline(pixels, pitch_pixels, tileset_view->tiles4bpp, target_palettes,
+                             MiniEditorBg2TileBase(tile_attr), tile_attr, screen_x, screen_y, tile_row);
     }
   }
 }
@@ -345,14 +360,17 @@ static void MiniRenderEditorRoomSprites(uint32_t *pixels, int pitch_pixels, cons
   if (count <= 0 || sprites == NULL)
     return;
 
+  int camera_x = 0;
+  int camera_y = 0;
+  MiniRenderViewportCamera(state, &camera_x, &camera_y);
   for (int i = count - 1; i >= 0; i--) {
     const MiniEditorRoomSpriteView *sprite = &sprites[i];
     if (sprite->tile_data == NULL || sprite->palette == NULL || sprite->entries == NULL)
       continue;
     for (int j = 0; j < sprite->entry_count; j++) {
       const MiniEditorRoomSpriteOamView *entry = &sprite->entries[j];
-      int base_x = sprite->x_pos - state->camera_x + entry->x_offset;
-      int base_y = sprite->y_pos - state->camera_y + entry->y_offset;
+      int base_x = sprite->x_pos - camera_x + entry->x_offset;
+      int base_y = sprite->y_pos - camera_y + entry->y_offset;
       int tile_index = (entry->tile_num & 0x1FF) - kMiniEditorRoomSpriteTileBase;
       if (tile_index < 0)
         continue;
@@ -661,7 +679,7 @@ static uint32_t MiniBlendRgbaOver(uint32_t dst, uint8 r, uint8 g, uint8 b, uint8
          (((uint32_t)b * a + db * inv) / 255u);
 }
 
-static bool MiniRenderSamusRenderedSprite(uint32_t *pixels, int pitch_pixels) {
+static bool MiniRenderSamusRenderedSprite(uint32_t *pixels, int pitch_pixels, int camera_x, int camera_y) {
   MiniEditorSamusRenderedSpritesView view;
   MiniAssetBootstrap_GetEditorSamusRenderedSpritesView(&view);
   if (!view.loaded || view.frame_width <= 0 || view.frame_height <= 0)
@@ -676,8 +694,8 @@ static bool MiniRenderSamusRenderedSprite(uint32_t *pixels, int pitch_pixels) {
     return false;
 
   const uint8 *src = view.rgba + frame->data_offset;
-  int dst_left = (int)samus_x_pos - (int)layer1_x_pos - frame->origin_x;
-  int dst_top = (int)samus_y_pos - (int)layer1_y_pos - frame->origin_y;
+  int dst_left = (int)samus_x_pos - camera_x - frame->origin_x;
+  int dst_top = (int)samus_y_pos - camera_y - frame->origin_y;
   for (int py = 0; py < view.frame_height; py++) {
     int out_y = dst_top + py;
     if ((unsigned)out_y >= kMiniGameHeight)
@@ -696,12 +714,12 @@ static bool MiniRenderSamusRenderedSprite(uint32_t *pixels, int pitch_pixels) {
   return true;
 }
 
-static void MiniRenderSamus(uint32_t *pixels, int pitch_pixels) {
+static void MiniRenderSamus(uint32_t *pixels, int pitch_pixels, int camera_x, int camera_y) {
   memset(oam_ext, 0, sizeof(uint16) * 16);
   oam_next_ptr = 0;
   nmi_copy_samus_halves = 0;
   Samus_DrawWhenNotAnimatingOrDying();
-  if (MiniRenderSamusRenderedSprite(pixels, pitch_pixels))
+  if (MiniRenderSamusRenderedSprite(pixels, pitch_pixels, camera_x, camera_y))
     return;
   MiniPrepareSamusObjTiles();
 
@@ -850,7 +868,7 @@ static void MiniRenderSamusPlayers(uint32_t *pixels, int pitch_pixels, const Min
     if (use_player_runtime)
       MiniApplySamusRenderRuntime(state, player);
     MiniApplySamusRenderGlobals(state, player);
-    MiniRenderSamus(pixels, pitch_pixels);
+    MiniRenderSamus(pixels, pitch_pixels, state->viewport.camera_x, state->viewport.camera_y);
   }
   MiniRestoreSamusRenderScratch(&saved);
 }

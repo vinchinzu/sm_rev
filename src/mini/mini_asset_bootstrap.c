@@ -378,6 +378,7 @@ void MiniAssetBootstrap_PrimeEditorRoomFxAndMissingRomVisuals(const MiniEditorRo
   }
 
   LoadLibraryBackground();
+  memcpy(g_mini_editor_palette, target_palettes, sizeof(g_mini_editor_palette));
 
   if (load_bg2_visuals) {
     memcpy(g_mini_editor_bg2_tilemap_words, ram4000.bg2_tilemap, sizeof(g_mini_editor_bg2_tilemap_words));

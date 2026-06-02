@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "ida_types.h"
+#include "mini_editor_camera.h"
 #include "physics_config.h"
 #include "variables.h"
 
@@ -331,17 +332,8 @@ static int MiniAuthoredClampInt(int value, int min_value, int max_value) {
   return value;
 }
 
-static void MiniAuthoredFollowCamera(const MiniGameState *state) {
-  int max_x = state->room.room_width_blocks * kMiniBlockSize - state->viewport.width;
-  int max_y = state->room.room_height_blocks * kMiniBlockSize - state->viewport.height;
-  int target_x = state->viewport.width * state->room.camera_target_x_percent / 100;
-  int target_y = state->viewport.height * state->room.camera_target_y_percent / 100;
-  int camera_x = state->samus.world_x - target_x;
-  int camera_y = state->samus.world_y - target_y;
-  layer1_x_pos = MiniAuthoredClampInt(camera_x, 0, max_x > 0 ? max_x : 0);
-  layer1_y_pos = MiniAuthoredClampInt(camera_y, 0, max_y > 0 ? max_y : 0);
-  layer1_x_subpos = 0;
-  layer1_y_subpos = 0;
+static void MiniAuthoredFollowCamera(MiniGameState *state) {
+  MiniEditorCamera_Follow(state);
 }
 
 static void MiniAuthoredSetCameraForDoorway(const MiniGameState *state,
