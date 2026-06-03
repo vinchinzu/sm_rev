@@ -1,16 +1,20 @@
 #include "mini_game.h"
 
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "funcs.h"
+#include "gameplay_frame.h"
 #include "ida_types.h"
 #include "mini_audio.h"
+#include "mini_asset_bootstrap.h"
 #include "mini_authored_movement.h"
 #include "mini_climb_endless.h"
 #include "mini_editor_camera.h"
 #include "mini_ppu_stub.h"
+#include "mini_run_mode.h"
 #include "mini_system.h"
 #include "multi_samus.h"
 #include "physics_config.h"
@@ -23,7 +27,7 @@ enum {
   kMiniItem_VariaSuit = 1,
   kMiniItem_GravitySuit = 0x20,
   kMiniSnapshotMagic = 0x4D53534D,
-  kMiniSnapshotVersion = 4,
+  kMiniSnapshotVersion = 7,
   kMiniRamSnapshotSize = 0x20000,
   kMiniSramSnapshotSize = 0x2000,
   kMiniPlayerRuntimePreProjectileOffset = 0xA94,
@@ -37,6 +41,8 @@ typedef struct MiniStateSnapshot {
   MiniGameState game;
   MiniStubsSnapshot stubs;
   MiniPpuSnapshot ppu;
+  MiniRunMode run_mode;
+  MiniClimbModeSnapshot climb_mode;
   uint8 ram[kMiniRamSnapshotSize];
   uint8 sram[kMiniSramSnapshotSize];
   bool use_my_apu_code;
@@ -80,6 +86,9 @@ static int MiniClampInt(int value, int min_value, int max_value) {
     return max_value;
   return value;
 }
+
+static void MiniInitializeEnemies(MiniGameState *state);
+static void MiniUpdateEnemies(MiniGameState *state);
 
 static MiniRoomState MiniRoomState_FromInfo(const MiniRoomInfo *room) {
   MiniRoomState state = {
@@ -365,7 +374,7 @@ static void MiniInitializeSamusRuntime(const MiniRoomInfo *room) {
   samus_draw_handler = FUNC16(SamusDrawHandler_Default);
 
   Samus_Initialize();
-  if (MiniClimbEndless_IsActive())
+  if (MiniRunMode_IsClimbEndless())
     MiniClimbEndless_ApplySamusLoadout();
   samus_pose = MiniInitialPoseForRoom(room);
   samus_movement_type = kMovementType_00_Standing;
@@ -418,6 +427,10 @@ void MiniGameState_Init(MiniGameState *state, int viewport_width, int viewport_h
   MiniSystem_Reset();
   MiniStubs_ConfigureWorld(viewport_width, viewport_height);
   MiniStubs_GetRoomInfo(&room);
+  if (MiniRunMode_IsClimbEndless()) {
+    MiniClimbEndless_InitAfterRoom(&room);
+    MiniStubs_UpdateRoomInfo(&room);
+  }
 
   state->frame = 0;
   state->viewport = (MiniViewportState){
@@ -463,6 +476,7 @@ void MiniGameState_Init(MiniGameState *state, int viewport_width, int viewport_h
   }
   MiniInitializePlayerOneFromCurrentSamus(state);
   MiniInitializePlayerTwoFromPlayerOne(state);
+  MiniInitializeEnemies(state);
   MultiSamus_SetNumSamus(1);
   MiniSyncLegacyPublicFields(state);
 }
@@ -555,6 +569,470 @@ static void MiniAssignUnownedProjectiles(MiniGameState *state) {
 static bool MiniRectsOverlap(int ax, int ay, int arx, int ary,
                              int bx, int by, int brx, int bry) {
   return abs(ax - bx) <= arx + brx && abs(ay - by) <= ary + bry;
+}
+
+static void MiniClearProjectileSlot(MiniGameState *state, uint16 slot_index);
+
+typedef struct MiniEnemySpeciesMetadata {
+  uint16 species_id;
+  const char *canonical_name;
+  int max_health;
+  int damage;
+  int x_radius;
+  int y_radius;
+  uint8 ai_bank;
+  uint16 init_ai;
+  uint16 main_ai;
+  MiniEnemyBehavior behavior;
+} MiniEnemySpeciesMetadata;
+
+typedef struct MiniKnownEnemyPopulation {
+  uint16 species_id;
+  int x;
+  int y;
+  uint16 init_parameter;
+  uint16 properties1;
+  uint16 properties2;
+  uint16 extra_parameter1;
+  uint16 extra_parameter2;
+} MiniKnownEnemyPopulation;
+
+static const MiniEnemySpeciesMetadata kMiniEnemySpeciesMetadata[] = {
+  {
+    .species_id = kMiniEnemySpecies_Roach,
+    .canonical_name = "Roach",
+    .max_health = 20,
+    .damage = 40,
+    .x_radius = 4,
+    .y_radius = 4,
+    .ai_bank = 0xA3,
+    .init_ai = 0xA14D,
+    .main_ai = 0xA2D0,
+    .behavior = kMiniEnemyBehavior_Roach,
+  },
+};
+
+static const MiniKnownEnemyPopulation kMiniKnownClimbEnemyPopulation[] = {
+  {kMiniEnemySpecies_Roach, 276, 76, 0x0000, 0x2400, 0x0000, 0x5003, 0x0050},
+  {kMiniEnemySpecies_Roach, 272, 88, 0x0000, 0x2400, 0x0000, 0x9002, 0x0050},
+  {kMiniEnemySpecies_Roach, 269, 114, 0x0000, 0x2400, 0x0000, 0xAC03, 0x0050},
+  {kMiniEnemySpecies_Roach, 491, 150, 0x0000, 0x2400, 0x0000, 0xC804, 0x0050},
+  {kMiniEnemySpecies_Roach, 499, 154, 0x0000, 0x2400, 0x0000, 0xC303, 0x0050},
+  {kMiniEnemySpecies_Roach, 277, 294, 0x0000, 0x2400, 0x0000, 0x9203, 0x0050},
+  {kMiniEnemySpecies_Roach, 276, 291, 0x0000, 0x2400, 0x0000, 0x6003, 0x0050},
+  {kMiniEnemySpecies_Roach, 273, 296, 0x0000, 0x2400, 0x0000, 0x9C02, 0x0050},
+  {kMiniEnemySpecies_Roach, 494, 535, 0x0000, 0x2400, 0x0000, 0xF004, 0x0050},
+  {kMiniEnemySpecies_Roach, 278, 1721, 0x0000, 0x2400, 0x0000, 0xBC02, 0x0050},
+};
+
+static const MiniEnemySpeciesMetadata *MiniEnemyMetadataForSpecies(uint16 species_id) {
+  for (size_t i = 0; i < sizeof(kMiniEnemySpeciesMetadata) / sizeof(kMiniEnemySpeciesMetadata[0]); i++) {
+    if (kMiniEnemySpeciesMetadata[i].species_id == species_id)
+      return &kMiniEnemySpeciesMetadata[i];
+  }
+  return NULL;
+}
+
+static bool MiniKnownClimbPopulationForSpawn(const MiniEditorEnemySpawnView *spawn,
+                                             MiniKnownEnemyPopulation *population) {
+  if (spawn == NULL || population == NULL)
+    return false;
+  for (size_t i = 0; i < sizeof(kMiniKnownClimbEnemyPopulation) / sizeof(kMiniKnownClimbEnemyPopulation[0]); i++) {
+    const MiniKnownEnemyPopulation *candidate = &kMiniKnownClimbEnemyPopulation[i];
+    if (candidate->species_id == spawn->species_id &&
+        candidate->x == spawn->x_pos &&
+        candidate->y == spawn->y_pos) {
+      *population = *candidate;
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool MiniSpeciesIsSpacePirate(uint16 species_id) {
+  return species_id == 0xF353 || species_id == 0xF413 || species_id == 0xF453 ||
+         species_id == 0xF493 || species_id == 0xF593 || species_id == 0xF613 ||
+         species_id == 0xF653 || species_id == 0xF693 || species_id == 0xF6D3 ||
+         species_id == 0xF713 || species_id == 0xF753 || species_id == 0xF793;
+}
+
+static bool MiniTextContainsPirate(const char *text) {
+  if (text == NULL)
+    return false;
+  for (const char *p = text; *p != '\0'; p++) {
+    if ((p[0] == 'p' || p[0] == 'P') &&
+        (p[1] == 'i' || p[1] == 'I') &&
+        (p[2] == 'r' || p[2] == 'R') &&
+        (p[3] == 'a' || p[3] == 'A') &&
+        (p[4] == 't' || p[4] == 'T') &&
+        (p[5] == 'e' || p[5] == 'E')) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool MiniRoomSpriteIsPirate(const MiniEditorRoomSpriteView *sprite) {
+  return sprite != NULL &&
+         (MiniSpeciesIsSpacePirate(sprite->species_id) ||
+          MiniTextContainsPirate(sprite->key) ||
+          MiniTextContainsPirate(sprite->label));
+}
+
+static bool MiniRoomShouldLoadOriginalExportEnemies(const MiniGameState *state) {
+  return MiniRunMode_IsClimbEndless() ||
+         state->room.room_id == 0x96BA ||
+         strcmp(state->room.room_handle, "climb") == 0;
+}
+
+static bool MiniEnemyUsesRoachBehavior(const MiniEnemyRuntimeState *enemy) {
+  return enemy->behavior == kMiniEnemyBehavior_Roach;
+}
+
+static bool MiniEnemyUsesSpacePirateCombat(const MiniEnemyRuntimeState *enemy) {
+  return enemy->behavior == kMiniEnemyBehavior_SpacePirateShooter;
+}
+
+static bool MiniEnemyTakesProjectileDamage(const MiniEnemyRuntimeState *enemy) {
+  return enemy->behavior == kMiniEnemyBehavior_Roach ||
+         enemy->behavior == kMiniEnemyBehavior_SpacePirateShooter;
+}
+
+static bool MiniEnemyDoesTouchDamage(const MiniEnemyRuntimeState *enemy) {
+  return enemy->behavior == kMiniEnemyBehavior_Roach ||
+         enemy->behavior == kMiniEnemyBehavior_SpacePirateShooter;
+}
+
+static MiniEnemyRuntimeState *MiniReserveEnemy(MiniGameState *state) {
+  if (state->enemy_state.count >= kMiniEnemyCapacity)
+    return NULL;
+  return &state->enemy_state.enemies[state->enemy_state.count++];
+}
+
+static void MiniApplyPopulationWords(MiniEnemyRuntimeState *enemy,
+                                     const MiniEditorEnemySpawnView *spawn) {
+  if (spawn->has_population_words) {
+    enemy->init_parameter = spawn->init_parameter;
+    enemy->properties1 = spawn->properties1;
+    enemy->properties2 = spawn->properties2;
+    enemy->extra_parameter1 = spawn->extra_parameter1;
+    enemy->extra_parameter2 = spawn->extra_parameter2;
+    return;
+  }
+
+  MiniKnownEnemyPopulation population;
+  if (MiniKnownClimbPopulationForSpawn(spawn, &population)) {
+    enemy->init_parameter = population.init_parameter;
+    enemy->properties1 = population.properties1;
+    enemy->properties2 = population.properties2;
+    enemy->extra_parameter1 = population.extra_parameter1;
+    enemy->extra_parameter2 = population.extra_parameter2;
+  }
+}
+
+static void MiniInitializeOriginalExportEnemies(MiniGameState *state) {
+  if (!MiniRoomShouldLoadOriginalExportEnemies(state))
+    return;
+  const MiniEditorEnemySpawnView *spawns = NULL;
+  int spawn_count = MiniAssetBootstrap_GetEditorEnemySpawnViews(&spawns);
+  for (int i = 0; i < spawn_count; i++) {
+    MiniEnemyRuntimeState *enemy = MiniReserveEnemy(state);
+    if (enemy == NULL)
+      return;
+    const MiniEnemySpeciesMetadata *metadata =
+        MiniEnemyMetadataForSpecies(spawns[i].species_id);
+    int max_health = metadata != NULL ? metadata->max_health : 20;
+    *enemy = (MiniEnemyRuntimeState){
+      .active = true,
+      .species_id = spawns[i].species_id,
+      .x = spawns[i].x_pos,
+      .y = spawns[i].y_pos,
+      .home_x = spawns[i].x_pos,
+      .home_y = spawns[i].y_pos,
+      .x_radius = metadata != NULL ? metadata->x_radius : 12,
+      .y_radius = metadata != NULL ? metadata->y_radius : 12,
+      .health = max_health,
+      .max_health = max_health,
+      .damage = metadata != NULL ? metadata->damage : 0,
+      .ai_bank = metadata != NULL ? metadata->ai_bank : 0,
+      .init_ai = metadata != NULL ? metadata->init_ai : 0,
+      .main_ai = metadata != NULL ? metadata->main_ai : 0,
+      .behavior = metadata != NULL ? metadata->behavior : kMiniEnemyBehavior_Passive,
+    };
+    MiniApplyPopulationWords(enemy, &spawns[i]);
+    snprintf(enemy->source_label, sizeof(enemy->source_label), "%s", spawns[i].name);
+    snprintf(enemy->name, sizeof(enemy->name), "%s",
+             metadata != NULL ? metadata->canonical_name : spawns[i].name);
+  }
+}
+
+static void MiniInitializeSpriteEnemies(MiniGameState *state) {
+  const MiniEditorRoomSpriteView *sprites = NULL;
+  int sprite_count = MiniAssetBootstrap_GetEditorRoomSpriteViews(&sprites);
+  for (int i = 0; i < sprite_count; i++) {
+    const MiniEditorRoomSpriteView *sprite = &sprites[i];
+    if (!MiniRoomSpriteIsPirate(sprite))
+      continue;
+
+    int min_x = -16, max_x = 16, min_y = -32, max_y = 8;
+    if (sprite->entry_count > 0) {
+      min_x = max_x = sprite->entries[0].x_offset;
+      min_y = max_y = sprite->entries[0].y_offset;
+      for (int entry_index = 0; entry_index < sprite->entry_count; entry_index++) {
+        const MiniEditorRoomSpriteOamView *entry = &sprite->entries[entry_index];
+        int size = entry->is_16x16 ? 16 : 8;
+        if (entry->x_offset < min_x) min_x = entry->x_offset;
+        if (entry->y_offset < min_y) min_y = entry->y_offset;
+        if (entry->x_offset + size > max_x) max_x = entry->x_offset + size;
+        if (entry->y_offset + size > max_y) max_y = entry->y_offset + size;
+      }
+    }
+
+    MiniEnemyRuntimeState *pirate = MiniReserveEnemy(state);
+    if (pirate == NULL)
+      return;
+    pirate->active = true;
+    pirate->species_id = sprite->species_id;
+    snprintf(pirate->name, sizeof(pirate->name), "Space Pirate");
+    snprintf(pirate->source_label, sizeof(pirate->source_label), "%s",
+             sprite->label != NULL && sprite->label[0] != '\0' ? sprite->label : sprite->key);
+    pirate->x = sprite->x_pos + (min_x + max_x) / 2;
+    pirate->y = sprite->y_pos + (min_y + max_y) / 2;
+    pirate->home_x = pirate->x;
+    pirate->home_y = pirate->y;
+    pirate->x_radius = MiniClampInt((max_x - min_x + 1) / 2, 12, 32);
+    pirate->y_radius = MiniClampInt((max_y - min_y + 1) / 2, 16, 48);
+    pirate->max_health = 60;
+    pirate->health = pirate->max_health;
+    pirate->damage = 30;
+    pirate->shoot_cooldown = 24 + i * 9;
+    pirate->facing_right = state->samus.world_x > pirate->x;
+    pirate->has_sprite_assets = true;
+    pirate->behavior = kMiniEnemyBehavior_SpacePirateShooter;
+  }
+}
+
+static void MiniRefreshEnemyCounts(MiniGameState *state) {
+  int active_count = 0;
+  int passive_count = 0;
+  int renderable_count = 0;
+  int shot_count = 0;
+  for (int i = 0; i < state->enemy_state.count; i++) {
+    const MiniEnemyRuntimeState *enemy = &state->enemy_state.enemies[i];
+    if (enemy->active)
+      active_count++;
+    if (enemy->active && enemy->behavior == kMiniEnemyBehavior_Passive)
+      passive_count++;
+    if (enemy->active && enemy->has_sprite_assets)
+      renderable_count++;
+  }
+  for (int i = 0; i < kMiniEnemyShotCapacity; i++) {
+    if (state->enemy_state.shots[i].active)
+      shot_count++;
+  }
+  state->enemy_state.active_count = active_count;
+  state->enemy_state.passive_count = passive_count;
+  state->enemy_state.renderable_count = renderable_count;
+  state->enemy_state.shot_count = shot_count;
+}
+
+static void MiniInitializeEnemies(MiniGameState *state) {
+  memset(&state->enemy_state, 0, sizeof(state->enemy_state));
+  if (state->room.uses_original_gameplay_runtime)
+    return;
+  MiniInitializeOriginalExportEnemies(state);
+  MiniInitializeSpriteEnemies(state);
+  MiniRefreshEnemyCounts(state);
+}
+
+static void MiniSpawnPirateShot(MiniGameState *state, const MiniEnemyRuntimeState *pirate) {
+  for (int i = 0; i < kMiniEnemyShotCapacity; i++) {
+    MiniEnemyShotState *shot = &state->enemy_state.shots[i];
+    if (shot->active)
+      continue;
+    int dir = pirate->facing_right ? 1 : -1;
+    *shot = (MiniEnemyShotState){
+      .active = true,
+      .x = pirate->x + dir * (pirate->x_radius + 6),
+      .y = pirate->y - pirate->y_radius / 3,
+      .x_velocity = dir * 4,
+      .y_velocity = 0,
+      .radius = 5,
+      .damage = 20,
+    };
+    return;
+  }
+}
+
+static void MiniDamagePlayer(MiniGameState *state, int player, int damage) {
+  if (player < 0 || player >= state->player_count)
+    return;
+  MiniPlayerCombatState *combat = &state->players[player].combat;
+  if (combat->invulnerable_frames != 0)
+    return;
+  combat->hit_count++;
+  combat->pending_damage = (uint16)damage;
+  combat->hitstun_frames = 8;
+  combat->invulnerable_frames = 24;
+  combat->last_hit_by_player = 0;
+}
+
+static void MiniUpdatePirateShots(MiniGameState *state) {
+  for (int i = 0; i < kMiniEnemyShotCapacity; i++) {
+    MiniEnemyShotState *shot = &state->enemy_state.shots[i];
+    if (!shot->active)
+      continue;
+    shot->x += shot->x_velocity;
+    shot->y += shot->y_velocity;
+    if (shot->x < state->room.room_left - 32 || shot->x > state->room.room_right + 32 ||
+        shot->y < state->room.room_top - 32 || shot->y > state->room.room_bottom + 32) {
+      shot->active = false;
+      continue;
+    }
+    for (int player = 0; player < state->player_count; player++) {
+      const MiniSamusCoreState *samus = &state->players[player].samus;
+      if (!MiniRectsOverlap(shot->x, shot->y, shot->radius, shot->radius,
+                            samus->world_x, samus->world_y,
+                            samus->x_radius, samus->y_radius)) {
+        continue;
+      }
+      MiniDamagePlayer(state, player, shot->damage);
+      shot->active = false;
+      break;
+    }
+  }
+}
+
+static void MiniHandleSamusProjectilesVsEnemies(MiniGameState *state) {
+  for (int projectile_view_index = 0; projectile_view_index < state->projectile_state.count; projectile_view_index++) {
+    const SamusProjectileView *projectile = &state->projectile_state.views[projectile_view_index];
+    if (projectile->slot_index >= kSamusProjectileSlotCount)
+      continue;
+    int projectile_rx = projectile->x_radius != 0 ? projectile->x_radius : 4;
+    int projectile_ry = projectile->y_radius != 0 ? projectile->y_radius : 4;
+    for (int enemy_index = 0; enemy_index < state->enemy_state.count; enemy_index++) {
+      MiniEnemyRuntimeState *enemy = &state->enemy_state.enemies[enemy_index];
+      if (!enemy->active || !MiniEnemyTakesProjectileDamage(enemy) ||
+          enemy->invulnerable_frames != 0)
+        continue;
+      if (!MiniRectsOverlap(projectile->x_pos, projectile->y_pos, projectile_rx, projectile_ry,
+                            enemy->x, enemy->y, enemy->x_radius, enemy->y_radius)) {
+        continue;
+      }
+      int damage = projectile->damage != 0 ? projectile->damage : 20;
+      enemy->health -= damage;
+      enemy->hit_count++;
+      enemy->invulnerable_frames = 4;
+      MiniClearProjectileSlot(state, projectile->slot_index);
+      if (enemy->health <= 0) {
+        enemy->active = false;
+        enemy->health = 0;
+        state->enemy_state.defeated_count++;
+      }
+      break;
+    }
+  }
+}
+
+static void MiniHandleEnemyTouchDamage(MiniGameState *state) {
+  for (int enemy_index = 0; enemy_index < state->enemy_state.count; enemy_index++) {
+    const MiniEnemyRuntimeState *enemy = &state->enemy_state.enemies[enemy_index];
+    if (!enemy->active || !MiniEnemyDoesTouchDamage(enemy))
+      continue;
+    for (int player = 0; player < state->player_count; player++) {
+      const MiniSamusCoreState *samus = &state->players[player].samus;
+      if (MiniRectsOverlap(enemy->x, enemy->y, enemy->x_radius, enemy->y_radius,
+                           samus->world_x, samus->world_y, samus->x_radius, samus->y_radius)) {
+        MiniDamagePlayer(state, player, enemy->damage);
+      }
+    }
+  }
+}
+
+static void MiniRoachVelocityFromPopulation(const MiniEnemyRuntimeState *enemy,
+                                            int *x_velocity, int *y_velocity) {
+  static const int kOctantX[8] = {1, 1, 0, -1, -1, -1, 0, 1};
+  static const int kOctantY[8] = {0, -1, -1, -1, 0, 1, 1, 1};
+  uint8 angle = (uint8)(enemy->extra_parameter1 >> 8);
+  int speed = enemy->extra_parameter1 & 0xFF;
+  if (speed <= 0)
+    speed = 2;
+  speed = MiniClampInt(speed, 1, 4);
+  int octant = ((int)angle + 16) >> 5;
+  octant &= 7;
+  *x_velocity = kOctantX[octant] * speed;
+  *y_velocity = kOctantY[octant] * speed;
+}
+
+static void MiniUpdateRoach(MiniGameState *state, MiniEnemyRuntimeState *enemy) {
+  int trigger_radius = enemy->extra_parameter2 & 0xFF;
+  if (trigger_radius <= 0)
+    trigger_radius = 80;
+  const MiniSamusCoreState *samus = &state->players[0].samus;
+  if (enemy->ai_state == 0) {
+    if (abs(enemy->x - samus->world_x) > trigger_radius ||
+        abs(enemy->y - samus->world_y) > trigger_radius) {
+      return;
+    }
+    enemy->ai_state = 1;
+    MiniRoachVelocityFromPopulation(enemy, &enemy->x_velocity, &enemy->y_velocity);
+  }
+
+  enemy->state_timer++;
+  if ((enemy->state_timer & 31) == 0) {
+    MiniRoachVelocityFromPopulation(enemy, &enemy->x_velocity, &enemy->y_velocity);
+    if (((enemy->state_timer >> 5) & 1) != 0) {
+      enemy->x_velocity = -enemy->x_velocity;
+    }
+  }
+
+  enemy->x += enemy->x_velocity;
+  enemy->y += enemy->y_velocity;
+  if (enemy->x < state->room.room_left + enemy->x_radius ||
+      enemy->x > state->room.room_right - enemy->x_radius) {
+    enemy->x = MiniClampInt(enemy->x,
+                            state->room.room_left + enemy->x_radius,
+                            state->room.room_right - enemy->x_radius);
+    enemy->x_velocity = -enemy->x_velocity;
+  }
+  if (enemy->y < state->room.room_top + enemy->y_radius ||
+      enemy->y > state->room.room_bottom - enemy->y_radius) {
+    enemy->y = MiniClampInt(enemy->y,
+                            state->room.room_top + enemy->y_radius,
+                            state->room.room_bottom - enemy->y_radius);
+    enemy->y_velocity = -enemy->y_velocity;
+  }
+}
+
+static void MiniUpdateEnemies(MiniGameState *state) {
+  if (state->room.uses_original_gameplay_runtime || state->enemy_state.count == 0)
+    return;
+  for (int i = 0; i < state->enemy_state.count; i++) {
+    MiniEnemyRuntimeState *enemy = &state->enemy_state.enemies[i];
+    if (!enemy->active)
+      continue;
+    if (enemy->invulnerable_frames != 0)
+      enemy->invulnerable_frames--;
+    if (MiniEnemyUsesRoachBehavior(enemy)) {
+      MiniUpdateRoach(state, enemy);
+      continue;
+    }
+    if (!MiniEnemyUsesSpacePirateCombat(enemy))
+      continue;
+    enemy->facing_right = state->players[0].samus.world_x > enemy->x;
+    if (enemy->shoot_cooldown > 0) {
+      enemy->shoot_cooldown--;
+    } else {
+      MiniSpawnPirateShot(state, enemy);
+      enemy->shoot_cooldown = 64;
+    }
+  }
+  MiniHandleSamusProjectilesVsEnemies(state);
+  MiniHandleEnemyTouchDamage(state);
+  MiniUpdatePirateShots(state);
+  MiniRefreshEnemyCounts(state);
+  MiniRefreshProjectileState(state);
+  MiniSyncLegacyPublicFields(state);
 }
 
 static void MiniClearProjectileSlot(MiniGameState *state, uint16 slot_index) {
@@ -683,10 +1161,10 @@ void MiniUpdate(MiniGameState *state, const MiniInputState *input) {
     HdmaObjectHandler();
     music_already_ticked = true;
     PaletteFxHandler();
-    HandleControllerInputForGamePhysics();
-    HandleSamusMovementAndPause();
+    GameplayFrame_SamusInputForAllPlayers();
+    GameplayFrame_SamusMovementForAllPlayers();
     MiniEditorCamera_Follow(state);
-    AnimtilesHandler();
+    GameplayFrame_Animtiles();
     NmiProcessAnimtilesVramTransfers();
     NMI_ProcessVramWriteQueue();
   } else {
@@ -695,20 +1173,22 @@ void MiniUpdate(MiniGameState *state, const MiniInputState *input) {
     HdmaObjectHandler();
     music_already_ticked = true;
     PaletteFxHandler();
-    HandleControllerInputForGamePhysics();
-    HandleSamusMovementAndPause();
+    GameplayFrame_SamusInputForAllPlayers();
+    GameplayFrame_SamusMovementForAllPlayers();
     MainScrollingRoutine();
     if (!state->room.uses_rom_room)
       MiniStubs_ClampCameraToRoom();
     CalculateLayer2PosAndScrollsWhenScrolling();
-    AnimtilesHandler();
+    GameplayFrame_Animtiles();
     NmiProcessAnimtilesVramTransfers();
     NMI_ProcessVramWriteQueue();
   }
   if (!state->room.uses_original_gameplay_runtime)
     MiniAudio_TickQueues(music_already_ticked);
+  state->original_oam_next_ptr = 0;
   MiniSyncRenderState(state);
   MiniUpdateMultiplayerCombat(state);
+  MiniUpdateEnemies(state);
   MiniClimbEndless_Tick(state);
   state->frame++;
 }
@@ -780,6 +1260,56 @@ uint64_t MiniGameState_ComputeHash(const MiniGameState *state) {
   }
   for (int i = 0; i < kSamusProjectileSlotCount; i++)
     hash = MiniHashByte(hash, state->projectile_state.owner_by_slot[i]);
+  hash = MiniHashInt(hash, state->enemy_state.count);
+  hash = MiniHashInt(hash, state->enemy_state.active_count);
+  hash = MiniHashInt(hash, state->enemy_state.passive_count);
+  hash = MiniHashInt(hash, state->enemy_state.renderable_count);
+  hash = MiniHashInt(hash, state->enemy_state.shot_count);
+  hash = MiniHashUInt16(hash, state->enemy_state.defeated_count);
+  for (int i = 0; i < kMiniEnemyCapacity; i++) {
+    const MiniEnemyRuntimeState *enemy = &state->enemy_state.enemies[i];
+    hash = MiniHashBool(hash, enemy->active);
+    hash = MiniHashUInt16(hash, enemy->species_id);
+    hash = MiniHashBytes(hash, enemy->name, sizeof(enemy->name));
+    hash = MiniHashBytes(hash, enemy->source_label, sizeof(enemy->source_label));
+    hash = MiniHashUInt16(hash, enemy->init_parameter);
+    hash = MiniHashUInt16(hash, enemy->properties1);
+    hash = MiniHashUInt16(hash, enemy->properties2);
+    hash = MiniHashUInt16(hash, enemy->extra_parameter1);
+    hash = MiniHashUInt16(hash, enemy->extra_parameter2);
+    hash = MiniHashByte(hash, enemy->ai_bank);
+    hash = MiniHashUInt16(hash, enemy->init_ai);
+    hash = MiniHashUInt16(hash, enemy->main_ai);
+    hash = MiniHashInt(hash, enemy->x);
+    hash = MiniHashInt(hash, enemy->y);
+    hash = MiniHashInt(hash, enemy->home_x);
+    hash = MiniHashInt(hash, enemy->home_y);
+    hash = MiniHashInt(hash, enemy->x_velocity);
+    hash = MiniHashInt(hash, enemy->y_velocity);
+    hash = MiniHashInt(hash, enemy->x_radius);
+    hash = MiniHashInt(hash, enemy->y_radius);
+    hash = MiniHashInt(hash, enemy->health);
+    hash = MiniHashInt(hash, enemy->max_health);
+    hash = MiniHashInt(hash, enemy->damage);
+    hash = MiniHashInt(hash, enemy->shoot_cooldown);
+    hash = MiniHashInt(hash, enemy->invulnerable_frames);
+    hash = MiniHashUInt16(hash, enemy->ai_state);
+    hash = MiniHashUInt16(hash, enemy->state_timer);
+    hash = MiniHashUInt16(hash, enemy->hit_count);
+    hash = MiniHashBool(hash, enemy->facing_right);
+    hash = MiniHashBool(hash, enemy->has_sprite_assets);
+    hash = MiniHashByte(hash, (uint8)enemy->behavior);
+  }
+  for (int i = 0; i < kMiniEnemyShotCapacity; i++) {
+    const MiniEnemyShotState *shot = &state->enemy_state.shots[i];
+    hash = MiniHashBool(hash, shot->active);
+    hash = MiniHashInt(hash, shot->x);
+    hash = MiniHashInt(hash, shot->y);
+    hash = MiniHashInt(hash, shot->x_velocity);
+    hash = MiniHashInt(hash, shot->y_velocity);
+    hash = MiniHashInt(hash, shot->radius);
+    hash = MiniHashInt(hash, shot->damage);
+  }
   hash = MiniHashUInt16(hash, state->controls.buttons);
   hash = MiniHashUInt16(hash, state->controls.previous_buttons);
   hash = MiniHashUInt16(hash, state->controls.new_buttons);
@@ -829,6 +1359,14 @@ uint64_t MiniGameState_ComputeHash(const MiniGameState *state) {
   hash = MiniHashBytes(hash, g_ram, sizeof(g_ram));
   hash = MiniHashBytes(hash, g_sram, 0x2000);
   hash = MiniHashBytes(hash, MiniPpu_GetVram(), kMiniPpuVramSize);
+  if (MiniRunMode_IsClimbEndless()) {
+    MiniClimbModeSnapshot climb_mode;
+    MiniClimbEndless_SaveSnapshot(&climb_mode);
+    hash = MiniHashInt(hash, (int)MiniRunMode_Get());
+    hash = MiniHashInt(hash, climb_mode.virtual_floors);
+    hash = MiniHashBool(hash, climb_mode.lava_enabled);
+    hash = MiniHashInt(hash, climb_mode.lava_floor_y);
+  }
   return hash;
 }
 
@@ -892,6 +1430,8 @@ bool MiniSaveState(const MiniGameState *state, void *buffer, size_t buffer_size)
   snapshot->magic = kMiniSnapshotMagic;
   snapshot->version = kMiniSnapshotVersion;
   snapshot->game = *state;
+  snapshot->run_mode = MiniRunMode_Get();
+  MiniClimbEndless_SaveSnapshot(&snapshot->climb_mode);
   MiniStubs_SaveSnapshot(&snapshot->stubs);
   MiniPpu_SaveSnapshot(&snapshot->ppu);
   memcpy(snapshot->ram, g_ram, sizeof(snapshot->ram));
@@ -912,6 +1452,8 @@ bool MiniLoadState(MiniGameState *state, const void *buffer, size_t buffer_size)
     return false;
 
   *state = snapshot->game;
+  MiniRunMode_Set(snapshot->run_mode);
+  MiniClimbEndless_LoadSnapshot(&snapshot->climb_mode);
   MiniStubs_LoadSnapshot(&snapshot->stubs);
   MiniPpu_LoadSnapshot(&snapshot->ppu);
   memcpy(g_ram, snapshot->ram, sizeof(snapshot->ram));

@@ -8,6 +8,7 @@
 #include "mini_asset_bootstrap.h"
 #include "mini_content_scope.h"
 #include "samus_env.h"
+#include "samus_projectile.h"
 #include "sm_rtl.h"
 #include "variables.h"
 
@@ -153,16 +154,17 @@ static void MiniRomBootstrap_ApplyLandingSiteDefaults(int *spawn_x, int *spawn_y
   *spawn_y = kMiniLandingSiteSamusY;
 }
 
-static void MiniRomBootstrap_ApplyDemoLoadout(void) {
-  equipped_items = kMiniDemoItems;
-  collected_items = kMiniDemoItems;
+void MiniRomBootstrap_ApplyPowerBeamLoadout(uint16 items, uint8 suit_palette_index) {
+  equipped_items = items;
+  collected_items = items;
   equipped_beams = 0;
   collected_beams = 0;
   hyper_beam_flag = 0;
-  samus_suit_palette_index = kSamusSuitPalette_Power;
+  samus_suit_palette_index = suit_palette_index;
 
-  samus_max_health = kMiniDemoMaxHealth;
-  samus_health = kMiniDemoMaxHealth;
+  if (!samus_max_health)
+    samus_max_health = kMiniDemoMaxHealth;
+  samus_health = samus_max_health;
   samus_max_reserve_health = 0;
   samus_reserve_health = 0;
   reserve_health_mode = 0;
@@ -172,6 +174,16 @@ static void MiniRomBootstrap_ApplyDemoLoadout(void) {
   samus_max_super_missiles = 0;
   samus_power_bombs = 0;
   samus_max_power_bombs = 0;
+
+  UpdateBeamTilesAndPalette();
+  Samus_LoadSuitTargetPalette();
+  if (MiniRomBootstrap_LoadAnyRom())
+    LoadColorsForSpritesBeamsAndEnemies();
+  ResetProjectileData();
+}
+
+static void MiniRomBootstrap_ApplyDemoLoadout(void) {
+  MiniRomBootstrap_ApplyPowerBeamLoadout(kMiniDemoItems, kSamusSuitPalette_Power);
 }
 
 void MiniRomBootstrap_Reset(void) {

@@ -65,8 +65,15 @@ update path.
   (bundled export with blockWords, tileset 3, BG2, scroll, and Samus assets).
 - Regenerate climb assets from ROM after collision export changes:
   `python3 tools/bundle_mini_room_assets.py --room 0x96BA`
-- Samus starts centered on the bottom platform `(384, 2192)` with Varia + Gravity + Morph.
-- When the camera nears the top of the shaft, the world wraps downward so the climb never ends.
+- Samus starts centered on the bottom platform `(384, 2192)` with Varia + Gravity + Morph
+  and the default power beam (`equipped_beams = 0`, same loadout path as the ROM demo slice).
+- Per-frame Samus input, movement, and projectile simulation use the shared
+  `GameplayFrame_*` slices extracted from `GameState_8_MainGameplay` (`0x828B44`).
+- Projectile drawing on the editor-render path uses `Samus_DrawActiveProjectiles()`
+  (`DrawPlayerExplosions2` @ `0x938254`), the same decomposed draw half of
+  `DrawSamusAndProjectiles` (`0x90EB35`).
+- `mini_climb_endless` owns down-scroller camera follow and vertical world wrap
+  (projectiles shift with each wrap via `MiniWorldShift_ApplyY`).
 - Rising lava is stubbed (`lava_enabled` flips after 60s; damage/rise TBD).
 
 Linux:

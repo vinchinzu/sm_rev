@@ -11,6 +11,7 @@
 
 #include "block_reaction.h"
 #include "mini_climb_endless.h"
+#include "mini_run_mode.h"
 
 enum {
   kMiniLandingSiteCameraX = 1024,
@@ -285,6 +286,12 @@ static bool MiniGetJsonInt(cJSON *node, int *value) {
     return false;
   *value = node->valueint;
   return true;
+}
+
+static bool MiniGetOptionalJsonInt(cJSON *node, int *value) {
+  if (node == NULL)
+    return true;
+  return MiniGetJsonInt(node, value);
 }
 
 static bool MiniParseGridRow(cJSON *row, int width, uint8 *dst) {
@@ -852,6 +859,64 @@ static bool MiniMaybeLoadRoomSprites(const char *room_path, cJSON *room_sprites,
   return true;
 }
 
+static bool MiniMaybeLoadEnemySpawns(cJSON *enemies, MiniEditorRoom *room) {
+  if (!cJSON_IsArray(enemies))
+    return true;
+  int enemy_count = cJSON_GetArraySize(enemies);
+  if (enemy_count <= 0)
+    return true;
+  room->enemies = (MiniEditorEnemySpawn *)calloc((size_t)enemy_count, sizeof(*room->enemies));
+  if (room->enemies == NULL)
+    return false;
+  room->enemy_count = enemy_count;
+  for (int i = 0; i < enemy_count; i++) {
+    cJSON *enemy_node = cJSON_GetArrayItem(enemies, i);
+    MiniEditorEnemySpawn *enemy = &room->enemies[i];
+    int species_id, pixel_x, pixel_y, block_x, block_y;
+    int init_parameter = 0;
+    int properties1 = 0;
+    int properties2 = 0;
+    int extra_parameter1 = 0;
+    int extra_parameter2 = 0;
+    if (!cJSON_IsObject(enemy_node) ||
+        !MiniCopyJsonString(cJSON_GetObjectItemCaseSensitive(enemy_node, "name"),
+                            enemy->name, sizeof(enemy->name)) ||
+        !MiniGetJsonInt(cJSON_GetObjectItemCaseSensitive(enemy_node, "id"), &species_id) ||
+        !MiniGetJsonInt(cJSON_GetObjectItemCaseSensitive(enemy_node, "pixelX"), &pixel_x) ||
+        !MiniGetJsonInt(cJSON_GetObjectItemCaseSensitive(enemy_node, "pixelY"), &pixel_y) ||
+        !MiniGetJsonInt(cJSON_GetObjectItemCaseSensitive(enemy_node, "blockX"), &block_x) ||
+        !MiniGetJsonInt(cJSON_GetObjectItemCaseSensitive(enemy_node, "blockY"), &block_y)) {
+      return false;
+    }
+    cJSON *init_node = cJSON_GetObjectItemCaseSensitive(enemy_node, "initParam");
+    cJSON *properties1_node = cJSON_GetObjectItemCaseSensitive(enemy_node, "properties1");
+    cJSON *properties2_node = cJSON_GetObjectItemCaseSensitive(enemy_node, "properties2");
+    cJSON *extra1_node = cJSON_GetObjectItemCaseSensitive(enemy_node, "extraParam1");
+    cJSON *extra2_node = cJSON_GetObjectItemCaseSensitive(enemy_node, "extraParam2");
+    if (!MiniGetOptionalJsonInt(init_node, &init_parameter) ||
+        !MiniGetOptionalJsonInt(properties1_node, &properties1) ||
+        !MiniGetOptionalJsonInt(properties2_node, &properties2) ||
+        !MiniGetOptionalJsonInt(extra1_node, &extra_parameter1) ||
+        !MiniGetOptionalJsonInt(extra2_node, &extra_parameter2)) {
+      return false;
+    }
+    enemy->species_id = (uint16)species_id;
+    enemy->init_parameter = (uint16)init_parameter;
+    enemy->properties1 = (uint16)properties1;
+    enemy->properties2 = (uint16)properties2;
+    enemy->extra_parameter1 = (uint16)extra_parameter1;
+    enemy->extra_parameter2 = (uint16)extra_parameter2;
+    enemy->x_pos = pixel_x;
+    enemy->y_pos = pixel_y;
+    enemy->block_x = block_x;
+    enemy->block_y = block_y;
+    enemy->has_population_words = init_node != NULL || properties1_node != NULL ||
+                                  properties2_node != NULL || extra1_node != NULL ||
+                                  extra2_node != NULL;
+  }
+  return true;
+}
+
 static bool MiniParseScroll(cJSON *scroll, MiniEditorRoom *room) {
   if (!cJSON_IsObject(scroll))
     return false;
@@ -956,6 +1021,7 @@ static bool MiniParseRoomJson(const char *path, MiniEditorRoom *room) {
   cJSON *collision = cJSON_GetObjectItemCaseSensitive(root, "collision");
   cJSON *bts = cJSON_GetObjectItemCaseSensitive(root, "bts");
   cJSON *room_sprites = cJSON_GetObjectItemCaseSensitive(root, "roomSprites");
+  cJSON *enemies = cJSON_GetObjectItemCaseSensitive(root, "enemies");
   cJSON *doorways = cJSON_GetObjectItemCaseSensitive(root, "doorways");
 
   MiniGetJsonInt(cJSON_GetObjectItemCaseSensitive(root, "tileset"), &room->tileset);
@@ -976,6 +1042,8 @@ static bool MiniParseRoomJson(const char *path, MiniEditorRoom *room) {
     if (!MiniMaybeLoadRoomSprites(path, room_sprites, room))
       fprintf(stderr, "mini: failed to load editor room sprite assets for %s; continuing without room sprites\n", path);
   }
+  if (ok && cJSON_IsArray(enemies))
+    ok = MiniMaybeLoadEnemySpawns(enemies, room);
 
   if (ok && cJSON_IsArray(materials))
     ok = MiniParseMaterialGrid(materials, width_blocks, height_blocks, room->collision_types);
@@ -999,7 +1067,7 @@ static bool MiniParseRoomJson(const char *path, MiniEditorRoom *room) {
     for (size_t i = 0; i < block_count; i++)
       room->block_words[i] = BlockTileWithTypeIndex(0, room->collision_types[i]);
   }
-  if (ok && MiniClimbEndless_IsActive())
+  if (ok && MiniRunMode_IsClimbEndless())
     MiniClimbEndless_AssignRoomDefaults(room);
   if (ok && !cJSON_IsObject(camera))
     MiniAssignRoomDefaults(room);
@@ -1053,7 +1121,7 @@ bool MiniEditorBridge_LoadRoom(MiniEditorRoom *room) {
   const char *const *candidates = kDefaultRoomExportCandidates;
   size_t candidate_count =
       sizeof(kDefaultRoomExportCandidates) / sizeof(kDefaultRoomExportCandidates[0]);
-  if (MiniClimbEndless_IsActive()) {
+  if (MiniRunMode_IsClimbEndless()) {
     candidates = kDefaultClimbRoomExportCandidates;
     candidate_count =
         sizeof(kDefaultClimbRoomExportCandidates) / sizeof(kDefaultClimbRoomExportCandidates[0]);
@@ -1088,5 +1156,6 @@ void MiniEditorBridge_FreeRoom(MiniEditorRoom *room) {
   free(room->samus_rendered_sprite_rgba);
   free(room->samus_rendered_frames);
   free(room->room_sprites);
+  free(room->enemies);
   MiniEditorRoom_Reset(room);
 }

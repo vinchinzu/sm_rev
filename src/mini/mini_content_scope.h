@@ -8,7 +8,6 @@ enum {
   kMiniContentScopeRoom_Climb = 0x96BA,
 };
 
-void MiniContentScope_SetClimbEndlessMode(bool enabled);
 bool MiniContentScope_AllowsRoom(uint16 room_id);
 const char *MiniContentScope_Name(void);
 const char *MiniContentScope_RoomHandle(uint16 room_id);

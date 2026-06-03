@@ -11,6 +11,7 @@
 #include "ida_types.h"
 #include "mini_audio.h"
 #include "mini_climb_endless.h"
+#include "mini_run_mode.h"
 #include "mini_content_scope.h"
 #include "mini_game.h"
 #include "mini_input_script.h"
@@ -28,6 +29,15 @@ static const char *MiniRuntime_BuildName(void) {
   return BUILD_IS_MODDABLE ? "moddable" : "mini";
 }
 
+static const char *MiniEnemyBehaviorName(MiniEnemyBehavior behavior) {
+  switch (behavior) {
+  case kMiniEnemyBehavior_Passive: return "passive";
+  case kMiniEnemyBehavior_Roach: return "roach";
+  case kMiniEnemyBehavior_SpacePirateShooter: return "space_pirate_shooter";
+  default: return "unknown";
+  }
+}
+
 static void PrintResult(const MiniOptions *options, const MiniGameState *state,
                         const char *record_path, bool replay_verified) {
   uint64_t state_hash = MiniStateHash(state);
@@ -38,6 +48,24 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
     first_projectile_owner = state->projectile_state.owner_by_slot[first_projectile->slot_index];
   const MiniPlayerState *p1 = &state->players[0];
   const MiniPlayerState *p2 = &state->players[1];
+  const MiniEnemyRuntimeState *first_enemy = NULL;
+  const MiniEnemyRuntimeState *first_pirate = NULL;
+  int pirate_count = 0;
+  int pirate_active_count = 0;
+  for (int i = 0; i < kMiniEnemyCapacity; i++) {
+    const MiniEnemyRuntimeState *enemy = &state->enemy_state.enemies[i];
+    if (enemy->active && first_enemy == NULL)
+      first_enemy = enemy;
+    if (enemy->behavior == kMiniEnemyBehavior_SpacePirateShooter) {
+      pirate_count++;
+      if (enemy->active) {
+        pirate_active_count++;
+        if (first_pirate == NULL)
+          first_pirate = enemy;
+      }
+    }
+  }
+  bool has_any_enemies = state->room.has_original_enemies || state->enemy_state.count > 0;
   printf("{\"build\":\"%s\",\"headless\":%s,\"frames\":%d,"
          "\"player_count\":%d,"
          "\"content_scope\":\"%s\","
@@ -46,6 +74,22 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          "\"room_source\":\"%s\",\"room_visuals\":\"%s\",\"room_handle\":\"%s\","
          "\"background\":\"%s\","
          "\"original_runtime\":%s,\"original_enemies\":%s,\"original_plms\":%s,"
+         "\"enemy_count\":%d,\"enemy_active_count\":%d,"
+         "\"enemy_passive_count\":%d,\"enemy_renderable_count\":%d,"
+         "\"enemy_shot_count\":%d,\"enemy_defeated_count\":%u,"
+         "\"first_enemy_id\":%u,\"first_enemy_name\":\"%s\","
+         "\"first_enemy_x\":%d,\"first_enemy_y\":%d,"
+         "\"first_enemy_health\":%d,\"first_enemy_damage\":%d,"
+         "\"first_enemy_x_radius\":%d,\"first_enemy_y_radius\":%d,"
+         "\"first_enemy_behavior\":%d,\"first_enemy_behavior_name\":\"%s\","
+         "\"first_enemy_init_ai\":%u,\"first_enemy_main_ai\":%u,"
+         "\"first_enemy_init_param\":%u,\"first_enemy_properties1\":%u,"
+         "\"first_enemy_properties2\":%u,\"first_enemy_extra_param1\":%u,"
+         "\"first_enemy_extra_param2\":%u,"
+         "\"first_enemy_has_sprite\":%s,"
+         "\"pirate_count\":%d,\"pirate_active_count\":%d,"
+         "\"pirate_shot_count\":%d,\"pirate_defeated_count\":%u,"
+         "\"first_pirate_x\":%d,\"first_pirate_y\":%d,\"first_pirate_health\":%d,"
          "\"samus_suit\":\"%s\",\"equipped_items\":%u,\"equipped_beams\":%u,"
          "\"recording\":%s,\"record_path\":\"%s\","
          "\"replay_in\":\"%s\",\"replay_out\":\"%s\",\"replay_verified\":%s,"
@@ -72,7 +116,7 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          options->headless ? "true" : "false", state->frame,
          state->player_count,
          MiniContentScope_Name(),
-         state->room.has_original_enemies ? "false" : "true",
+         has_any_enemies ? "false" : "true",
          state->room.has_room ? "false" : "true",
          state->room.room_id,
          state->room.room_width_blocks * kMiniBlockSize,
@@ -84,6 +128,37 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          state->room.uses_original_gameplay_runtime ? "true" : "false",
          state->room.has_original_enemies ? "true" : "false",
          state->room.has_original_plms ? "true" : "false",
+         state->enemy_state.count,
+         state->enemy_state.active_count,
+         state->enemy_state.passive_count,
+         state->enemy_state.renderable_count,
+         state->enemy_state.shot_count,
+         state->enemy_state.defeated_count,
+         first_enemy != NULL ? first_enemy->species_id : 0,
+         first_enemy != NULL ? first_enemy->name : "",
+         first_enemy != NULL ? first_enemy->x : 0,
+         first_enemy != NULL ? first_enemy->y : 0,
+         first_enemy != NULL ? first_enemy->health : 0,
+         first_enemy != NULL ? first_enemy->damage : 0,
+         first_enemy != NULL ? first_enemy->x_radius : 0,
+         first_enemy != NULL ? first_enemy->y_radius : 0,
+         first_enemy != NULL ? first_enemy->behavior : 0,
+         first_enemy != NULL ? MiniEnemyBehaviorName(first_enemy->behavior) : "",
+         first_enemy != NULL ? first_enemy->init_ai : 0,
+         first_enemy != NULL ? first_enemy->main_ai : 0,
+         first_enemy != NULL ? first_enemy->init_parameter : 0,
+         first_enemy != NULL ? first_enemy->properties1 : 0,
+         first_enemy != NULL ? first_enemy->properties2 : 0,
+         first_enemy != NULL ? first_enemy->extra_parameter1 : 0,
+         first_enemy != NULL ? first_enemy->extra_parameter2 : 0,
+         first_enemy != NULL && first_enemy->has_sprite_assets ? "true" : "false",
+         pirate_count,
+         pirate_active_count,
+         state->enemy_state.shot_count,
+         state->enemy_state.defeated_count,
+         first_pirate != NULL ? first_pirate->x : 0,
+         first_pirate != NULL ? first_pirate->y : 0,
+         first_pirate != NULL ? first_pirate->health : 0,
          MiniStubs_SamusSuitName(state->samus.suit),
          equipped_items,
          equipped_beams,
@@ -113,7 +188,7 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          first_projectile != NULL ? first_projectile->y_pos : 0,
          first_projectile != NULL ? first_projectile->direction : 0,
          first_projectile_owner,
-         options->climb_endless ? "true" : "false",
+         MiniRunMode_IsClimbEndless() ? "true" : "false",
          MiniClimbEndless_VirtualFloors(),
          MiniClimbEndless_LavaEnabled() ? "true" : "false",
          MiniClimbEndless_LavaFloorY(),

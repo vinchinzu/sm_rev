@@ -30,6 +30,7 @@ answer: "where did this logic live before we split it?"
 | `src/room_fx_hdma.c` | Room FX HDMA runtime families: scrolling sky, liquids, weather, Tourian statue, haze | `../sm/src/sm_88.c` | `FxTypeFunc_22_ScrollingSky` `0x88A61B`, `FxTypeFunc_2_Lava` `0x88B279`, `FxTypeFunc_6_Water` `0x88C3FF`, `FxTypeFunc_2C_Haze` `0x88DDC7` |
 | `src/samus_camera_map.c` | Main gameplay camera follow, scrolling handoff, minimap updates | `../sm/src/sm_90.c` | `MainScrollingRoutine` `0x9094EC`, `Samus_HandleScroll_X` `0x9095A0`, `Samus_HandleScroll_Y` `0x90964F`, `UpdateMinimap` `0x90A91B` |
 | `src/game_init.c` | Game bootstrap, demo-room setup, main gameplay load path | `../sm/src/sm_82.c` | `InitAndLoadGameData_Async` `0x828000`, `LoadGameData_Async`, `LoadDemoRoomData` |
+| `src/gameplay_frame.c` | Shared main-gameplay frame slices for Samus input/movement/animtiles | `../sm/src/sm_82.c` | `GameState_8_MainGameplay` `0x828B44` |
 | `src/demo_manager.c` | Demo-room positioning and scroll init | `../sm/src/sm_82.c` | `LoadDemoRoomData` helpers and demo-room scroll setup |
 
 ## Samus Runtime Clusters

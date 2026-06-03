@@ -10,7 +10,7 @@
 #include "mini_defs.h"
 #include "mini_editor_bridge.h"
 #include "mini_ppu_stub.h"
-#include "mini_climb_endless.h"
+#include "mini_run_mode.h"
 #include "mini_rom_bootstrap.h"
 #include "variables.h"
 
@@ -229,7 +229,7 @@ void MiniStubs_SetRoomExportPath(const char *path) {
 }
 
 void MiniStubs_ConfigureWorld(int viewport_width, int viewport_height) {
-  if (MiniClimbEndless_IsActive()) {
+  if (MiniRunMode_IsClimbEndless()) {
     if (MiniTryConfigureEditorRoom())
       return;
     fprintf(stderr,
@@ -279,6 +279,11 @@ void MiniStubs_ConfigureWorld(int viewport_width, int viewport_height) {
 
 void MiniStubs_GetRoomInfo(MiniRoomInfo *info) {
   *info = g_mini_room_info;
+}
+
+void MiniStubs_UpdateRoomInfo(const MiniRoomInfo *info) {
+  g_mini_room_info = *info;
+  MiniApplyRoomInfoWorld();
 }
 
 void MiniStubs_GetCollisionMapView(MiniCollisionMapView *view) {

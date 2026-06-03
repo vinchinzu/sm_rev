@@ -545,6 +545,10 @@ void DrawSamusAndProjectiles(void) {  // 0x90EB35
   MultiSamus_Switch(0);
 }
 
+void Samus_DrawActiveProjectiles(void) {  // DrawSamusAndProjectiles @ 0x90EB35
+  DrawPlayerExplosions2();  // 0x938254
+}
+
 static void CallSamusDrawHandler(uint32 ea) {
   switch (ea) {
   case fnSamusDrawHandler_Default: SamusDrawHandler_Default(); return;

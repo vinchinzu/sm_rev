@@ -16,6 +16,7 @@ enum {
   kMiniEditorBridgePaletteCount = 8 * 16,
   kMiniEditorBridgeSamusPaletteCount = 16,
   kMiniEditorBridgeRoomSpritePaletteCount = 16,
+  kMiniEditorBridgeEnemyNameCapacity = 64,
 };
 
 typedef enum MiniEditorSamusSuit {
@@ -60,6 +61,21 @@ typedef struct MiniEditorRoomSprite {
   MiniEditorRoomSpriteOamEntry *entries;
   int entry_count;
 } MiniEditorRoomSprite;
+
+typedef struct MiniEditorEnemySpawn {
+  char name[kMiniEditorBridgeEnemyNameCapacity];
+  uint16 species_id;
+  uint16 init_parameter;
+  uint16 properties1;
+  uint16 properties2;
+  uint16 extra_parameter1;
+  uint16 extra_parameter2;
+  int x_pos;
+  int y_pos;
+  int block_x;
+  int block_y;
+  bool has_population_words;
+} MiniEditorEnemySpawn;
 
 typedef struct MiniEditorRoom {
   uint16 room_id;
@@ -111,6 +127,8 @@ typedef struct MiniEditorRoom {
   int samus_rendered_frame_height;
   MiniEditorRoomSprite *room_sprites;
   int room_sprite_count;
+  MiniEditorEnemySpawn *enemies;
+  int enemy_count;
   MiniDoorwayTransition doorways[kMiniDoorwayTransitionCapacity];
   int doorway_count;
 } MiniEditorRoom;

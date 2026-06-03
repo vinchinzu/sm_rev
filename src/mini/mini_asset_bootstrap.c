@@ -1,5 +1,6 @@
 #include "mini_asset_bootstrap.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -40,6 +41,8 @@ static int g_mini_editor_samus_rendered_frame_width;
 static int g_mini_editor_samus_rendered_frame_height;
 static MiniEditorRoomSpriteView *g_mini_editor_room_sprite_views;
 static int g_mini_editor_room_sprite_count;
+static MiniEditorEnemySpawnView *g_mini_editor_enemy_spawn_views;
+static int g_mini_editor_enemy_spawn_count;
 
 static void MiniClearEditorRoomSpriteAssets(void) {
   if (g_mini_editor_room_sprite_views != NULL) {
@@ -54,6 +57,12 @@ static void MiniClearEditorRoomSpriteAssets(void) {
   free(g_mini_editor_room_sprite_views);
   g_mini_editor_room_sprite_views = NULL;
   g_mini_editor_room_sprite_count = 0;
+}
+
+static void MiniClearEditorEnemySpawns(void) {
+  free(g_mini_editor_enemy_spawn_views);
+  g_mini_editor_enemy_spawn_views = NULL;
+  g_mini_editor_enemy_spawn_count = 0;
 }
 
 static void MiniClearEditorSamusPaletteAssets(void) {
@@ -87,6 +96,7 @@ static void MiniClearEditorTilesetAssets(void) {
   memset(g_mini_editor_palette, 0, sizeof(g_mini_editor_palette));
   memset(g_mini_editor_bg2_tilemap_words, 0, sizeof(g_mini_editor_bg2_tilemap_words));
   MiniClearEditorRoomSpriteAssets();
+  MiniClearEditorEnemySpawns();
 }
 
 static MiniSamusSuit MiniConvertEditorSuit(MiniEditorSamusSuit suit) {
@@ -254,6 +264,33 @@ static void MiniInstallEditorRoomSprites(const MiniEditorRoom *room) {
   }
 }
 
+static void MiniInstallEditorEnemySpawns(const MiniEditorRoom *room) {
+  MiniClearEditorEnemySpawns();
+  if (room->enemies == NULL || room->enemy_count <= 0)
+    return;
+  g_mini_editor_enemy_spawn_views = (MiniEditorEnemySpawnView *)calloc(
+      (size_t)room->enemy_count, sizeof(*g_mini_editor_enemy_spawn_views));
+  if (g_mini_editor_enemy_spawn_views == NULL)
+    return;
+  g_mini_editor_enemy_spawn_count = room->enemy_count;
+  for (int i = 0; i < room->enemy_count; i++) {
+    const MiniEditorEnemySpawn *src = &room->enemies[i];
+    MiniEditorEnemySpawnView *dst = &g_mini_editor_enemy_spawn_views[i];
+    snprintf(dst->name, sizeof(dst->name), "%s", src->name);
+    dst->species_id = src->species_id;
+    dst->init_parameter = src->init_parameter;
+    dst->properties1 = src->properties1;
+    dst->properties2 = src->properties2;
+    dst->extra_parameter1 = src->extra_parameter1;
+    dst->extra_parameter2 = src->extra_parameter2;
+    dst->x_pos = src->x_pos;
+    dst->y_pos = src->y_pos;
+    dst->block_x = src->block_x;
+    dst->block_y = src->block_y;
+    dst->has_population_words = src->has_population_words;
+  }
+}
+
 static void MiniCopyMetatileWordsFromTileTable(uint16 *dst) {
   for (int i = 0; i < 1024; i++) {
     dst[i * 4 + 0] = tile_table.tables[i].top_left;
@@ -281,6 +318,7 @@ void MiniAssetBootstrap_InstallEditorAssets(const MiniEditorRoom *room) {
   MiniInstallEditorTilesetAssets(room);
   MiniInstallEditorSamusAssets(room);
   MiniInstallEditorRoomSprites(room);
+  MiniInstallEditorEnemySpawns(room);
 }
 
 void MiniAssetBootstrap_SetSamusSuitState(MiniSamusSuit suit) {
@@ -412,6 +450,11 @@ void MiniAssetBootstrap_GetEditorBg2View(MiniEditorBg2View *view) {
 int MiniAssetBootstrap_GetEditorRoomSpriteViews(const MiniEditorRoomSpriteView **sprites) {
   *sprites = g_mini_editor_room_sprite_views;
   return g_mini_editor_room_sprite_count;
+}
+
+int MiniAssetBootstrap_GetEditorEnemySpawnViews(const MiniEditorEnemySpawnView **enemies) {
+  *enemies = g_mini_editor_enemy_spawn_views;
+  return g_mini_editor_enemy_spawn_count;
 }
 
 void MiniAssetBootstrap_GetEditorSamusRenderedSpritesView(MiniEditorSamusRenderedSpritesView *view) {

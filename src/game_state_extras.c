@@ -2,6 +2,7 @@
 #include "ida_types.h"
 #include "variables.h"
 #include "funcs.h"
+#include "gameplay_frame.h"
 #include "multi_samus.h"
 
 CoroutineRet GameState_0_Reset_Async(void) {  // 0x828AE4
@@ -196,16 +197,10 @@ CoroutineRet GameState_29_DebugGameOverMenu(void) {  // 0x8289DB
 
 CoroutineRet GameState_8_MainGameplay(void) {  // 0x828B44
   COROUTINE_BEGIN(coroutine_state_1, 0);
-  DetermineWhichEnemiesToProcess();
+  GameplayFrame_DetermineEnemies();
   if (1) { // !DebugHandler()) {
     PaletteFxHandler();
-    for (int i = 0, n = MultiSamus_GetNumSamus(); i < n; i++) {
-      MultiSamus_Switch(i);
-      HandleControllerInputForGamePhysics();
-      if (!debug_disable_sprite_interact)
-        SamusProjectileInteractionHandler();
-    }
-    MultiSamus_Switch(0);
+    GameplayFrame_SamusInputForAllPlayers();
 
     EnemyMain();
 
@@ -214,16 +209,12 @@ CoroutineRet GameState_8_MainGameplay(void) {  // 0x828B44
       queued_message_box_index = 0;
     }
 
-    for (int i = 0, n = MultiSamus_GetNumSamus(); i < n; i++) {
-      MultiSamus_Switch(i);
-      HandleSamusMovementAndPause();
-    }
-    MultiSamus_Switch(0);
+    GameplayFrame_SamusMovementForAllPlayers();
 
     EprojRunAll();
     COROUTINE_AWAIT(2, PlmHandler_Async());
 
-    AnimtilesHandler();
+    GameplayFrame_Animtiles();
     if (!debug_disable_sprite_interact) {
       for (int i = 0, n = MultiSamus_GetNumSamus(); i < n; i++) {
         MultiSamus_Switch(i);

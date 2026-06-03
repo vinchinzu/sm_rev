@@ -873,6 +873,40 @@ static void MiniRenderSamusPlayers(uint32_t *pixels, int pitch_pixels, const Min
   MiniRestoreSamusRenderScratch(&saved);
 }
 
+static void MiniRenderPirateShots(uint32_t *pixels, int pitch_pixels,
+                                  const MiniGameState *state) {
+  if (state->enemy_state.shot_count == 0)
+    return;
+  int camera_x = 0;
+  int camera_y = 0;
+  MiniRenderViewportCamera(state, &camera_x, &camera_y);
+  uint32_t core = MiniConvertBgr555(0x03FF);
+  uint32_t glow = MiniConvertBgr555(0x001F);
+  for (int i = 0; i < kMiniEnemyShotCapacity; i++) {
+    const MiniEnemyShotState *shot = &state->enemy_state.shots[i];
+    if (!shot->active)
+      continue;
+    int x = shot->x - camera_x;
+    int y = shot->y - camera_y;
+    MiniFillRect(pixels, pitch_pixels, x - 5, y - 1, 11, 3, glow);
+    MiniFillRect(pixels, pitch_pixels, x - 3, y, 7, 1, core);
+  }
+}
+
+static void MiniRenderDecomposedProjectiles(uint32_t *pixels, int pitch_pixels,
+                                            const MiniGameState *state) {
+  if (state->projectile_state.count == 0)
+    return;
+
+  MiniRenderSamusScratch saved;
+  MiniSaveSamusRenderScratch(&saved);
+  memset(oam_ext, 0, sizeof(oam_ext));
+  oam_next_ptr = 0;
+  Samus_DrawActiveProjectiles();
+  MiniRenderCurrentOam(pixels, pitch_pixels, oam_next_ptr);
+  MiniRestoreSamusRenderScratch(&saved);
+}
+
 void MiniRenderFrameToPixels(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
   MiniRenderRoom(pixels, pitch_pixels, state);
   if (state->uses_original_gameplay_runtime) {
@@ -885,7 +919,9 @@ void MiniRenderFrameToPixels(uint32_t *pixels, int pitch_pixels, const MiniGameS
   if (state->uses_rom_room)
     return;
   MiniRenderEditorRoomSprites(pixels, pitch_pixels, state);
+  MiniRenderPirateShots(pixels, pitch_pixels, state);
   MiniRenderSamusPlayers(pixels, pitch_pixels, state, 0, false);
+  MiniRenderDecomposedProjectiles(pixels, pitch_pixels, state);
 }
 
 static void MiniRenderUpdateScreenPositionsForCamera(MiniGameState *state) {
@@ -946,7 +982,9 @@ void MiniRenderFrameToPixelsWithCamera(uint32_t *pixels, int pitch_pixels,
     MiniRepairLandingUpperSky(pixels, pitch_pixels, &render_state);
   } else if (!render_state.uses_rom_room) {
     MiniRenderEditorRoomSprites(pixels, pitch_pixels, &render_state);
+    MiniRenderPirateShots(pixels, pitch_pixels, &render_state);
     MiniRenderSamusPlayers(pixels, pitch_pixels, &render_state, 0, false);
+    MiniRenderDecomposedProjectiles(pixels, pitch_pixels, &render_state);
   }
 
   layer1_x_pos = saved_layer1_x;

@@ -24,6 +24,9 @@ METATILE_WORD_COUNT = METATILE_COUNT * 4
 PALETTE_WORD_COUNT = 8 * 16
 BG2_WORD_COUNT = 64 * 32
 BANK_ROOM_DATA = 0x8F0000
+WRAM_SIZE = 0x20000
+BG2_VRAM_WORD_BASE = 0x4800
+BG2_CLEAR_WORD = 0x2C0F
 
 
 def snes_to_pc(rom: bytes, snes_address: int) -> int:
@@ -230,40 +233,77 @@ def read_scroll_grid(
     return rows
 
 
+def read_dma_source(rom: bytes, wram: bytearray, src: int, size: int) -> bytes:
+    bank = (src >> 16) & 0xFF
+    addr = src & 0xFFFF
+    if bank in (0x7E, 0x7F):
+        offset = addr + (0x10000 if bank == 0x7F else 0)
+        if offset >= len(wram):
+            return bytes(size)
+        return bytes(wram[offset : offset + size]).ljust(size, b"\x00")
+    pc = snes_to_pc(rom, src)
+    return rom[pc : pc + size].ljust(size, b"\x00")
+
+
+def write_bg2_vram(bg2_bytes: bytearray, vram_word_dst: int, payload: bytes) -> bool:
+    word_offset = vram_word_dst - BG2_VRAM_WORD_BASE
+    if word_offset < 0 or word_offset >= BG2_WORD_COUNT:
+        return False
+    byte_offset = word_offset * 2
+    copy_len = min(len(payload), len(bg2_bytes) - byte_offset)
+    if copy_len > 0:
+        bg2_bytes[byte_offset : byte_offset + copy_len] = payload[:copy_len]
+    return copy_len > 0
+
+
 def load_bg2_tilemap(rom: bytes, bg_data_ptr: int) -> list[int] | None:
     if not (bg_data_ptr & 0x8000):
         return None
     pc = snes_to_pc(rom, BANK_ROOM_DATA | bg_data_ptr)
-    words: list[int] = []
+    wram = bytearray(WRAM_SIZE)
+    bg2_bytes = bytearray(struct.pack("<" + "H" * BG2_WORD_COUNT, *([BG2_CLEAR_WORD] * BG2_WORD_COUNT)))
+    touched_bg2 = False
     while pc:
         cmd = read_u16(rom, pc)
-        if cmd >> 1 == 0:
+        if cmd == 0:
             break
-        if cmd >> 1 == 2:
+        if cmd == 2 or cmd == 8:
             payload = pc + 2
-            src = read_u16(rom, payload) | (read_u16(rom, payload + 2) << 16)
+            src = read_u16(rom, payload) | (rom[payload + 2] << 16)
+            vram_dst = read_u16(rom, payload + 3)
             size = read_u16(rom, payload + 5)
-            src_pc = snes_to_pc(rom, src)
-            for i in range(size // 2):
-                words.append(read_u16(rom, src_pc + i * 2))
+            dma_payload = read_dma_source(rom, wram, src, size)
+            touched_bg2 = write_bg2_vram(bg2_bytes, vram_dst, dma_payload) or touched_bg2
             pc = payload + 7
             continue
-        if cmd >> 1 == 4:
+        if cmd == 4:
             payload = pc + 2
             src = read_u24(rom, payload)
+            dst = read_u16(rom, payload + 3)
             decomp = decompress_lz5(rom, snes_to_pc(rom, src))
-            for i in range(0, len(decomp), 2):
-                words.append(decomp[i] | (decomp[i + 1] << 8))
+            if dst < len(wram):
+                copy_len = min(len(decomp), len(wram) - dst)
+                wram[dst : dst + copy_len] = decomp[:copy_len]
             pc = payload + 5
             continue
-        if cmd >> 1 == 14:
+        if cmd == 10 or cmd == 12:
+            bg2_bytes[:] = struct.pack("<" + "H" * BG2_WORD_COUNT, *([BG2_CLEAR_WORD] * BG2_WORD_COUNT))
+            touched_bg2 = True
+            pc += 2
+            continue
+        if cmd == 6:
+            pc += 2
+            continue
+        if cmd == 14:
             pc += 2 + 9
             continue
         pc += 2
-    if not words:
+    if not touched_bg2:
         return None
-    if len(words) < BG2_WORD_COUNT:
-        words.extend([0x2C0F] * (BG2_WORD_COUNT - len(words)))
+    words = [
+        bg2_bytes[i] | (bg2_bytes[i + 1] << 8)
+        for i in range(0, len(bg2_bytes), 2)
+    ]
     return words[:BG2_WORD_COUNT]
 
 

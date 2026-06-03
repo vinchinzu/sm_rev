@@ -5,6 +5,7 @@
 
 #include "funcs.h"
 #include "ida_types.h"
+#include "mini/mini_climb_endless.h"
 #include "mini/mini_defs.h"
 #include "mini/mini_game.h"
 #include "mini/mini_room_adapter.h"
@@ -2110,6 +2111,139 @@ static void TestUnsupportedAdvancedSpinPoseContracts(void) {
   MiniDestroy(state);
 }
 
+static void TestClimbEndlessWrapContractsIfAvailable(void) {
+  const char *room_path = MiniClimbEndless_DefaultRoomExportPath();
+  if (access(room_path, R_OK) != 0)
+    return;
+
+  MiniClimbEndless_SetActive(true);
+  MiniStubs_SetRoomExportPath(room_path);
+  MiniGameState *state = MiniCreate(kMiniGameWidth, kMiniGameHeight);
+  Require(state != NULL, "MiniCreate failed for climb endless wrap test");
+  Require(state->room_id == kMiniClimbEndlessRoomId,
+          "climb endless test did not load The Climb export");
+  Require(state->enemy_state.count == 10 &&
+              state->enemy_state.active_count == 10 &&
+              state->enemy_state.passive_count == 0 &&
+              state->enemy_state.renderable_count == 0,
+          "climb endless did not initialize original exported enemies");
+  Require(state->enemy_state.enemies[0].species_id == 0xD87F &&
+              strcmp(state->enemy_state.enemies[0].name, "Roach") == 0 &&
+              state->enemy_state.enemies[0].behavior == kMiniEnemyBehavior_Roach &&
+              state->enemy_state.enemies[0].health == 20 &&
+              state->enemy_state.enemies[0].damage == 40 &&
+              state->enemy_state.enemies[0].x_radius == 4 &&
+              state->enemy_state.enemies[0].y_radius == 4 &&
+              state->enemy_state.enemies[0].init_ai == 0xA14D &&
+              state->enemy_state.enemies[0].main_ai == 0xA2D0 &&
+              state->enemy_state.enemies[0].properties1 == 0x2400 &&
+              state->enemy_state.enemies[0].extra_parameter1 == 0x5003 &&
+              state->enemy_state.enemies[0].extra_parameter2 == 0x0050,
+          "climb endless first original enemy metadata was not preserved");
+
+  layer1_y_pos = 500;
+  ideal_layer1_ypos = layer1_y_pos;
+  state->viewport.camera_y = layer1_y_pos;
+  state->camera_y = layer1_y_pos;
+  samus_y_pos = (uint16)(layer1_y_pos + down_scroller);
+  samus_prev_y_pos = (uint16)(samus_y_pos + 3);
+  state->players[0].samus.world_y = samus_y_pos;
+  state->players[0].samus.y_radius = samus_y_radius;
+  state->players[0].samus.screen_y = samus_y_pos - layer1_y_pos - samus_y_radius;
+  state->samus = state->players[0].samus;
+  int before_screen_y = state->samus.screen_y;
+  int before_delta_y = (int16)(samus_y_pos - samus_prev_y_pos);
+  int before_samus_world_y = state->players[0].samus.world_y;
+  int before_enemy_y = state->enemy_state.enemies[0].y;
+  int before_enemy_home_y = state->enemy_state.enemies[0].home_y;
+  int before_virtual_floors = MiniClimbEndless_VirtualFloors();
+
+  MiniClimbEndless_Tick(state);
+  int applied_shift_y = state->players[0].samus.world_y - before_samus_world_y;
+
+  Require(MiniClimbEndless_VirtualFloors() == before_virtual_floors + 1,
+          "climb endless wrap did not record one virtual floor");
+  Require(layer1_y_pos == 48 * kMiniBlockSize,
+          "climb endless wrap did not shift to the first authored shaft band");
+  Require(state->enemy_state.enemies[0].y == before_enemy_y + applied_shift_y &&
+              state->enemy_state.enemies[0].home_y == before_enemy_home_y + applied_shift_y,
+          "climb endless wrap did not shift original mini enemies");
+  Require((int16)(samus_y_pos - samus_prev_y_pos) == before_delta_y,
+          "climb endless wrap did not preserve Samus previous-Y delta");
+  Require(state->viewport.camera_y == layer1_y_pos && state->camera_y == layer1_y_pos,
+          "climb endless wrap did not sync state camera to globals");
+  Require(state->samus.screen_y == before_screen_y &&
+              state->players[0].samus.screen_y == before_screen_y,
+          "climb endless wrap changed Samus screen position");
+
+  layer1_y_pos = 500;
+  ideal_layer1_ypos = layer1_y_pos;
+  state->viewport.camera_y = layer1_y_pos;
+  state->camera_y = layer1_y_pos;
+  samus_y_pos = (uint16)(layer1_y_pos + down_scroller);
+  samus_prev_y_pos = (uint16)(samus_y_pos + 3);
+  state->players[0].samus.world_y = samus_y_pos;
+  state->players[0].samus.screen_y = samus_y_pos - layer1_y_pos - samus_y_radius;
+  state->samus = state->players[0].samus;
+  before_samus_world_y = state->players[0].samus.world_y;
+  before_enemy_y = state->enemy_state.enemies[0].y;
+  before_enemy_home_y = state->enemy_state.enemies[0].home_y;
+  before_virtual_floors = MiniClimbEndless_VirtualFloors();
+
+  MiniClimbEndless_Tick(state);
+  applied_shift_y = state->players[0].samus.world_y - before_samus_world_y;
+
+  Require(MiniClimbEndless_VirtualFloors() == before_virtual_floors + 1,
+          "climb endless second wrap did not record one virtual floor");
+  Require(layer1_y_pos == 96 * kMiniBlockSize,
+          "climb endless second wrap did not shift to a varied authored shaft band");
+  Require(state->enemy_state.enemies[0].y == before_enemy_y + applied_shift_y &&
+              state->enemy_state.enemies[0].home_y == before_enemy_home_y + applied_shift_y,
+          "climb endless second wrap did not shift original mini enemies");
+
+  MiniDestroy(state);
+  MiniStubs_SetRoomExportPath(NULL);
+  MiniClimbEndless_SetActive(false);
+}
+
+static void TestClimbModeSnapshotRoundTripIfAvailable(void) {
+  const char *room_path = MiniClimbEndless_DefaultRoomExportPath();
+  if (access(room_path, R_OK) != 0)
+    return;
+
+  MiniClimbEndless_SetActive(true);
+  MiniStubs_SetRoomExportPath(room_path);
+  MiniGameState *state = MiniCreate(kMiniGameWidth, kMiniGameHeight);
+  Require(state != NULL, "MiniCreate failed for climb snapshot test");
+
+  layer1_y_pos = 500;
+  ideal_layer1_ypos = layer1_y_pos;
+  samus_y_pos = (uint16)(layer1_y_pos + down_scroller);
+  samus_prev_y_pos = (uint16)(samus_y_pos + 2);
+  state->players[0].samus.world_y = samus_y_pos;
+  MiniClimbEndless_Tick(state);
+  int expected_virtual_floors = MiniClimbEndless_VirtualFloors();
+  Require(expected_virtual_floors > 0, "climb snapshot test did not advance virtual floors");
+
+  size_t snapshot_size = MiniSaveStateSize();
+  void *snapshot = malloc(snapshot_size);
+  Require(snapshot != NULL, "climb snapshot alloc failed");
+  Require(MiniSaveState(state, snapshot, snapshot_size), "MiniSaveState failed for climb mode");
+
+  MiniClimbEndless_SetActive(false);
+  Require(!MiniClimbEndless_IsActive(), "climb mode should reset after SetActive(false)");
+
+  Require(MiniLoadState(state, snapshot, snapshot_size), "MiniLoadState failed for climb mode");
+  Require(MiniClimbEndless_IsActive(), "climb mode not restored from snapshot");
+  Require(MiniClimbEndless_VirtualFloors() == expected_virtual_floors,
+          "climb virtual floors not restored from snapshot");
+
+  free(snapshot);
+  MiniDestroy(state);
+  MiniStubs_SetRoomExportPath(NULL);
+  MiniClimbEndless_SetActive(false);
+}
+
 static void RunFallbackTestsInIsolatedCwd(void) {
   char original_cwd[1024];
   char temp_dir[] = "/tmp/sm_rev_mini_rollback_api_XXXXXX";
@@ -2195,6 +2329,8 @@ static void TestRomRoomDeterminismIfAvailable(void) {
 
 int main(void) {
   RunFallbackTestsInIsolatedCwd();
+  TestClimbEndlessWrapContractsIfAvailable();
+  TestClimbModeSnapshotRoundTripIfAvailable();
   TestRomRoomDeterminismIfAvailable();
   return 0;
 }

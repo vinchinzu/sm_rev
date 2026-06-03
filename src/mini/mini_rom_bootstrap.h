@@ -6,6 +6,7 @@
 
 void MiniRomBootstrap_Reset(void);
 bool MiniRomBootstrap_LoadAnyRom(void);
+void MiniRomBootstrap_ApplyPowerBeamLoadout(uint16 items, uint8 suit_palette_index);
 void MiniRomBootstrap_TryLoadRoomHeaderMetadata(uint16 room_id);
 bool MiniRomBootstrap_TryConfigureSaveSlotRoom(MiniRoomInfo *info);
 bool MiniRomBootstrap_TryConfigureDemoRoom(MiniRoomInfo *info);

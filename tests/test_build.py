@@ -20,6 +20,8 @@ MINI_BINARY = SM_REV_DIR / "sm_rev_mini"
 MODDABLE_BINARY = SM_REV_DIR / "sm_rev_moddable"
 EDITOR_LANDING_SITE_EXPORT = SM_REV_DIR.parent / "super_metroid_editor" / "export" / "sm_nav" / "rooms" / "room_91F8.json"
 CLIMB_ROOM_EXPORT = SM_REV_DIR / "assets" / "local_mini" / "room_96BA.json"
+CLIMB_BG2_EXPORT = SM_REV_DIR / "assets" / "local_mini" / "backgrounds" / "bg2_96BA_default.bin"
+SPACE_PIRATE_TEST_ROOM_EXPORT = SM_REV_DIR / "assets" / "local_mini" / "room_91F8_space_pirate_test.json"
 LANDING_SITE_ROOM_ID = 0x91F8
 CLIMB_ROOM_ID = 0x96BA
 RUN_SLOW_BUILD_TESTS = os.environ.get("SM_REV_RUN_SLOW_BUILD_TESTS") == "1"
@@ -213,6 +215,138 @@ class TestBuildMini:
                 if alpha > 0 and (red > 24 or green > 24 or blue > 24):
                     samus_pixels += 1
         assert samus_pixels >= 8, f"expected visible Samus pixels near spawn, found {samus_pixels}"
+
+    def test_mini_climb_endless_draws_rom_bg2_background(self, tmp_path: Path):
+        """The Climb endless BG2 should come from the ROM-expanded editor export, not a flat blue fill."""
+        if not CLIMB_ROOM_EXPORT.exists() or not CLIMB_BG2_EXPORT.exists():
+            return
+        bg2_words = struct.unpack("<" + "H" * (CLIMB_BG2_EXPORT.stat().st_size // 2), CLIMB_BG2_EXPORT.read_bytes())
+        assert len(bg2_words) == 64 * 32
+        assert len(set(bg2_words)) >= 16, "climb BG2 export collapsed to a repetitive fill"
+        assert max(bg2_words.count(word) for word in set(bg2_words)) < 64 * 32 * 3 // 4
+
+        frame = tmp_path / "climb_bg2.bmp"
+        r = run([
+            str(MINI_BINARY),
+            "--climb-endless",
+            "--headless",
+            "--frames",
+            "1",
+            "--screenshot",
+            str(frame),
+        ])
+        assert r.returncode == 0, f"climb BG2 screenshot failed:\n{r.stderr}\n{r.stdout}"
+        width, height, pixels = read_bmp_argb_pixels(frame)
+        blue_pixels = 0
+        white_pixels = 0
+        unique_pixels = set()
+        for y in range(height):
+            for x in range(width):
+                pixel = pixels[y][x]
+                red = (pixel >> 16) & 0xFF
+                green = (pixel >> 8) & 0xFF
+                blue = pixel & 0xFF
+                alpha = (pixel >> 24) & 0xFF
+                if alpha == 0:
+                    continue
+                unique_pixels.add(pixel)
+                if blue > 70 and blue > red + 20 and blue >= green:
+                    blue_pixels += 1
+                if red > 220 and green > 220 and blue > 220:
+                    white_pixels += 1
+        assert len(unique_pixels) >= 32, f"expected varied climb screenshot colors, got {len(unique_pixels)}"
+        assert blue_pixels < width * height // 16, f"climb screenshot is still too blue: {blue_pixels} pixels"
+        assert white_pixels < width * height // 20, f"climb BG2 rendered too many white pixels: {white_pixels}"
+
+    def test_mini_climb_endless_uses_power_beam_loadout(self):
+        """Climb endless should keep editor rendering and default to the basic power beam."""
+        if not CLIMB_ROOM_EXPORT.exists():
+            return
+        r = run([str(MINI_BINARY), "--climb-endless", "--headless", "--frames", "1"])
+        assert r.returncode == 0, f"climb loadout failed:\n{r.stderr}\n{r.stdout}"
+        payload = parse_json_payload(r.stdout)
+        assert payload["original_enemies"] is False, payload
+        assert payload["no_enemies"] is False, payload
+        assert payload["enemy_count"] == 10, payload
+        assert payload["enemy_active_count"] == 10, payload
+        assert payload["enemy_passive_count"] == 0, payload
+        assert payload["enemy_renderable_count"] == 0, payload
+        assert payload["enemy_shot_count"] == 0, payload
+        assert payload["first_enemy_id"] == 0xD87F, payload
+        assert payload["first_enemy_name"] == "Roach", payload
+        assert payload["first_enemy_health"] == 20, payload
+        assert payload["first_enemy_damage"] == 40, payload
+        assert payload["first_enemy_x_radius"] == 4, payload
+        assert payload["first_enemy_y_radius"] == 4, payload
+        assert payload["first_enemy_behavior"] == 1, payload
+        assert payload["first_enemy_behavior_name"] == "roach", payload
+        assert payload["first_enemy_init_ai"] == 0xA14D, payload
+        assert payload["first_enemy_main_ai"] == 0xA2D0, payload
+        assert payload["first_enemy_properties1"] == 0x2400, payload
+        assert payload["first_enemy_extra_param1"] == 0x5003, payload
+        assert payload["first_enemy_extra_param2"] == 0x0050, payload
+        assert payload["first_enemy_has_sprite"] is False, payload
+        assert payload["pirate_count"] == 0, payload
+        assert payload["pirate_active_count"] == 0, payload
+        assert payload["samus_suit"] == "power", payload
+        assert payload["equipped_items"] == 0x4, payload
+        assert payload["equipped_beams"] == 0, payload
+
+    def test_mini_climb_endless_shoots_power_beam(self, tmp_path: Path):
+        """Climb endless should fire the basic power beam through the shared projectile path."""
+        if not CLIMB_ROOM_EXPORT.exists():
+            return
+        script = tmp_path / "climb_shoot.txt"
+        script.write_text(("RIGHT SHOOT\n" * 24), encoding="utf-8")
+        r = run([
+            str(MINI_BINARY),
+            "--climb-endless",
+            "--headless",
+            "--frames",
+            "12",
+            "--input-script",
+            str(script),
+        ])
+        assert r.returncode == 0, f"climb shooting failed:\n{r.stderr}\n{r.stdout}"
+        payload = parse_json_payload(r.stdout)
+        assert payload["equipped_beams"] == 0, payload
+        assert payload["projectile_count"] >= 1, payload
+        assert payload["first_projectile_type"] == 0x8000, payload
+        assert payload["first_projectile_x"] > payload["samus_world_x"], payload
+
+    def test_mini_space_pirate_room_sprites_and_shots_damage_samus(self):
+        """Editor-exported Space Pirate sprites should drive mini combat: actor detection, shots, and Samus damage."""
+        if not SPACE_PIRATE_TEST_ROOM_EXPORT.exists():
+            return
+        r = run([
+            str(MINI_BINARY),
+            "--headless",
+            "--frames",
+            "60",
+            "--room-export",
+            str(SPACE_PIRATE_TEST_ROOM_EXPORT),
+        ])
+        assert r.returncode == 0, f"mini Space Pirate combat failed:\n{r.stderr}\n{r.stdout}"
+        payload = parse_json_payload(r.stdout)
+        assert payload["room_source"] == "editor_export", payload
+        assert payload["room_visuals"] == "editor_tileset", payload
+        assert payload["original_runtime"] is False, payload
+        assert payload["no_enemies"] is False, payload
+        assert payload["enemy_count"] == 1, payload
+        assert payload["enemy_active_count"] == 1, payload
+        assert payload["enemy_passive_count"] == 0, payload
+        assert payload["enemy_renderable_count"] == 1, payload
+        assert payload["first_enemy_id"] == 0xF353, payload
+        assert payload["first_enemy_name"] == "Space Pirate", payload
+        assert payload["first_enemy_behavior"] == 2, payload
+        assert payload["first_enemy_behavior_name"] == "space_pirate_shooter", payload
+        assert payload["first_enemy_has_sprite"] is True, payload
+        assert payload["pirate_count"] == 1, payload
+        assert payload["pirate_active_count"] == 1, payload
+        assert payload["first_pirate_health"] == 60, payload
+        assert payload["player1_hit_count"] >= 1, payload
+        assert payload["player1_pending_damage"] == 20, payload
+        assert payload["player1_last_hit_by_player"] == 0, payload
 
     def test_mini_headless_smoke_outside_repo_cwd(self, tmp_path: Path):
         """Mini should still find its default room export when launched outside the repo cwd."""

@@ -1327,6 +1327,7 @@ void ClearProjectile(uint16 k);
 void DisableMinimapAndMarkBossRoomAsExplored(void);
 void DrawFlareAnimationComponent(uint16 k);
 void DrawSamusAndProjectiles(void);
+void Samus_DrawActiveProjectiles(void);
 void DrawTimer_(void);
 void FireChargedBeam(void);
 void FireEndOfSpazerSba(uint16 j);

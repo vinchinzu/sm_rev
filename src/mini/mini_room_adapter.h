@@ -89,6 +89,7 @@ typedef struct MiniStubsSnapshot {
 void MiniStubs_SetRoomExportPath(const char *path);
 void MiniStubs_ConfigureWorld(int viewport_width, int viewport_height);
 void MiniStubs_GetRoomInfo(MiniRoomInfo *info);
+void MiniStubs_UpdateRoomInfo(const MiniRoomInfo *info);
 void MiniStubs_GetCollisionMapView(MiniCollisionMapView *view);
 void MiniStubs_SaveSnapshot(MiniStubsSnapshot *snapshot);
 void MiniStubs_LoadSnapshot(const MiniStubsSnapshot *snapshot);
