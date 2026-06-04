@@ -1,5 +1,6 @@
 #include "mini_renderer.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include <SDL.h>
@@ -8,6 +9,9 @@
 #include "funcs.h"
 #include "ida_types.h"
 #include "mini_asset_bootstrap.h"
+#include "mini_climb_hud.h"
+#include "mini_climb_endless.h"
+#include "mini_enemy.h"
 #include "mini_defs.h"
 #include "mini_editor_bridge.h"
 #include "mini_generated_background.h"
@@ -57,7 +61,7 @@ static int MiniBgTileBase(int layer) {
   return word_addr >> 4;
 }
 
-static uint32_t MiniConvertBgr555(uint16 color) {
+uint32_t MiniRenderer_ConvertBgr555(uint16 color) {
   uint32_t r = (color & 0x1F) * 255 / 31;
   uint32_t g = ((color >> 5) & 0x1F) * 255 / 31;
   uint32_t b = ((color >> 10) & 0x1F) * 255 / 31;
@@ -86,7 +90,7 @@ static bool MiniLandingUpperSkyGarbageColor(uint32_t color) {
 static void MiniRepairLandingUpperSky(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
   if (!MiniLandingUpperSkyRepairActive(state))
     return;
-  uint32_t sky = MiniConvertBgr555(0x1CE8);
+  uint32_t sky = MiniRenderer_ConvertBgr555(0x1CE8);
   for (int y = 0; y < kMiniLandingSiteUpperSkyFillY; y++) {
     for (int x = 0; x < kMiniGameWidth; x++)
       pixels[y * pitch_pixels + x] = sky;
@@ -100,8 +104,8 @@ static void MiniRepairLandingUpperSky(uint32_t *pixels, int pitch_pixels, const 
   }
 }
 
-static void MiniFillRect(uint32_t *pixels, int pitch_pixels, int left, int top,
-                         int width, int height, uint32_t color) {
+void MiniRenderer_FillRect(uint32_t *pixels, int pitch_pixels, int left, int top,
+                           int width, int height, uint32_t color) {
   for (int py = 0; py < height; py++) {
     int y = top + py;
     if ((unsigned)y >= kMiniGameHeight)
@@ -145,7 +149,7 @@ static void MiniRenderTile(uint32_t *pixels, int pitch_pixels, const uint8 *tile
       uint8 color_index = MiniDecode4bppPixel(tiles, tile_index, sx, sy);
       if (color_index == 0)
         continue;
-      pixels[out_y * pitch_pixels + out_x] = MiniConvertBgr555(palette[palette_base + color_index]);
+      pixels[out_y * pitch_pixels + out_x] = MiniRenderer_ConvertBgr555(palette[palette_base + color_index]);
     }
   }
 }
@@ -168,7 +172,7 @@ static void MiniRenderTileScanline(uint32_t *pixels, int pitch_pixels, const uin
     uint8 color_index = MiniDecode4bppPixel(tiles, tile_index, sx, sy);
     if (color_index == 0)
       continue;
-    pixels[dst_y * pitch_pixels + out_x] = MiniConvertBgr555(palette[palette_base + color_index]);
+    pixels[dst_y * pitch_pixels + out_x] = MiniRenderer_ConvertBgr555(palette[palette_base + color_index]);
   }
 }
 
@@ -348,52 +352,70 @@ static void MiniRenderObjTileWithPalette(uint32_t *pixels, int pitch_pixels, con
       uint8 color_index = MiniDecode4bppPixel(tile, 0, sx, sy);
       if (color_index == 0)
         continue;
-      pixels[out_y * pitch_pixels + out_x] = MiniConvertBgr555(palette[color_index]);
+      pixels[out_y * pitch_pixels + out_x] = MiniRenderer_ConvertBgr555(palette[color_index]);
     }
   }
 }
 
-static void MiniRenderEditorRoomSprites(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
-  enum { kMiniEditorRoomSpriteTileBase = 0x100 };
-  const MiniEditorRoomSpriteView *sprites = NULL;
-  int count = MiniAssetBootstrap_GetEditorRoomSpriteViews(&sprites);
-  if (count <= 0 || sprites == NULL)
-    return;
+static void MiniComputeSpriteViewOriginDelta(const MiniEditorRoomSpriteView *sprite,
+                                             int *origin_dx, int *origin_dy) {
+  int min_x = 0;
+  int max_x = 0;
+  int min_y = 0;
+  int max_y = 0;
+  if (sprite->entry_count > 0) {
+    min_x = max_x = sprite->entries[0].x_offset;
+    min_y = max_y = sprite->entries[0].y_offset;
+    for (int entry_index = 0; entry_index < sprite->entry_count; entry_index++) {
+      const MiniEditorRoomSpriteOamView *entry = &sprite->entries[entry_index];
+      int size = entry->is_16x16 ? 16 : 8;
+      if (entry->x_offset < min_x)
+        min_x = entry->x_offset;
+      if (entry->y_offset < min_y)
+        min_y = entry->y_offset;
+      if (entry->x_offset + size > max_x)
+        max_x = entry->x_offset + size;
+      if (entry->y_offset + size > max_y)
+        max_y = entry->y_offset + size;
+    }
+  }
+  *origin_dx = (min_x + max_x) / 2;
+  *origin_dy = (min_y + max_y) / 2;
+}
 
-  int camera_x = 0;
-  int camera_y = 0;
-  MiniRenderViewportCamera(state, &camera_x, &camera_y);
-  for (int i = count - 1; i >= 0; i--) {
-    const MiniEditorRoomSpriteView *sprite = &sprites[i];
-    if (sprite->tile_data == NULL || sprite->palette == NULL || sprite->entries == NULL)
+static void MiniRenderRoomSpriteView(uint32_t *pixels, int pitch_pixels,
+                                     const MiniEditorRoomSpriteView *sprite,
+                                     int world_origin_x, int world_origin_y,
+                                     int camera_x, int camera_y) {
+  enum { kMiniEditorRoomSpriteTileBase = 0x100 };
+  if (sprite->tile_data == NULL || sprite->palette == NULL || sprite->entries == NULL)
+    return;
+  for (int j = 0; j < sprite->entry_count; j++) {
+    const MiniEditorRoomSpriteOamView *entry = &sprite->entries[j];
+    int base_x = world_origin_x - camera_x + entry->x_offset;
+    int base_y = world_origin_y - camera_y + entry->y_offset;
+    int tile_index = (entry->tile_num & 0x1FF) - kMiniEditorRoomSpriteTileBase;
+    if (tile_index < 0)
       continue;
-    for (int j = 0; j < sprite->entry_count; j++) {
-      const MiniEditorRoomSpriteOamView *entry = &sprite->entries[j];
-      int base_x = sprite->x_pos - camera_x + entry->x_offset;
-      int base_y = sprite->y_pos - camera_y + entry->y_offset;
-      int tile_index = (entry->tile_num & 0x1FF) - kMiniEditorRoomSpriteTileBase;
-      if (tile_index < 0)
-        continue;
-      if (entry->is_16x16) {
-        static const int kTileDx[4] = {0, 8, 0, 8};
-        static const int kTileDy[4] = {0, 0, 8, 8};
-        static const int kTileAdd[4] = {0, 1, 16, 17};
-        for (int part = 0; part < 4; part++) {
-          int draw_part = part;
-          if (entry->h_flip)
-            draw_part ^= 1;
-          if (entry->v_flip)
-            draw_part ^= 2;
-          MiniRenderObjTileWithPalette(
-              pixels, pitch_pixels, sprite->tile_data, sprite->tile_data_size, sprite->palette,
-              tile_index + kTileAdd[draw_part], entry->h_flip, entry->v_flip,
-              base_x + kTileDx[part], base_y + kTileDy[part]);
-        }
-      } else {
+    if (entry->is_16x16) {
+      static const int kTileDx[4] = {0, 8, 0, 8};
+      static const int kTileDy[4] = {0, 0, 8, 8};
+      static const int kTileAdd[4] = {0, 1, 16, 17};
+      for (int part = 0; part < 4; part++) {
+        int draw_part = part;
+        if (entry->h_flip)
+          draw_part ^= 1;
+        if (entry->v_flip)
+          draw_part ^= 2;
         MiniRenderObjTileWithPalette(
             pixels, pitch_pixels, sprite->tile_data, sprite->tile_data_size, sprite->palette,
-            tile_index, entry->h_flip, entry->v_flip, base_x, base_y);
+            tile_index + kTileAdd[draw_part], entry->h_flip, entry->v_flip,
+            base_x + kTileDx[part], base_y + kTileDy[part]);
       }
+    } else {
+      MiniRenderObjTileWithPalette(
+          pixels, pitch_pixels, sprite->tile_data, sprite->tile_data_size, sprite->palette,
+          tile_index, entry->h_flip, entry->v_flip, base_x, base_y);
     }
   }
 }
@@ -404,7 +426,7 @@ static void MiniRenderRomBackdropAndBg2(uint32_t *pixels, int pitch_pixels, cons
   if (use_generated_backdrop) {
     MiniGeneratedBackground_Render(pixels, pitch_pixels);
   } else {
-    uint32_t clear = MiniConvertBgr555(target_palettes[0]);
+    uint32_t clear = MiniRenderer_ConvertBgr555(target_palettes[0]);
     for (int y = 0; y < kMiniGameHeight; y++) {
       for (int x = 0; x < kMiniGameWidth; x++)
         pixels[y * pitch_pixels + x] = clear;
@@ -451,8 +473,8 @@ static void MiniRenderRoom(uint32_t *pixels, int pitch_pixels, const MiniGameSta
     if (use_generated_backdrop) {
       MiniGeneratedBackground_Render(pixels, pitch_pixels);
     } else {
-      uint32_t sky_top = tileset_view.loaded ? MiniConvertBgr555(tileset_view.palette[0]) : MiniConvertBgr555(0x0C24);
-      uint32_t sky_bottom = MiniConvertBgr555(0x1C03);
+      uint32_t sky_top = tileset_view.loaded ? MiniRenderer_ConvertBgr555(tileset_view.palette[0]) : MiniRenderer_ConvertBgr555(0x0C24);
+      uint32_t sky_bottom = MiniRenderer_ConvertBgr555(0x1C03);
       for (int y = 0; y < kMiniGameHeight; y++) {
         uint32_t sky = MiniBlendColor(sky_top, sky_bottom, y, kMiniGameHeight - 1);
         for (int x = 0; x < kMiniGameWidth; x++)
@@ -485,16 +507,16 @@ static void MiniRenderRoom(uint32_t *pixels, int pitch_pixels, const MiniGameSta
         if (block_type == kBlockType_Air)
           continue;
         uint8 bts = MiniStubs_GetBts(block_x, block_y);
-        uint32_t color = MiniConvertBgr555(kCollisionPalette[BlockTypeIndexFromTile((uint16)block_type)]);
+        uint32_t color = MiniRenderer_ConvertBgr555(kCollisionPalette[BlockTypeIndexFromTile((uint16)block_type)]);
         uint32_t shade = MiniBlendColor(color, 0xFF000000u, 1, 4);
         uint32_t hilite = MiniBlendColor(color, 0xFFFFFFFFu, 1, 5);
         int screen_left = block_x * kMiniBlockSize - state->camera_x;
         int screen_top = block_y * kMiniBlockSize - state->camera_y;
-        MiniFillRect(pixels, pitch_pixels, screen_left, screen_top, kMiniBlockSize, kMiniBlockSize, color);
-        MiniFillRect(pixels, pitch_pixels, screen_left, screen_top, kMiniBlockSize, 1, hilite);
-        MiniFillRect(pixels, pitch_pixels, screen_left, screen_top + kMiniBlockSize - 1, kMiniBlockSize, 1, shade);
-        MiniFillRect(pixels, pitch_pixels, screen_left, screen_top, 1, kMiniBlockSize, hilite);
-        MiniFillRect(pixels, pitch_pixels, screen_left + kMiniBlockSize - 1, screen_top, 1, kMiniBlockSize, shade);
+        MiniRenderer_FillRect(pixels, pitch_pixels, screen_left, screen_top, kMiniBlockSize, kMiniBlockSize, color);
+        MiniRenderer_FillRect(pixels, pitch_pixels, screen_left, screen_top, kMiniBlockSize, 1, hilite);
+        MiniRenderer_FillRect(pixels, pitch_pixels, screen_left, screen_top + kMiniBlockSize - 1, kMiniBlockSize, 1, shade);
+        MiniRenderer_FillRect(pixels, pitch_pixels, screen_left, screen_top, 1, kMiniBlockSize, hilite);
+        MiniRenderer_FillRect(pixels, pitch_pixels, screen_left + kMiniBlockSize - 1, screen_top, 1, kMiniBlockSize, shade);
         for (int py = 1; py < kMiniBlockSize - 1; py++) {
           int out_y = screen_top + py;
           if ((unsigned)out_y >= kMiniGameHeight)
@@ -527,9 +549,7 @@ static void MiniRenderRoom(uint32_t *pixels, int pitch_pixels, const MiniGameSta
     return;
   }
 
-  MiniRenderRomBackdropAndBg2(pixels, pitch_pixels, state);
-  MiniRenderRomBg1(pixels, pitch_pixels, state);
-  MiniRepairLandingUpperSky(pixels, pitch_pixels, state);
+  MiniRenderRomRoomWithStreamedBg1Camera(pixels, pitch_pixels, state);
 }
 
 static void MiniTransferSamusHalfToObjTiles(uint16 tile_src, uint16 top_vram_addr, uint16 bottom_vram_addr) {
@@ -597,7 +617,7 @@ static void MiniRenderObjTile(uint32_t *pixels, int pitch_pixels, const uint8 *t
       uint8 color_index = MiniDecode4bppPixel(tile, 0, sx, sy);
       if (color_index == 0)
         continue;
-      pixels[out_y * pitch_pixels + out_x] = MiniConvertBgr555(target_palettes[palette_base + color_index]);
+      pixels[out_y * pitch_pixels + out_x] = MiniRenderer_ConvertBgr555(target_palettes[palette_base + color_index]);
     }
   }
 }
@@ -880,16 +900,48 @@ static void MiniRenderPirateShots(uint32_t *pixels, int pitch_pixels,
   int camera_x = 0;
   int camera_y = 0;
   MiniRenderViewportCamera(state, &camera_x, &camera_y);
-  uint32_t core = MiniConvertBgr555(0x03FF);
-  uint32_t glow = MiniConvertBgr555(0x001F);
+  uint32_t core = MiniRenderer_ConvertBgr555(0x03FF);
+  uint32_t glow = MiniRenderer_ConvertBgr555(0x001F);
   for (int i = 0; i < kMiniEnemyShotCapacity; i++) {
     const MiniEnemyShotState *shot = &state->enemy_state.shots[i];
     if (!shot->active)
       continue;
     int x = shot->x - camera_x;
     int y = shot->y - camera_y;
-    MiniFillRect(pixels, pitch_pixels, x - 5, y - 1, 11, 3, glow);
-    MiniFillRect(pixels, pitch_pixels, x - 3, y, 7, 1, core);
+    MiniRenderer_FillRect(pixels, pitch_pixels, x - 5, y - 1, 11, 3, glow);
+    MiniRenderer_FillRect(pixels, pitch_pixels, x - 3, y, 7, 1, core);
+  }
+}
+
+static void MiniRenderRuntimeEnemies(uint32_t *pixels, int pitch_pixels,
+                                     const MiniGameState *state) {
+  if (state->enemy_state.renderable_count == 0)
+    return;
+  const MiniEditorRoomSpriteView *sprites = NULL;
+  int sprite_view_count = MiniAssetBootstrap_GetEditorRoomSpriteViews(&sprites);
+  if (sprite_view_count <= 0 || sprites == NULL)
+    return;
+
+  int camera_x = 0;
+  int camera_y = 0;
+  MiniRenderViewportCamera(state, &camera_x, &camera_y);
+  for (int i = 0; i < state->enemy_state.count; i++) {
+    const MiniEnemyRuntimeState *enemy = &state->enemy_state.enemies[i];
+    if (!MiniEnemy_IsRuntimeRenderable(enemy))
+      continue;
+    if (enemy->sprite_view_index < 0 || enemy->sprite_view_index >= sprite_view_count)
+      continue;
+    const MiniEditorRoomSpriteView *sprite = &sprites[enemy->sprite_view_index];
+    int screen_x = enemy->x - camera_x;
+    int screen_y = enemy->y - camera_y;
+    if (screen_x + enemy->x_radius < 0 || screen_x - enemy->x_radius >= kMiniGameWidth ||
+        screen_y + enemy->y_radius < 0 || screen_y - enemy->y_radius >= kMiniGameHeight) {
+      continue;
+    }
+    int world_origin_x = enemy->x - enemy->sprite_origin_dx;
+    int world_origin_y = enemy->y - enemy->sprite_origin_dy;
+    MiniRenderRoomSpriteView(pixels, pitch_pixels, sprite, world_origin_x, world_origin_y,
+                             camera_x, camera_y);
   }
 }
 
@@ -907,21 +959,31 @@ static void MiniRenderDecomposedProjectiles(uint32_t *pixels, int pitch_pixels,
   MiniRestoreSamusRenderScratch(&saved);
 }
 
+static void MiniRenderModeOverlay(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
+  MiniClimbHud_Render(pixels, pitch_pixels, state);
+}
+
+static void MiniRenderMiniActors(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
+  MiniRenderRuntimeEnemies(pixels, pitch_pixels, state);
+  MiniRenderPirateShots(pixels, pitch_pixels, state);
+  MiniRenderSamusPlayers(pixels, pitch_pixels, state, 0, false);
+  MiniRenderDecomposedProjectiles(pixels, pitch_pixels, state);
+}
+
 void MiniRenderFrameToPixels(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
   MiniRenderRoom(pixels, pitch_pixels, state);
   if (state->uses_original_gameplay_runtime) {
     MiniRenderCurrentOam(pixels, pitch_pixels, state->original_oam_next_ptr);
-    if (state->player_count > 1)
+    if (state->original_oam_next_ptr == 0)
+      MiniRenderSamusPlayers(pixels, pitch_pixels, state, 0, true);
+    else if (state->player_count > 1)
       MiniRenderSamusPlayers(pixels, pitch_pixels, state, 1, true);
     MiniRepairLandingUpperSky(pixels, pitch_pixels, state);
+    MiniRenderModeOverlay(pixels, pitch_pixels, state);
     return;
   }
-  if (state->uses_rom_room)
-    return;
-  MiniRenderEditorRoomSprites(pixels, pitch_pixels, state);
-  MiniRenderPirateShots(pixels, pitch_pixels, state);
-  MiniRenderSamusPlayers(pixels, pitch_pixels, state, 0, false);
-  MiniRenderDecomposedProjectiles(pixels, pitch_pixels, state);
+  MiniRenderMiniActors(pixels, pitch_pixels, state);
+  MiniRenderModeOverlay(pixels, pitch_pixels, state);
 }
 
 static void MiniRenderUpdateScreenPositionsForCamera(MiniGameState *state) {
@@ -977,15 +1039,15 @@ void MiniRenderFrameToPixelsWithCamera(uint32_t *pixels, int pitch_pixels,
   if (render_state.uses_original_gameplay_runtime) {
     MiniRenderCurrentOamWithOffset(
         pixels, pitch_pixels, render_state.original_oam_next_ptr, -delta_x, -delta_y);
-    if (render_state.player_count > 1)
+    if (render_state.original_oam_next_ptr == 0)
+      MiniRenderSamusPlayers(pixels, pitch_pixels, &render_state, 0, true);
+    else if (render_state.player_count > 1)
       MiniRenderSamusPlayers(pixels, pitch_pixels, &render_state, 1, true);
     MiniRepairLandingUpperSky(pixels, pitch_pixels, &render_state);
   } else if (!render_state.uses_rom_room) {
-    MiniRenderEditorRoomSprites(pixels, pitch_pixels, &render_state);
-    MiniRenderPirateShots(pixels, pitch_pixels, &render_state);
-    MiniRenderSamusPlayers(pixels, pitch_pixels, &render_state, 0, false);
-    MiniRenderDecomposedProjectiles(pixels, pitch_pixels, &render_state);
+    MiniRenderMiniActors(pixels, pitch_pixels, &render_state);
   }
+  MiniRenderModeOverlay(pixels, pitch_pixels, &render_state);
 
   layer1_x_pos = saved_layer1_x;
   layer1_y_pos = saved_layer1_y;

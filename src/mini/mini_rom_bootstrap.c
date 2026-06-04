@@ -6,7 +6,9 @@
 #include "funcs.h"
 #include "ida_types.h"
 #include "mini_asset_bootstrap.h"
+#include "mini_climb_endless.h"
 #include "mini_content_scope.h"
+#include "mini_defs.h"
 #include "samus_env.h"
 #include "samus_projectile.h"
 #include "sm_rtl.h"
@@ -106,11 +108,13 @@ static bool MiniRomBootstrap_LoadAnySave(void) {
 
 static void MiniRomBootstrap_LoadRoomTilemaps(void) {
   LoadLibraryBackground();
-  DisplayViewablePartOfRoom();
-  RefreshFxVisualsAfterLoad();
   CalculateLayer2Xpos();
   CalculateLayer2Ypos();
+  bg2_x_scroll = layer2_x_pos;
+  bg2_y_scroll = layer2_y_pos;
   CalculateBgScrolls();
+  DisplayViewablePartOfRoom();
+  RefreshFxVisualsAfterLoad();
 }
 
 static void MiniRomBootstrap_FillRoomInfo(MiniRoomInfo *info, bool booted_from_save_slot,
@@ -152,6 +156,17 @@ static void MiniRomBootstrap_ApplyLandingSiteDefaults(int *spawn_x, int *spawn_y
   layer1_y_pos = kMiniLandingSiteCameraY;
   *spawn_x = kMiniLandingSiteSamusX;
   *spawn_y = kMiniLandingSiteSamusY;
+}
+
+static void MiniRomBootstrap_ApplyRoomCamera(const MiniRoomInfo *info) {
+  layer1_x_pos = (uint16)info->camera_x;
+  layer1_y_pos = (uint16)info->camera_y;
+  ideal_layer1_xpos = layer1_x_pos;
+  ideal_layer1_ypos = layer1_y_pos;
+  reg_BG1HOFS = 0;
+  reg_BG1VOFS = 0;
+  bg1_x_offset = (uint16)(0 - layer1_x_pos);
+  bg1_y_offset = (uint16)(0 - layer1_y_pos);
 }
 
 void MiniRomBootstrap_ApplyPowerBeamLoadout(uint16 items, uint8 suit_palette_index) {
@@ -253,5 +268,40 @@ bool MiniRomBootstrap_TryConfigureDemoRoom(MiniRoomInfo *info) {
   MiniAssetBootstrap_LoadCurrentRoomAssets();
   MiniRomBootstrap_LoadRoomTilemaps();
   MiniRomBootstrap_FillRoomInfo(info, false, spawn_x, spawn_y);
+  return true;
+}
+
+bool MiniRomBootstrap_TryConfigureClimbRoom(MiniRoomInfo *info) {
+  MiniAssetBootstrap_Reset();
+  if (!MiniRomBootstrap_LoadAnyRom())
+    return false;
+
+  room_ptr = kMiniClimbEndlessRoomId;
+  door_def_ptr = 0;
+  if (!MiniContentScope_AllowsRoom(room_ptr))
+    return false;
+
+  HandleRoomDefStateSelect(room_ptr);
+  MiniRomBootstrap_FillRoomInfo(info, false, 0, 0);
+  MiniClimbEndless_ApplySpawnDefaults(info);
+  MiniRomBootstrap_ApplyRoomCamera(info);
+  samus_x_pos = (uint16)info->spawn_x;
+  samus_y_pos = (uint16)info->spawn_y;
+  samus_prev_x_pos = samus_x_pos;
+  samus_prev_y_pos = samus_y_pos;
+  MiniClimbEndless_ApplySamusLoadout();
+  MiniAssetBootstrap_LoadCurrentRoomAssets();
+  ClearPLMs();
+  CreatePlmsExecuteDoorAsmRoomSetup();
+  InitializeEnemies();
+  ResetProjectileData();
+  RunRoomSetupCode();
+  MiniRomBootstrap_ApplyRoomCamera(info);
+  MiniRomBootstrap_LoadRoomTilemaps();
+  samus_x_pos = (uint16)info->spawn_x;
+  samus_y_pos = (uint16)info->spawn_y;
+  samus_prev_x_pos = samus_x_pos;
+  samus_prev_y_pos = samus_y_pos;
+  MiniRomBootstrap_FillRoomInfo(info, false, info->spawn_x, info->spawn_y);
   return true;
 }

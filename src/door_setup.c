@@ -542,6 +542,8 @@ static void CallDoorDefSetupCode(uint32 ea) {
 }
 
 void RunDoorSetupCode(void) {  // 0x8FE8A3
+  if (!door_def_ptr)
+    return;
   DoorDef *door_def = get_DoorDef(door_def_ptr);
   if (door_def->door_setup_code)
     CallDoorDefSetupCode(door_def->door_setup_code | 0x8F0000);

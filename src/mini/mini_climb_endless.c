@@ -30,11 +30,17 @@ static const uint8 kMiniClimbWrapTargetRows[] = {
 static int g_virtual_floors;
 static bool g_lava_enabled;
 static int g_lava_floor_y;
+static int g_ascent_pixels;
+static int g_last_samus_y;
+static bool g_has_score_anchor;
 
 static void MiniClimbEndless_ResetProgress(void) {
   g_virtual_floors = 0;
   g_lava_enabled = false;
   g_lava_floor_y = 0;
+  g_ascent_pixels = 0;
+  g_last_samus_y = 0;
+  g_has_score_anchor = false;
 }
 
 void MiniClimbEndless_SetActive(bool active) {
@@ -50,12 +56,13 @@ const char *MiniClimbEndless_DefaultRoomExportPath(void) {
   return "assets/local_mini/room_96BA.json";
 }
 
-void MiniClimbEndless_AssignRoomDefaults(MiniEditorRoom *room) {
-  if (room->room_id != kMiniClimbEndlessRoomId && strcmp(room->handle, "climb") != 0)
+void MiniClimbEndless_ApplySpawnDefaults(MiniRoomInfo *room) {
+  if (room == NULL ||
+      (room->room_id != kMiniClimbEndlessRoomId && strcmp(room->room_handle, "climb") != 0))
     return;
 
-  int room_width_px = room->width_blocks * kMiniBlockSize;
-  int floor_block_y = room->height_blocks - kMiniClimbFloorBlocksFromBottom;
+  int room_width_px = room->room_width_blocks * kMiniBlockSize;
+  int floor_block_y = room->room_height_blocks - kMiniClimbFloorBlocksFromBottom;
   if (floor_block_y < 0)
     floor_block_y = 0;
 
@@ -65,17 +72,37 @@ void MiniClimbEndless_AssignRoomDefaults(MiniEditorRoom *room) {
   if (room->camera_target_x_percent <= 0)
     room->camera_x = room->spawn_x - kMiniGameWidth / 2;
   room->camera_y = room->spawn_y - kMiniClimbDownScroller;
-  room->initial_suit = kMiniEditorSamusSuit_Power;
+  room->samus_suit = kMiniSamusSuit_Power;
   room->camera_target_y_percent = (kMiniClimbDownScroller * 100) / kMiniGameHeight;
+}
+
+void MiniClimbEndless_AssignRoomDefaults(MiniEditorRoom *room) {
+  if (room->room_id != kMiniClimbEndlessRoomId && strcmp(room->handle, "climb") != 0)
+    return;
+
+  MiniRoomInfo info = {
+    .room_id = room->room_id,
+    .room_width_blocks = room->width_blocks,
+    .room_height_blocks = room->height_blocks,
+    .camera_target_x_percent = room->camera_target_x_percent,
+  };
+  snprintf(info.room_handle, sizeof(info.room_handle), "%s", room->handle);
+  MiniClimbEndless_ApplySpawnDefaults(&info);
+  room->spawn_x = info.spawn_x;
+  room->spawn_y = info.spawn_y;
+  room->camera_x = info.camera_x;
+  room->camera_y = info.camera_y;
+  room->initial_suit = kMiniEditorSamusSuit_Power;
+  room->camera_target_y_percent = info.camera_target_y_percent;
 }
 
 void MiniClimbEndless_InitAfterRoom(MiniRoomInfo *room) {
   if (!MiniRunMode_IsClimbEndless() || room == NULL)
     return;
 
-  room->has_original_enemies = false;
-  room->has_original_plms = false;
-  room->uses_original_gameplay_runtime = false;
+  MiniClimbEndless_ApplySpawnDefaults(room);
+  g_last_samus_y = room->spawn_y;
+  g_has_score_anchor = true;
 }
 
 void MiniClimbEndless_ApplySamusLoadout(void) {
@@ -83,8 +110,14 @@ void MiniClimbEndless_ApplySamusLoadout(void) {
 }
 
 static void MiniClimbEndless_ShiftMiniStateY(MiniGameState *state, int shift_y) {
+  if (state->player_count < 1)
+    state->player_count = 1;
   for (int player = 0; player < state->player_count; player++)
     state->players[player].samus.world_y += shift_y;
+  state->players[0].samus.world_y = samus_y_pos;
+  state->players[0].samus.world_x = samus_x_pos;
+  if (g_has_score_anchor)
+    g_last_samus_y += shift_y;
   for (int i = 0; i < state->projectile_state.count; i++)
     state->projectile_state.views[i].y_pos += shift_y;
   for (int i = 0; i < state->projectile_count; i++)
@@ -126,11 +159,25 @@ static int MiniClimbEndless_NextWrapShiftY(void) {
   return shift_y > 0 ? shift_y : kMiniClimbFallbackWrapShiftY;
 }
 
+static void MiniClimbEndless_TrackAscent(const MiniGameState *state) {
+  int samus_y = state->players[0].samus.world_y;
+  if (!g_has_score_anchor) {
+    g_last_samus_y = samus_y;
+    g_has_score_anchor = true;
+    return;
+  }
+
+  if (samus_y < g_last_samus_y)
+    g_ascent_pixels += g_last_samus_y - samus_y;
+  g_last_samus_y = samus_y;
+}
+
 void MiniClimbEndless_Tick(MiniGameState *state) {
   if (!MiniRunMode_IsClimbEndless() || state == NULL)
     return;
 
   MiniEditorCamera_Follow(state);
+  MiniClimbEndless_TrackAscent(state);
 
   if (!g_lava_enabled && state->frame >= kMiniClimbLavaEnableFrame) {
     g_lava_enabled = true;
@@ -162,12 +209,18 @@ void MiniClimbEndless_SaveSnapshot(MiniClimbModeSnapshot *snapshot) {
   snapshot->virtual_floors = g_virtual_floors;
   snapshot->lava_enabled = g_lava_enabled;
   snapshot->lava_floor_y = g_lava_floor_y;
+  snapshot->ascent_pixels = g_ascent_pixels;
+  snapshot->last_samus_y = g_last_samus_y;
+  snapshot->has_score_anchor = g_has_score_anchor;
 }
 
 void MiniClimbEndless_LoadSnapshot(const MiniClimbModeSnapshot *snapshot) {
   g_virtual_floors = snapshot->virtual_floors;
   g_lava_enabled = snapshot->lava_enabled;
   g_lava_floor_y = snapshot->lava_floor_y;
+  g_ascent_pixels = snapshot->ascent_pixels;
+  g_last_samus_y = snapshot->last_samus_y;
+  g_has_score_anchor = snapshot->has_score_anchor;
 }
 
 int MiniClimbEndless_VirtualFloors(void) {
@@ -180,4 +233,8 @@ bool MiniClimbEndless_LavaEnabled(void) {
 
 int MiniClimbEndless_LavaFloorY(void) {
   return g_lava_floor_y;
+}
+
+int MiniClimbEndless_AscentPixels(void) {
+  return g_ascent_pixels;
 }

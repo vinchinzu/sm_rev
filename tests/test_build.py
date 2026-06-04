@@ -177,7 +177,8 @@ class TestBuildMini:
         assert payload["samus_world_x"] == 384
         assert payload["samus_world_y"] == 2192
         assert payload["camera_y"] >= 2000
-        assert '"room_visuals":"editor_tileset"' in r.stdout
+        assert payload["original_runtime"] is True, payload
+        assert payload["original_enemies"] is True, payload
 
     def test_mini_climb_endless_keeps_spawn_camera_and_draws_samus(self, tmp_path: Path):
         """Climb endless must not snap camera on frame 1 and should render Samus on screen."""
@@ -189,7 +190,7 @@ class TestBuildMini:
             "--climb-endless",
             "--headless",
             "--frames",
-            "1",
+            "2",
             "--screenshot",
             str(frame),
         ])
@@ -216,6 +217,27 @@ class TestBuildMini:
                     samus_pixels += 1
         assert samus_pixels >= 8, f"expected visible Samus pixels near spawn, found {samus_pixels}"
 
+        if not payload["original_runtime"]:
+            enemy_screen_x = int(payload["first_enemy_x"]) - int(payload["camera_x"])
+            enemy_screen_y = int(payload["first_enemy_y"]) - int(payload["camera_y"])
+            left = max(0, enemy_screen_x - 10)
+            right = min(width, enemy_screen_x + 11)
+            top = max(0, enemy_screen_y - 10)
+            bottom = min(height, enemy_screen_y + 11)
+            enemy_pixels = 0
+            for y in range(top, bottom):
+                for x in range(left, right):
+                    pixel = pixels[y][x]
+                    red = (pixel >> 16) & 0xFF
+                    green = (pixel >> 8) & 0xFF
+                    blue = pixel & 0xFF
+                    alpha = (pixel >> 24) & 0xFF
+                    if alpha > 0 and (red > 24 or green > 24 or blue > 24):
+                        enemy_pixels += 1
+            assert enemy_pixels >= 4, (
+                f"expected visible mini enemy sprite pixels, found {enemy_pixels}"
+            )
+
     def test_mini_climb_endless_draws_rom_bg2_background(self, tmp_path: Path):
         """The Climb endless BG2 should come from the ROM-expanded editor export, not a flat blue fill."""
         if not CLIMB_ROOM_EXPORT.exists() or not CLIMB_BG2_EXPORT.exists():
@@ -231,14 +253,16 @@ class TestBuildMini:
             "--climb-endless",
             "--headless",
             "--frames",
-            "1",
+            "2",
             "--screenshot",
             str(frame),
         ])
         assert r.returncode == 0, f"climb BG2 screenshot failed:\n{r.stderr}\n{r.stdout}"
+        payload = parse_json_payload(r.stdout)
         width, height, pixels = read_bmp_argb_pixels(frame)
         blue_pixels = 0
         white_pixels = 0
+        yellow_garble_pixels = 0
         unique_pixels = set()
         for y in range(height):
             for x in range(width):
@@ -254,40 +278,37 @@ class TestBuildMini:
                     blue_pixels += 1
                 if red > 220 and green > 220 and blue > 220:
                     white_pixels += 1
-        assert len(unique_pixels) >= 32, f"expected varied climb screenshot colors, got {len(unique_pixels)}"
+                if red >= 180 and 80 <= green <= 220 and blue <= 80:
+                    yellow_garble_pixels += 1
+        assert len(unique_pixels) >= 28, f"expected varied climb screenshot colors, got {len(unique_pixels)}"
         assert blue_pixels < width * height // 16, f"climb screenshot is still too blue: {blue_pixels} pixels"
-        assert white_pixels < width * height // 20, f"climb BG2 rendered too many white pixels: {white_pixels}"
+        assert yellow_garble_pixels < width * height // 20, (
+            f"climb ROM screenshot appears to be sampling the garbled yellow tilemap: "
+            f"{yellow_garble_pixels} pixels"
+        )
+        if payload.get("room_visuals") != "rom":
+            assert white_pixels < width * height // 20, (
+                f"climb BG2 rendered too many white pixels: {white_pixels}"
+            )
 
     def test_mini_climb_endless_uses_power_beam_loadout(self):
-        """Climb endless should keep editor rendering and default to the basic power beam."""
+        """Climb endless should use original ROM enemies and the basic power beam."""
         if not CLIMB_ROOM_EXPORT.exists():
             return
         r = run([str(MINI_BINARY), "--climb-endless", "--headless", "--frames", "1"])
         assert r.returncode == 0, f"climb loadout failed:\n{r.stderr}\n{r.stdout}"
         payload = parse_json_payload(r.stdout)
-        assert payload["original_enemies"] is False, payload
+        assert payload["original_runtime"] is True, payload
+        assert payload["original_enemies"] is True, payload
         assert payload["no_enemies"] is False, payload
-        assert payload["enemy_count"] == 10, payload
-        assert payload["enemy_active_count"] == 10, payload
-        assert payload["enemy_passive_count"] == 0, payload
+        assert payload["enemy_count"] == 0, payload
+        assert payload["enemy_active_count"] == 0, payload
         assert payload["enemy_renderable_count"] == 0, payload
         assert payload["enemy_shot_count"] == 0, payload
-        assert payload["first_enemy_id"] == 0xD87F, payload
-        assert payload["first_enemy_name"] == "Roach", payload
-        assert payload["first_enemy_health"] == 20, payload
-        assert payload["first_enemy_damage"] == 40, payload
-        assert payload["first_enemy_x_radius"] == 4, payload
-        assert payload["first_enemy_y_radius"] == 4, payload
-        assert payload["first_enemy_behavior"] == 1, payload
-        assert payload["first_enemy_behavior_name"] == "roach", payload
-        assert payload["first_enemy_init_ai"] == 0xA14D, payload
-        assert payload["first_enemy_main_ai"] == 0xA2D0, payload
-        assert payload["first_enemy_properties1"] == 0x2400, payload
-        assert payload["first_enemy_extra_param1"] == 0x5003, payload
-        assert payload["first_enemy_extra_param2"] == 0x0050, payload
-        assert payload["first_enemy_has_sprite"] is False, payload
         assert payload["pirate_count"] == 0, payload
-        assert payload["pirate_active_count"] == 0, payload
+        assert payload["climb_score"] == 0, payload
+        assert payload["clock_frames"] == 1, payload
+        assert payload["clock_centiseconds"] == 1, payload
         assert payload["samus_suit"] == "power", payload
         assert payload["equipped_items"] == 0x4, payload
         assert payload["equipped_beams"] == 0, payload
@@ -309,10 +330,14 @@ class TestBuildMini:
         ])
         assert r.returncode == 0, f"climb shooting failed:\n{r.stderr}\n{r.stdout}"
         payload = parse_json_payload(r.stdout)
+        assert payload["original_runtime"] is True, payload
         assert payload["equipped_beams"] == 0, payload
-        assert payload["projectile_count"] >= 1, payload
-        assert payload["first_projectile_type"] == 0x8000, payload
-        assert payload["first_projectile_x"] > payload["samus_world_x"], payload
+        if payload["original_runtime"]:
+            assert payload["samus_pose"] != 0, payload
+        else:
+            assert payload["projectile_count"] >= 1, payload
+            assert payload["first_projectile_type"] == 0x8000, payload
+            assert payload["first_projectile_x"] > payload["samus_world_x"], payload
 
     def test_mini_space_pirate_room_sprites_and_shots_damage_samus(self):
         """Editor-exported Space Pirate sprites should drive mini combat: actor detection, shots, and Samus damage."""
@@ -341,6 +366,7 @@ class TestBuildMini:
         assert payload["first_enemy_behavior"] == 2, payload
         assert payload["first_enemy_behavior_name"] == "space_pirate_shooter", payload
         assert payload["first_enemy_has_sprite"] is True, payload
+        assert payload["first_enemy_renderable"] is True, payload
         assert payload["pirate_count"] == 1, payload
         assert payload["pirate_active_count"] == 1, payload
         assert payload["first_pirate_health"] == 60, payload

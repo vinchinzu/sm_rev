@@ -11,6 +11,7 @@
 #include "ida_types.h"
 #include "mini_audio.h"
 #include "mini_climb_endless.h"
+#include "mini_enemy.h"
 #include "mini_run_mode.h"
 #include "mini_content_scope.h"
 #include "mini_game.h"
@@ -50,6 +51,8 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
   const MiniPlayerState *p2 = &state->players[1];
   const MiniEnemyRuntimeState *first_enemy = NULL;
   const MiniEnemyRuntimeState *first_pirate = NULL;
+  int clock_centiseconds = (state->frame * 100) / 60;
+  int climb_score = MiniClimbEndless_AscentPixels();
   int pirate_count = 0;
   int pirate_active_count = 0;
   for (int i = 0; i < kMiniEnemyCapacity; i++) {
@@ -86,7 +89,7 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          "\"first_enemy_init_param\":%u,\"first_enemy_properties1\":%u,"
          "\"first_enemy_properties2\":%u,\"first_enemy_extra_param1\":%u,"
          "\"first_enemy_extra_param2\":%u,"
-         "\"first_enemy_has_sprite\":%s,"
+         "\"first_enemy_has_sprite\":%s,\"first_enemy_renderable\":%s,"
          "\"pirate_count\":%d,\"pirate_active_count\":%d,"
          "\"pirate_shot_count\":%d,\"pirate_defeated_count\":%u,"
          "\"first_pirate_x\":%d,\"first_pirate_y\":%d,\"first_pirate_health\":%d,"
@@ -110,7 +113,9 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          "\"projectile_count\":%d,\"first_projectile_type\":%u,"
          "\"first_projectile_x\":%u,\"first_projectile_y\":%u,"
          "\"first_projectile_dir\":%u,\"first_projectile_owner\":%u,"
-         "\"climb_endless\":%s,\"virtual_floors\":%d,\"lava_enabled\":%s,\"lava_floor_y\":%d,"
+         "\"climb_endless\":%s,\"virtual_floors\":%d,"
+         "\"climb_score\":%d,\"clock_frames\":%d,\"clock_centiseconds\":%d,"
+         "\"lava_enabled\":%s,\"lava_floor_y\":%d,"
          "\"state_hash\":\"0x%016llx\"}\n",
          MiniRuntime_BuildName(),
          options->headless ? "true" : "false", state->frame,
@@ -151,7 +156,8 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          first_enemy != NULL ? first_enemy->properties2 : 0,
          first_enemy != NULL ? first_enemy->extra_parameter1 : 0,
          first_enemy != NULL ? first_enemy->extra_parameter2 : 0,
-         first_enemy != NULL && first_enemy->has_sprite_assets ? "true" : "false",
+         first_enemy != NULL && MiniEnemy_HasSpriteView(first_enemy) ? "true" : "false",
+         MiniEnemy_IsRuntimeRenderable(first_enemy) ? "true" : "false",
          pirate_count,
          pirate_active_count,
          state->enemy_state.shot_count,
@@ -190,6 +196,9 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          first_projectile_owner,
          MiniRunMode_IsClimbEndless() ? "true" : "false",
          MiniClimbEndless_VirtualFloors(),
+         climb_score,
+         state->frame,
+         clock_centiseconds,
          MiniClimbEndless_LavaEnabled() ? "true" : "false",
          MiniClimbEndless_LavaFloorY(),
          (unsigned long long)state_hash);

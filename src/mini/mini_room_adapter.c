@@ -206,6 +206,13 @@ static bool MiniTryConfigureDemoRoom(void) {
   return true;
 }
 
+static bool MiniTryConfigureClimbRomRoom(void) {
+  if (!MiniRomBootstrap_TryConfigureClimbRoom(&g_mini_room_info))
+    return false;
+  MiniApplyRoomInfoWorld();
+  return true;
+}
+
 static int MiniClamp(int value, int min_value, int max_value) {
   if (value < min_value)
     return min_value;
@@ -230,10 +237,10 @@ void MiniStubs_SetRoomExportPath(const char *path) {
 
 void MiniStubs_ConfigureWorld(int viewport_width, int viewport_height) {
   if (MiniRunMode_IsClimbEndless()) {
-    if (MiniTryConfigureEditorRoom())
+    if (MiniTryConfigureClimbRomRoom() || MiniTryConfigureEditorRoom())
       return;
     fprintf(stderr,
-            "mini: climb endless requires The Climb editor export (room 0x96BA)\n");
+            "mini: climb endless requires a ROM or The Climb editor export (room 0x96BA)\n");
   } else if (BUILD_IS_MODDABLE) {
     if (MiniTryConfigureEditorRoom())
       return;

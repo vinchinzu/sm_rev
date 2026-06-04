@@ -9,6 +9,8 @@ enum {
   kMiniEnemyNameCapacity = 64,
   kMiniEnemySourceLabelCapacity = 64,
   kMiniEnemySpecies_Roach = 0xD87F,
+  kMiniEnemySpecies_SpacePirate = 0xF353,
+  kMiniEnemyNoSpriteView = -1,
 };
 
 typedef enum MiniEnemyBehavior {
@@ -47,7 +49,9 @@ typedef struct MiniEnemyRuntimeState {
   uint16 state_timer;
   uint16 hit_count;
   bool facing_right;
-  bool has_sprite_assets;
+  int16 sprite_view_index;
+  int16 sprite_origin_dx;
+  int16 sprite_origin_dy;
   MiniEnemyBehavior behavior;
 } MiniEnemyRuntimeState;
 
@@ -72,13 +76,12 @@ typedef struct MiniEnemyState {
   MiniEnemyShotState shots[kMiniEnemyShotCapacity];
 } MiniEnemyState;
 
-enum {
-  kMiniPirateCapacity = kMiniEnemyCapacity,
-  kMiniPirateShotCapacity = kMiniEnemyShotCapacity,
-};
+static inline bool MiniEnemy_HasSpriteView(const MiniEnemyRuntimeState *enemy) {
+  return enemy != NULL && enemy->sprite_view_index >= 0;
+}
 
-typedef MiniEnemyRuntimeState MiniPirateEnemyState;
-typedef MiniEnemyShotState MiniPirateShotState;
-typedef MiniEnemyState MiniPirateState;
+static inline bool MiniEnemy_IsRuntimeRenderable(const MiniEnemyRuntimeState *enemy) {
+  return enemy != NULL && enemy->active && MiniEnemy_HasSpriteView(enemy);
+}
 
 #endif  // SM_MINI_ENEMY_H_

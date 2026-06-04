@@ -6,6 +6,7 @@
 
 #include "funcs.h"
 #include "ida_types.h"
+#include "mini_run_mode.h"
 #include "mini_ppu_stub.h"
 #include "samus_asset_bridge.h"
 #include "sm_rtl.h"
@@ -214,6 +215,8 @@ static char *MiniDupString(const char *src) {
 
 static void MiniInstallEditorRoomSprites(const MiniEditorRoom *room) {
   MiniClearEditorRoomSpriteAssets();
+  if (MiniRunMode_IsClimbEndless())
+    return;
   if (room->room_sprites == NULL || room->room_sprite_count <= 0)
     return;
   g_mini_editor_room_sprite_views = (MiniEditorRoomSpriteView *)calloc((size_t)room->room_sprite_count,
@@ -266,6 +269,8 @@ static void MiniInstallEditorRoomSprites(const MiniEditorRoom *room) {
 
 static void MiniInstallEditorEnemySpawns(const MiniEditorRoom *room) {
   MiniClearEditorEnemySpawns();
+  if (MiniRunMode_IsClimbEndless())
+    return;
   if (room->enemies == NULL || room->enemy_count <= 0)
     return;
   g_mini_editor_enemy_spawn_views = (MiniEditorEnemySpawnView *)calloc(
@@ -378,13 +383,14 @@ void MiniAssetBootstrap_LoadCurrentRoomAssets(void) {
   ClearEprojs();
   ClearPaletteFXObjects();
   LoadLevelDataAndOtherThings();
-  DecompressToMem(Load24(&tileset_tiles_pointer), (uint8 *)tilemap_stuff);
+  uint32 tileset_tiles_addr = Load24(&tileset_tiles_pointer);
   DecompressToMem(Load24(&tileset_compr_palette_ptr), (uint8 *)target_palettes);
   memcpy(palette_buffer, target_palettes, 512);
-  MiniPpu_CopyVram(0x0000, tilemap_stuff, 0x2000);
-  MiniPpu_CopyVram(0x1000, (uint8 *)tilemap_stuff + 0x2000, 0x2000);
-  MiniPpu_CopyVram(0x2000, (uint8 *)tilemap_stuff + 0x4000, 0x1000);
-  DecompressToMem(0xb98000, MiniPpu_GetVram() + kMiniCreTilesVramByteDst);
+  WriteRegWord(VMAIN, 0x80);
+  WriteRegWord(VMADDL, kMiniCreTilesVramByteDst >> 1);
+  DecompressToVRAM(0xb98000, kMiniCreTilesVramByteDst);
+  WriteRegWord(VMADDL, 0);
+  DecompressToVRAM(tileset_tiles_addr, 0);
   MiniAssetBootstrap_InstallRomSamusBaseTiles();
   LoadColorsForSpritesBeamsAndEnemies();
   LoadEnemies();
