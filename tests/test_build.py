@@ -46,6 +46,50 @@ def parse_json_payload(stdout: str) -> dict:
     return json.loads(stdout[start:end + 1])
 
 
+def assert_climb_space_pirate_backcheck(payload: dict) -> None:
+    """ROM Climb backcheck: awake event should populate Space Pirates, not Roaches."""
+    assert payload["original_runtime"] is True, payload
+    assert payload["original_enemies"] is True, payload
+    assert payload["enemy_count"] >= 1, payload
+    assert payload["pirate_count"] == payload["enemy_count"], payload
+    assert payload["first_enemy_id"] == 0xF353, payload
+    assert payload["first_enemy_name"] == "Space Pirate", payload
+    assert payload["first_enemy_behavior_name"] == "space_pirate_shooter", payload
+    if payload.get("rom_room"):
+        assert payload["enemy_count"] == 11, payload
+
+
+def assert_no_rom_climb_space_pirate_backcheck(payload: dict) -> None:
+    """No-ROM Climb backcheck: editor export should carry the awake Space Pirate population."""
+    assert payload["no_rom"] is True, payload
+    assert payload["room_source"] == "editor_export", payload
+    assert payload["rom_room"] is False, payload
+    assert payload["original_runtime"] is False, payload
+    assert payload["original_enemies"] is False, payload
+    assert payload["no_enemies"] is False, payload
+    assert payload["enemy_count"] == 11, payload
+    assert payload["enemy_active_count"] == 11, payload
+    assert payload["enemy_passive_count"] == 0, payload
+    assert payload["enemy_renderable_count"] == 11, payload
+    assert payload["pirate_count"] == 11, payload
+    assert payload["pirate_active_count"] == 11, payload
+    assert payload["first_enemy_id"] == 0xF353, payload
+    assert payload["first_enemy_name"] == "Space Pirate", payload
+    assert payload["first_enemy_behavior_name"] == "space_pirate_shooter", payload
+    assert payload["first_enemy_x"] == 304, payload
+    assert payload["first_enemy_y"] == 216, payload
+    assert payload["first_enemy_health"] == 20, payload
+    assert payload["first_enemy_damage"] == 15, payload
+    assert payload["first_enemy_init_ai"] == 0xEF9F, payload
+    assert payload["first_enemy_main_ai"] == 0xF02D, payload
+    assert payload["first_enemy_properties1"] == 0x2000, payload
+    assert payload["first_enemy_properties2"] == 4, payload
+    assert payload["first_enemy_extra_param1"] == 0x8000, payload
+    assert payload["first_enemy_extra_param2"] == 0x00A0, payload
+    assert payload["first_enemy_has_sprite"] is True, payload
+    assert payload["first_enemy_renderable"] is True, payload
+
+
 def write_minimal_authored_room(path: Path) -> Path:
     width = 32
     height = 16
@@ -177,8 +221,64 @@ class TestBuildMini:
         assert payload["samus_world_x"] == 384
         assert payload["samus_world_y"] == 2192
         assert payload["camera_y"] >= 2000
-        assert payload["original_runtime"] is True, payload
-        assert payload["original_enemies"] is True, payload
+        assert_climb_space_pirate_backcheck(payload)
+
+    def test_mini_climb_original_disables_endless_wrap(self):
+        """The Climb can run as the original room state without virtual-floor wrapping."""
+        if not CLIMB_ROOM_EXPORT.exists():
+            return
+        r = run([str(MINI_BINARY), "--climb-original", "--headless", "--frames", "4"])
+        assert r.returncode == 0, f"climb original smoke failed:\n{r.stderr}\n{r.stdout}"
+        payload = parse_json_payload(r.stdout)
+        assert payload["content_scope"] == "climb_original", payload
+        assert payload["room_handle"] == "climb", payload
+        assert payload["room_ptr"] == CLIMB_ROOM_ID, payload
+        assert payload["climb_endless"] is False, payload
+        assert payload["virtual_floors"] == 0, payload
+        assert_climb_space_pirate_backcheck(payload)
+        assert payload["camera_y"] >= 2000, payload
+
+    def test_mini_climb_original_no_rom_uses_exported_space_pirates(self):
+        """No-ROM original Climb should use the editor-exported awake Space Pirate population."""
+        if not CLIMB_ROOM_EXPORT.exists():
+            return
+        r = run([
+            str(MINI_BINARY),
+            "--climb-original",
+            "--no-rom",
+            "--headless",
+            "--frames",
+            "4",
+        ])
+        assert r.returncode == 0, f"no-ROM climb original failed:\n{r.stderr}\n{r.stdout}"
+        payload = parse_json_payload(r.stdout)
+        assert payload["content_scope"] == "climb_original", payload
+        assert payload["room_handle"] == "climb", payload
+        assert payload["room_ptr"] == CLIMB_ROOM_ID, payload
+        assert payload["climb_endless"] is False, payload
+        assert_no_rom_climb_space_pirate_backcheck(payload)
+
+    def test_mini_climb_endless_no_rom_uses_exported_space_pirates(self):
+        """No-ROM endless Climb should keep Space Pirates on the mini enemy runtime."""
+        if not CLIMB_ROOM_EXPORT.exists():
+            return
+        r = run([
+            str(MINI_BINARY),
+            "--climb-endless",
+            "--no-rom",
+            "--headless",
+            "--frames",
+            "4",
+        ])
+        assert r.returncode == 0, f"no-ROM climb endless failed:\n{r.stderr}\n{r.stdout}"
+        payload = parse_json_payload(r.stdout)
+        assert payload["content_scope"] == "climb_endless", payload
+        assert payload["room_handle"] == "climb", payload
+        assert payload["room_ptr"] == CLIMB_ROOM_ID, payload
+        assert payload["climb_endless"] is True, payload
+        assert payload["samus_world_x"] == 384, payload
+        assert payload["samus_world_y"] >= 2192, payload
+        assert_no_rom_climb_space_pirate_backcheck(payload)
 
     def test_mini_climb_endless_keeps_spawn_camera_and_draws_samus(self, tmp_path: Path):
         """Climb endless must not snap camera on frame 1 and should render Samus on screen."""
@@ -281,7 +381,12 @@ class TestBuildMini:
                 if red >= 180 and 80 <= green <= 220 and blue <= 80:
                     yellow_garble_pixels += 1
         assert len(unique_pixels) >= 28, f"expected varied climb screenshot colors, got {len(unique_pixels)}"
-        assert blue_pixels < width * height // 16, f"climb screenshot is still too blue: {blue_pixels} pixels"
+        # The ROM climb background has real blue tile bands, so the old 1/16
+        # editor-export guard is too strict for this room. Keep this below 30%
+        # so a flat or mostly-blue fill still fails.
+        assert blue_pixels < width * height * 3 // 10, (
+            f"climb screenshot collapsed to mostly blue fill: {blue_pixels} pixels"
+        )
         assert yellow_garble_pixels < width * height // 20, (
             f"climb ROM screenshot appears to be sampling the garbled yellow tilemap: "
             f"{yellow_garble_pixels} pixels"
@@ -298,14 +403,12 @@ class TestBuildMini:
         r = run([str(MINI_BINARY), "--climb-endless", "--headless", "--frames", "1"])
         assert r.returncode == 0, f"climb loadout failed:\n{r.stderr}\n{r.stdout}"
         payload = parse_json_payload(r.stdout)
-        assert payload["original_runtime"] is True, payload
-        assert payload["original_enemies"] is True, payload
         assert payload["no_enemies"] is False, payload
-        assert payload["enemy_count"] == 0, payload
-        assert payload["enemy_active_count"] == 0, payload
+        assert_climb_space_pirate_backcheck(payload)
+        assert payload["enemy_active_count"] == payload["enemy_count"], payload
         assert payload["enemy_renderable_count"] == 0, payload
         assert payload["enemy_shot_count"] == 0, payload
-        assert payload["pirate_count"] == 0, payload
+        assert payload["pirate_active_count"] == payload["pirate_count"], payload
         assert payload["climb_score"] == 0, payload
         assert payload["clock_frames"] == 1, payload
         assert payload["clock_centiseconds"] == 1, payload
@@ -369,7 +472,7 @@ class TestBuildMini:
         assert payload["first_enemy_renderable"] is True, payload
         assert payload["pirate_count"] == 1, payload
         assert payload["pirate_active_count"] == 1, payload
-        assert payload["first_pirate_health"] == 60, payload
+        assert payload["first_pirate_health"] == 20, payload
         assert payload["player1_hit_count"] >= 1, payload
         assert payload["player1_pending_damage"] == 20, payload
         assert payload["player1_last_hit_by_player"] == 0, payload

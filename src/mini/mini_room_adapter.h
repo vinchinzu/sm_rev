@@ -83,10 +83,12 @@ typedef struct MiniStubsSnapshot {
   int world_ceiling;
   int world_floor;
   bool explicit_room_export_path;
+  bool force_no_rom;
   MiniRoomInfo room_info;
 } MiniStubsSnapshot;
 
 void MiniStubs_SetRoomExportPath(const char *path);
+void MiniStubs_SetForceNoRom(bool force_no_rom);
 void MiniStubs_ConfigureWorld(int viewport_width, int viewport_height);
 void MiniStubs_GetRoomInfo(MiniRoomInfo *info);
 void MiniStubs_UpdateRoomInfo(const MiniRoomInfo *info);

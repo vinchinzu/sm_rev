@@ -34,7 +34,7 @@ static int g_ascent_pixels;
 static int g_last_samus_y;
 static bool g_has_score_anchor;
 
-static void MiniClimbEndless_ResetProgress(void) {
+void MiniClimbEndless_ResetProgress(void) {
   g_virtual_floors = 0;
   g_lava_enabled = false;
   g_lava_floor_y = 0;
@@ -44,8 +44,7 @@ static void MiniClimbEndless_ResetProgress(void) {
 }
 
 void MiniClimbEndless_SetActive(bool active) {
-  MiniRunMode_Set(active ? kMiniRunMode_ClimbEndless : kMiniRunMode_LandingSite);
-  MiniClimbEndless_ResetProgress();
+  MiniRunMode_Configure(active ? kMiniRunMode_ClimbEndless : kMiniRunMode_LandingSite);
 }
 
 bool MiniClimbEndless_IsActive(void) {

@@ -4,6 +4,7 @@
 
 #include "features.h"
 #include "mini_editor_bridge.h"
+#include "mini_run_mode.h"
 #include "mini_runtime.h"
 
 #if !BUILD_IS_MINI && !BUILD_IS_MODDABLE
@@ -12,7 +13,7 @@
 
 static void PrintUsage(const char *argv0) {
   fprintf(stderr,
-          "Usage: %s [--headless] [--record] [--frames N] [--players N] [--multiplayer-demo] [--screenshot PATH] [--input-script PATH] [--replay-in PATH] [--replay-out PATH] [--room-export PATH] [--background MODE] [--ai-background]\n"
+          "Usage: %s [--headless] [--record] [--frames N] [--players N] [--multiplayer-demo] [--screenshot PATH] [--input-script PATH] [--replay-in PATH] [--replay-out PATH] [--room-export PATH] [--background MODE] [--ai-background] [--no-rom]\n"
           "  --headless   Run the mini runtime without SDL video.\n"
           "  --record   Save a low-resolution quick clip under out/mini_recording_YYYYMMDD_HHMMSS.mp4.\n"
           "  --frames N   Limit the run to N frames. Windowed mode runs until quit by default.\n"
@@ -23,9 +24,11 @@ static void PrintUsage(const char *argv0) {
           "  --replay-in PATH  Replay a mini artifact and verify its final state hash.\n"
           "  --replay-out PATH  Write a mini replay artifact for the completed run.\n"
           "  --room-export PATH  Load room collision data from a Super Metroid Editor export JSON file.\n"
+          "  --no-rom  Force editor-export rooms and assets even when a local ROM is present.\n"
           "  --background MODE  Select mini backdrop mode: game or generated.\n"
           "  --ai-background  Alias for --background generated.\n"
-          "  --climb-endless  The Climb only: bottom spawn, infinite ascent wrap (lava later).\n",
+          "  --climb-endless  The Climb only: bottom spawn, infinite ascent wrap (lava later).\n"
+          "  --climb-original  The Climb only: original room runtime without endless wrapping.\n",
           argv0);
 }
 
@@ -51,7 +54,8 @@ static bool ParseArgs(int argc, char **argv, MiniOptions *options) {
   options->replay_out_path = NULL;
   options->room_export_path = NULL;
   options->backdrop_mode = kMiniBackdropMode_Game;
-  options->climb_endless = false;
+  options->run_mode = kMiniRunMode_LandingSite;
+  options->force_no_rom = false;
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--headless")) {
       options->headless = true;
@@ -95,6 +99,8 @@ static bool ParseArgs(int argc, char **argv, MiniOptions *options) {
         return false;
       options->room_export_path = argv[i + 1];
       i++;
+    } else if (!strcmp(argv[i], "--no-rom")) {
+      options->force_no_rom = true;
     } else if (!strcmp(argv[i], "--background")) {
       if (i + 1 >= argc || !MiniBackdropMode_Parse(argv[i + 1], &options->backdrop_mode))
         return false;
@@ -102,7 +108,13 @@ static bool ParseArgs(int argc, char **argv, MiniOptions *options) {
     } else if (!strcmp(argv[i], "--ai-background")) {
       options->backdrop_mode = kMiniBackdropMode_Generated;
     } else if (!strcmp(argv[i], "--climb-endless")) {
-      options->climb_endless = true;
+      if (options->run_mode != kMiniRunMode_LandingSite)
+        return false;
+      options->run_mode = kMiniRunMode_ClimbEndless;
+    } else if (!strcmp(argv[i], "--climb-original")) {
+      if (options->run_mode != kMiniRunMode_LandingSite)
+        return false;
+      options->run_mode = kMiniRunMode_ClimbOriginal;
     } else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
       PrintUsage(argv[0]);
       exit(0);

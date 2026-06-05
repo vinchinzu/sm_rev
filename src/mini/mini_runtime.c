@@ -11,7 +11,8 @@
 #include "ida_types.h"
 #include "mini_audio.h"
 #include "mini_climb_endless.h"
-#include "mini_enemy.h"
+#include "mini_enemy_metadata.h"
+#include "mini_enemy_runtime.h"
 #include "mini_run_mode.h"
 #include "mini_content_scope.h"
 #include "mini_game.h"
@@ -30,15 +31,6 @@ static const char *MiniRuntime_BuildName(void) {
   return BUILD_IS_MODDABLE ? "moddable" : "mini";
 }
 
-static const char *MiniEnemyBehaviorName(MiniEnemyBehavior behavior) {
-  switch (behavior) {
-  case kMiniEnemyBehavior_Passive: return "passive";
-  case kMiniEnemyBehavior_Roach: return "roach";
-  case kMiniEnemyBehavior_SpacePirateShooter: return "space_pirate_shooter";
-  default: return "unknown";
-  }
-}
-
 static void PrintResult(const MiniOptions *options, const MiniGameState *state,
                         const char *record_path, bool replay_verified) {
   uint64_t state_hash = MiniStateHash(state);
@@ -49,27 +41,17 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
     first_projectile_owner = state->projectile_state.owner_by_slot[first_projectile->slot_index];
   const MiniPlayerState *p1 = &state->players[0];
   const MiniPlayerState *p2 = &state->players[1];
-  const MiniEnemyRuntimeState *first_enemy = NULL;
-  const MiniEnemyRuntimeState *first_pirate = NULL;
+  MiniEnemyTelemetry enemy_telemetry;
+  MiniEnemyRuntime_BuildTelemetry(state, &enemy_telemetry);
+  const MiniEnemyRuntimeState *first_enemy =
+      enemy_telemetry.has_first_enemy ? &enemy_telemetry.first_enemy : NULL;
+  const MiniEnemyRuntimeState *first_pirate =
+      enemy_telemetry.has_first_pirate ? &enemy_telemetry.first_pirate : NULL;
   int clock_centiseconds = (state->frame * 100) / 60;
   int climb_score = MiniClimbEndless_AscentPixels();
-  int pirate_count = 0;
-  int pirate_active_count = 0;
-  for (int i = 0; i < kMiniEnemyCapacity; i++) {
-    const MiniEnemyRuntimeState *enemy = &state->enemy_state.enemies[i];
-    if (enemy->active && first_enemy == NULL)
-      first_enemy = enemy;
-    if (enemy->behavior == kMiniEnemyBehavior_SpacePirateShooter) {
-      pirate_count++;
-      if (enemy->active) {
-        pirate_active_count++;
-        if (first_pirate == NULL)
-          first_pirate = enemy;
-      }
-    }
-  }
-  bool has_any_enemies = state->room.has_original_enemies || state->enemy_state.count > 0;
+  bool has_any_enemies = state->room.has_original_enemies || enemy_telemetry.count > 0;
   printf("{\"build\":\"%s\",\"headless\":%s,\"frames\":%d,"
+         "\"no_rom\":%s,"
          "\"player_count\":%d,"
          "\"content_scope\":\"%s\","
          "\"no_enemies\":%s,\"no_bosses\":true,\"no_rooms\":%s,"
@@ -119,6 +101,7 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          "\"state_hash\":\"0x%016llx\"}\n",
          MiniRuntime_BuildName(),
          options->headless ? "true" : "false", state->frame,
+         options->force_no_rom ? "true" : "false",
          state->player_count,
          MiniContentScope_Name(),
          has_any_enemies ? "false" : "true",
@@ -133,12 +116,12 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          state->room.uses_original_gameplay_runtime ? "true" : "false",
          state->room.has_original_enemies ? "true" : "false",
          state->room.has_original_plms ? "true" : "false",
-         state->enemy_state.count,
-         state->enemy_state.active_count,
-         state->enemy_state.passive_count,
-         state->enemy_state.renderable_count,
-         state->enemy_state.shot_count,
-         state->enemy_state.defeated_count,
+         enemy_telemetry.count,
+         enemy_telemetry.active_count,
+         enemy_telemetry.passive_count,
+         enemy_telemetry.renderable_count,
+         enemy_telemetry.shot_count,
+         enemy_telemetry.defeated_count,
          first_enemy != NULL ? first_enemy->species_id : 0,
          first_enemy != NULL ? first_enemy->name : "",
          first_enemy != NULL ? first_enemy->x : 0,
@@ -158,10 +141,10 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          first_enemy != NULL ? first_enemy->extra_parameter2 : 0,
          first_enemy != NULL && MiniEnemy_HasSpriteView(first_enemy) ? "true" : "false",
          MiniEnemy_IsRuntimeRenderable(first_enemy) ? "true" : "false",
-         pirate_count,
-         pirate_active_count,
-         state->enemy_state.shot_count,
-         state->enemy_state.defeated_count,
+         enemy_telemetry.pirate_count,
+         enemy_telemetry.pirate_active_count,
+         enemy_telemetry.shot_count,
+         enemy_telemetry.defeated_count,
          first_pirate != NULL ? first_pirate->x : 0,
          first_pirate != NULL ? first_pirate->y : 0,
          first_pirate != NULL ? first_pirate->health : 0,
@@ -317,17 +300,33 @@ static int PlayerCountForRun(const MiniOptions *options, const MiniReplayArtifac
   return replay != NULL ? replay->player_count : options->player_count;
 }
 
+static bool MiniRunMode_UsesClimbRoom(MiniRunMode mode) {
+  return mode == kMiniRunMode_ClimbEndless || mode == kMiniRunMode_ClimbOriginal;
+}
+
 static void ConfigureRoomSelectionForRun(const MiniOptions *options,
                                          const MiniReplayArtifact *replay) {
-  if (options->climb_endless) {
-    MiniClimbEndless_SetActive(true);
+  MiniRunMode_Configure(options->run_mode);
+  MiniStubs_SetForceNoRom(options->force_no_rom);
+  if (MiniRunMode_UsesClimbRoom(options->run_mode)) {
     const char *room_path = RoomExportPathForRun(options, replay);
     MiniStubs_SetRoomExportPath(room_path != NULL ? room_path
                                                   : MiniClimbEndless_DefaultRoomExportPath());
     return;
   }
-  MiniClimbEndless_SetActive(false);
   MiniStubs_SetRoomExportPath(RoomExportPathForRun(options, replay));
+}
+
+static const char *WindowTitleForRunMode(MiniRunMode mode) {
+  switch (mode) {
+  case kMiniRunMode_ClimbEndless:
+    return "sm_rev mini - The Climb (endless)";
+  case kMiniRunMode_ClimbOriginal:
+    return "sm_rev mini - The Climb";
+  case kMiniRunMode_LandingSite:
+    return BUILD_IS_MODDABLE ? "sm_rev moddable" : "sm_rev mini";
+  }
+  return BUILD_IS_MODDABLE ? "sm_rev moddable" : "sm_rev mini";
 }
 
 static bool ValidateReplayInitialState(const MiniReplayArtifact *replay,
@@ -541,9 +540,7 @@ static int RunWindowed(const MiniOptions *options) {
   sdl_initialized = true;
   MiniAudio_Init();
 
-  window = SDL_CreateWindow(
-      options->climb_endless ? "sm_rev mini — The Climb (endless)"
-                             : (BUILD_IS_MODDABLE ? "sm_rev moddable" : "sm_rev mini"),
+  window = SDL_CreateWindow(WindowTitleForRunMode(options->run_mode),
                             SDL_WINDOWPOS_CENTERED,
                             SDL_WINDOWPOS_CENTERED,
                             kMiniWindowWidth,

@@ -1121,7 +1121,7 @@ bool MiniEditorBridge_LoadRoom(MiniEditorRoom *room) {
   const char *const *candidates = kDefaultRoomExportCandidates;
   size_t candidate_count =
       sizeof(kDefaultRoomExportCandidates) / sizeof(kDefaultRoomExportCandidates[0]);
-  if (MiniRunMode_IsClimbEndless()) {
+  if (MiniRunMode_IsClimbRoom()) {
     candidates = kDefaultClimbRoomExportCandidates;
     candidate_count =
         sizeof(kDefaultClimbRoomExportCandidates) / sizeof(kDefaultClimbRoomExportCandidates[0]);

@@ -7,8 +7,11 @@
 #include "ida_types.h"
 #include "mini/mini_climb_endless.h"
 #include "mini/mini_defs.h"
+#include "mini/mini_enemy_runtime.h"
 #include "mini/mini_game.h"
+#include "mini/mini_ppu_stub.h"
 #include "mini/mini_room_adapter.h"
+#include "mini/mini_run_mode.h"
 #include "physics.h"
 #include "samus_env.h"
 #include "sm_rtl.h"
@@ -2111,6 +2114,50 @@ static void TestUnsupportedAdvancedSpinPoseContracts(void) {
   MiniDestroy(state);
 }
 
+static bool MiniRomEnemySpritePalettesLoaded(void) {
+  for (int i = 128; i < 256; i++) {
+    if (palette_buffer[i] != 0 || target_palettes[i] != 0)
+      return true;
+  }
+  return false;
+}
+
+static bool MiniRomEnemyTileVramLoaded(void) {
+  const uint8 *vram = MiniPpu_GetVram();
+  enum { kEnemyTileVramByteBase = 0x6c00 * 2 };
+  for (int i = 0; i < 2048; i++) {
+    if (vram[kEnemyTileVramByteBase + i] != 0)
+      return true;
+  }
+  return false;
+}
+
+static void TestClimbRomEnemyVisualBootstrapIfAvailable(void) {
+  const char *room_path = MiniClimbEndless_DefaultRoomExportPath();
+  if (access(room_path, R_OK) != 0)
+    return;
+
+  MiniRunMode_Configure(kMiniRunMode_ClimbOriginal);
+  MiniStubs_SetRoomExportPath(room_path);
+  MiniGameState *state = MiniCreate(kMiniGameWidth, kMiniGameHeight);
+  Require(state != NULL, "MiniCreate failed for climb enemy visual bootstrap test");
+  Require(state->uses_original_gameplay_runtime,
+          "climb visual bootstrap should use original ROM gameplay runtime");
+  Require(MiniRomEnemySpritePalettesLoaded(),
+          "climb ROM enemies should load sprite palette rows into palette_buffer");
+  Require(MiniRomEnemyTileVramLoaded(),
+          "climb ROM enemies should upload tile data into sprite VRAM");
+
+  MiniInputState input = {0};
+  MiniStep(state, &input);
+  Require(MiniRomEnemySpritePalettesLoaded(),
+          "climb ROM enemy sprite palettes should survive the first gameplay frame");
+  Require(state->original_oam_next_ptr > 0,
+          "climb ROM enemies should populate OAM during gameplay");
+
+  MiniDestroy(state);
+}
+
 static void TestClimbEndlessWrapContractsIfAvailable(void) {
   const char *room_path = MiniClimbEndless_DefaultRoomExportPath();
   if (access(room_path, R_OK) != 0)
@@ -2126,10 +2173,17 @@ static void TestClimbEndlessWrapContractsIfAvailable(void) {
           "climb endless should use original ROM gameplay runtime");
   Require(state->has_original_enemies,
           "climb endless should keep original ROM enemies");
-  Require(state->enemy_state.count == 0,
-          "climb endless should not spawn mini-export enemy stand-ins");
   Require(num_enemies_in_room > 0,
           "climb endless did not initialize ROM enemies");
+  MiniEnemyTelemetry enemy_telemetry;
+  MiniEnemyRuntime_BuildTelemetry(state, &enemy_telemetry);
+  Require(enemy_telemetry.count > 0,
+          "climb endless telemetry did not find original ROM enemies");
+  Require(enemy_telemetry.pirate_count == enemy_telemetry.count,
+          "climb endless should select the original Space Pirate room state");
+  Require(enemy_telemetry.has_first_enemy &&
+              enemy_telemetry.first_enemy.species_id == kMiniEnemySpecies_SpacePirate,
+          "climb endless should report the original Space Pirate room state");
 
   layer1_y_pos = 500;
   ideal_layer1_ypos = layer1_y_pos;
@@ -2317,6 +2371,7 @@ static void TestRomRoomDeterminismIfAvailable(void) {
 
 int main(void) {
   RunFallbackTestsInIsolatedCwd();
+  TestClimbRomEnemyVisualBootstrapIfAvailable();
   TestClimbEndlessWrapContractsIfAvailable();
   TestClimbModeSnapshotRoundTripIfAvailable();
   TestRomRoomDeterminismIfAvailable();

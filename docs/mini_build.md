@@ -50,7 +50,7 @@ The mini target is now split into clearer responsibilities under [`src/mini/`](.
 - [mini_ppu_stub.c](../src/mini/mini_ppu_stub.c): mini-owned VRAM/CGRAM/DMA register emulation for rendering and asset uploads
 - [mini_game.c](../src/mini/mini_game.c): gameplay-state setup and per-frame update
 - [mini_net_bridge.c](../src/mini/mini_net_bridge.c): narrow C ABI for local browser multiplayer host snapshots, inputs, and per-player cameras
-- [mini_content_scope.c](../src/mini/mini_content_scope.c): allowed mini content boundary, currently Landing Site only
+- [mini_content_scope.c](../src/mini/mini_content_scope.c): allowed mini content boundary for Landing Site and The Climb modes
 - [mini_room_adapter.c](../src/mini/mini_room_adapter.c): editor/ROM/fallback room selection, collision-map setup, and room-boundary metadata
 - [mini_system.c](../src/mini/mini_system.c): mini reset orchestration across WRAM, PPU, assets, and ROM bootstrap state
 - [mini_platform_stubs.c](../src/mini/mini_platform_stubs.c): mini low-level platform, RTL, SRAM/audio no-op, and error shims
@@ -61,12 +61,20 @@ update path.
 
 ## The Climb (endless ascent)
 
-- `./sm_rev_mini --climb-endless` loads room `0x96BA` from `assets/local_mini/room_96BA.json`
-  (bundled export with blockWords, tileset 3, BG2, scroll, and Samus assets).
+- `./sm_rev_mini --climb-endless` loads original ROM room `0x96BA` when a ROM is available,
+  with `assets/local_mini/room_96BA.json` as the editor-export fallback.
+- `./sm_rev_mini --climb-original` loads the same original room state without virtual-floor
+  wrapping, which is useful for comparing the original Space Pirate room behavior.
+- Add `--no-rom` to force the editor-export / mini-sim path even when `sm.smc` is present;
+  no-ROM climb uses the exported awake Space Pirate population and room sprite assets.
 - Regenerate climb assets from ROM after collision export changes:
   `python3 tools/bundle_mini_room_assets.py --room 0x96BA`
-- Samus starts centered on the bottom platform `(384, 2192)` with Varia + Gravity + Morph
+- Samus starts centered on the bottom platform `(384, 2192)` with Morph
   and the default power beam (`equipped_beams = 0`, same loadout path as the ROM demo slice).
+- The climb ROM bootstrap sets the original "Zebes awake" event so The Climb selects its
+  original Space Pirate enemy population instead of the pre-event Roach population.
+- The climb asset bundler applies that same event (`0`) at export time and records the
+  selected room state / enemy population in `roomState`.
 - Per-frame Samus input, movement, and projectile simulation use the shared
   `GameplayFrame_*` slices extracted from `GameState_8_MainGameplay` (`0x828B44`).
 - Projectile drawing on the editor-render path uses `Samus_DrawActiveProjectiles()`

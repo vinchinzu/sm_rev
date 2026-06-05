@@ -6,7 +6,6 @@
 
 #include "funcs.h"
 #include "ida_types.h"
-#include "mini_run_mode.h"
 #include "mini_ppu_stub.h"
 #include "samus_asset_bridge.h"
 #include "sm_rtl.h"
@@ -215,8 +214,6 @@ static char *MiniDupString(const char *src) {
 
 static void MiniInstallEditorRoomSprites(const MiniEditorRoom *room) {
   MiniClearEditorRoomSpriteAssets();
-  if (MiniRunMode_IsClimbEndless())
-    return;
   if (room->room_sprites == NULL || room->room_sprite_count <= 0)
     return;
   g_mini_editor_room_sprite_views = (MiniEditorRoomSpriteView *)calloc((size_t)room->room_sprite_count,
@@ -269,8 +266,6 @@ static void MiniInstallEditorRoomSprites(const MiniEditorRoom *room) {
 
 static void MiniInstallEditorEnemySpawns(const MiniEditorRoom *room) {
   MiniClearEditorEnemySpawns();
-  if (MiniRunMode_IsClimbEndless())
-    return;
   if (room->enemies == NULL || room->enemy_count <= 0)
     return;
   g_mini_editor_enemy_spawn_views = (MiniEditorEnemySpawnView *)calloc(
@@ -369,7 +364,7 @@ void MiniAssetBootstrap_InstallRomSamusBaseTiles(void) {
 }
 
 static void MiniTransferOriginalEnemyTilesToVramAndInit(void) {
-  for (int i = 0; i < 10 && enemy_tile_vram_src != 0xFFFF; i++) {
+  for (int i = 0; i < 32 && enemy_tile_vram_src != 0xFFFF; i++) {
     TransferEnemyTilesToVramAndInit();
     NMI_ProcessVramWriteQueue();
   }
@@ -395,6 +390,9 @@ void MiniAssetBootstrap_LoadCurrentRoomAssets(void) {
   LoadColorsForSpritesBeamsAndEnemies();
   LoadEnemies();
   MiniTransferOriginalEnemyTilesToVramAndInit();
+  // NMI uploads palette_buffer to CGRAM each frame; keep sprite rows aligned with
+  // any late target_palettes writes from room setup helpers.
+  memcpy(&palette_buffer[128], &target_palettes[128], 128 * sizeof(uint16));
   LoadRoomPlmGfx();
   EnableEprojs();
   EnablePLMs();

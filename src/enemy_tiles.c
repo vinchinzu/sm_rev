@@ -105,8 +105,10 @@ void ProcessEnemyTilesets(void) {  // 0xA08D64
   EnemyTileLoadData *LD = enemy_tile_load_data;
   for (; ET->enemy_def != 0xffff; ET++) {
     EnemyDef *ED = get_EnemyDef_A2(ET->enemy_def);
-    memcpy(&target_palettes[(LOBYTE(ET->vram_dst) + 8) * 16],
-           RomPtrWithBank(ED->bank, ED->palette_ptr), 32);
+    uint16 palette_dst = (LOBYTE(ET->vram_dst) + 8) * 16;
+    const uint16 *enemy_palette = (const uint16 *)RomPtrWithBank(ED->bank, ED->palette_ptr);
+    memcpy(&target_palettes[palette_dst], enemy_palette, 32);
+    memcpy(&palette_buffer[palette_dst], enemy_palette, 32);
     LD->tile_data_size = ED->tile_data_size & 0x7FFF;
     LD->tile_data_ptr = ED->tile_data;
     uint16 v10 = r30;

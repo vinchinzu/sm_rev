@@ -22,6 +22,7 @@ typedef struct MiniClimbModeSnapshot {
 void MiniClimbEndless_SetActive(bool active);
 bool MiniClimbEndless_IsActive(void);
 const char *MiniClimbEndless_DefaultRoomExportPath(void);
+void MiniClimbEndless_ResetProgress(void);
 
 void MiniClimbEndless_AssignRoomDefaults(MiniEditorRoom *room);
 void MiniClimbEndless_ApplySpawnDefaults(MiniRoomInfo *room);

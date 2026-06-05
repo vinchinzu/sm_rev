@@ -27,6 +27,7 @@ static int g_mini_world_right;
 static int g_mini_world_ceiling;
 static int g_mini_world_floor;
 static bool g_mini_explicit_room_export_path;
+static bool g_mini_force_no_rom;
 static MiniRoomInfo g_mini_room_info;
 
 static void MiniClampCamera(void);
@@ -123,15 +124,18 @@ static bool MiniTryConfigureEditorRoom(void) {
   MiniAssetBootstrap_InstallEditorAssets(&room);
   MiniAssetBootstrap_SetSamusSuitState(MiniAssetBootstrap_GetInitialSuit());
   MiniInitializeScrollState(room.width_blocks, room.height_blocks);
-  if (MiniRomBootstrap_LoadAnyRom()) {
+  if (!g_mini_force_no_rom && MiniRomBootstrap_LoadAnyRom()) {
     MiniAssetBootstrap_PrimeEditorRoomFxAndMissingRomVisuals(
         &room,
         !room.has_tileset_assets,
         !room.has_bg2_assets);
   }
-  MiniRomBootstrap_TryLoadRoomHeaderMetadata(room.room_id);
+  if (!g_mini_force_no_rom)
+    MiniRomBootstrap_TryLoadRoomHeaderMetadata(room.room_id);
   MiniApplyEditorScrollState(&room);
-  if (!MiniAssetBootstrap_LoadSamusBaseTilesFromAssets() && MiniRomBootstrap_LoadAnyRom())
+  if (!MiniAssetBootstrap_LoadSamusBaseTilesFromAssets() &&
+      !g_mini_force_no_rom &&
+      MiniRomBootstrap_LoadAnyRom())
     MiniAssetBootstrap_InstallRomSamusBaseTiles();
   layer1_x_pos = room.camera_x;
   layer1_y_pos = room.camera_y;
@@ -235,12 +239,19 @@ void MiniStubs_SetRoomExportPath(const char *path) {
   MiniEditorBridge_SetRoomExportPath(path);
 }
 
+void MiniStubs_SetForceNoRom(bool force_no_rom) {
+  g_mini_force_no_rom = force_no_rom;
+  MiniRomBootstrap_SetRomDisabled(force_no_rom);
+}
+
 void MiniStubs_ConfigureWorld(int viewport_width, int viewport_height) {
-  if (MiniRunMode_IsClimbEndless()) {
-    if (MiniTryConfigureClimbRomRoom() || MiniTryConfigureEditorRoom())
+  if (MiniRunMode_IsClimbRoom()) {
+    if ((g_mini_force_no_rom
+             ? MiniTryConfigureEditorRoom()
+             : (MiniTryConfigureClimbRomRoom() || MiniTryConfigureEditorRoom())))
       return;
     fprintf(stderr,
-            "mini: climb endless requires a ROM or The Climb editor export (room 0x96BA)\n");
+            "mini: climb mode requires a ROM or The Climb editor export (room 0x96BA)\n");
   } else if (BUILD_IS_MODDABLE) {
     if (MiniTryConfigureEditorRoom())
       return;
@@ -311,6 +322,7 @@ void MiniStubs_SaveSnapshot(MiniStubsSnapshot *snapshot) {
   snapshot->world_ceiling = g_mini_world_ceiling;
   snapshot->world_floor = g_mini_world_floor;
   snapshot->explicit_room_export_path = g_mini_explicit_room_export_path;
+  snapshot->force_no_rom = g_mini_force_no_rom;
   snapshot->room_info = g_mini_room_info;
 }
 
@@ -320,6 +332,8 @@ void MiniStubs_LoadSnapshot(const MiniStubsSnapshot *snapshot) {
   g_mini_world_ceiling = snapshot->world_ceiling;
   g_mini_world_floor = snapshot->world_floor;
   g_mini_explicit_room_export_path = snapshot->explicit_room_export_path;
+  g_mini_force_no_rom = snapshot->force_no_rom;
+  MiniRomBootstrap_SetRomDisabled(g_mini_force_no_rom);
   g_mini_room_info = snapshot->room_info;
 }
 

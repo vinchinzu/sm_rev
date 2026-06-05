@@ -3,6 +3,7 @@
 
 #include "mini_backdrop.h"
 #include "mini_defs.h"
+#include "mini_run_mode.h"
 #include "types.h"
 
 typedef struct MiniOptions {
@@ -18,7 +19,8 @@ typedef struct MiniOptions {
   const char *replay_out_path;
   const char *room_export_path;
   MiniBackdropMode backdrop_mode;
-  bool climb_endless;
+  MiniRunMode run_mode;
+  bool force_no_rom;
 } MiniOptions;
 
 int MiniRun(const MiniOptions *options);

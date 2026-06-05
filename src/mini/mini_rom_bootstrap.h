@@ -5,6 +5,7 @@
 #include "types.h"
 
 void MiniRomBootstrap_Reset(void);
+void MiniRomBootstrap_SetRomDisabled(bool disabled);
 bool MiniRomBootstrap_LoadAnyRom(void);
 void MiniRomBootstrap_ApplyPowerBeamLoadout(uint16 items, uint8 suit_palette_index);
 void MiniRomBootstrap_TryLoadRoomHeaderMetadata(uint16 room_id);

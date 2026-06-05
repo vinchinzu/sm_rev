@@ -26,10 +26,13 @@ enum {
   kMiniDemoBombs = 0x1000,
   kMiniDemoItems = kSamusEquip_MorphBall | kMiniDemoBombs,
   kMiniDemoMaxHealth = 99,
+  kMiniClimbPirateEvent = 0,
+  kMiniClimbEscapeEvent = 0xE,
 };
 
 static uint8 g_mini_sram[kMiniSramSize];
 static uint8 g_mini_rom[kMiniRomCapacity];
+static bool g_mini_rom_disabled;
 
 uint8 *g_sram = g_mini_sram;
 const uint8 *g_rom = g_mini_rom;
@@ -82,6 +85,8 @@ static bool MiniRomBootstrap_LoadRomFile(const char *path) {
 }
 
 bool MiniRomBootstrap_LoadAnyRom(void) {
+  if (g_mini_rom_disabled)
+    return false;
   for (size_t i = 0; i < sizeof(kMiniRomCandidates) / sizeof(kMiniRomCandidates[0]); i++) {
     if (MiniRomBootstrap_LoadRomFile(kMiniRomCandidates[i]))
       return true;
@@ -208,6 +213,12 @@ void MiniRomBootstrap_Reset(void) {
   g_rom = g_mini_rom;
 }
 
+void MiniRomBootstrap_SetRomDisabled(bool disabled) {
+  g_mini_rom_disabled = disabled;
+  if (disabled)
+    MiniRomBootstrap_Reset();
+}
+
 void MiniRomBootstrap_TryLoadRoomHeaderMetadata(uint16 room_id) {
   if (!MiniRomBootstrap_LoadAnyRom())
     return;
@@ -281,6 +292,8 @@ bool MiniRomBootstrap_TryConfigureClimbRoom(MiniRoomInfo *info) {
   if (!MiniContentScope_AllowsRoom(room_ptr))
     return false;
 
+  ClearEventHappened(kMiniClimbEscapeEvent);
+  SetEventHappened(kMiniClimbPirateEvent);
   HandleRoomDefStateSelect(room_ptr);
   MiniRomBootstrap_FillRoomInfo(info, false, 0, 0);
   MiniClimbEndless_ApplySpawnDefaults(info);
@@ -297,6 +310,7 @@ bool MiniRomBootstrap_TryConfigureClimbRoom(MiniRoomInfo *info) {
   ResetProjectileData();
   RunRoomSetupCode();
   MiniRomBootstrap_ApplyRoomCamera(info);
+  memcpy(&palette_buffer[128], &target_palettes[128], 128 * sizeof(uint16));
   MiniRomBootstrap_LoadRoomTilemaps();
   samus_x_pos = (uint16)info->spawn_x;
   samus_y_pos = (uint16)info->spawn_y;

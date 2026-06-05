@@ -6,10 +6,14 @@
 typedef enum MiniRunMode {
   kMiniRunMode_LandingSite = 0,
   kMiniRunMode_ClimbEndless = 1,
+  kMiniRunMode_ClimbOriginal = 2,
 } MiniRunMode;
 
 void MiniRunMode_Set(MiniRunMode mode);
+void MiniRunMode_Configure(MiniRunMode mode);
 MiniRunMode MiniRunMode_Get(void);
+bool MiniRunMode_IsClimbRoom(void);
 bool MiniRunMode_IsClimbEndless(void);
+bool MiniRunMode_IsClimbOriginal(void);
 
 #endif  // SM_MINI_RUN_MODE_H_
