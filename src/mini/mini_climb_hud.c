@@ -2,9 +2,11 @@
 
 #include <stdio.h>
 
+#include "ida_types.h"
 #include "mini_climb_endless.h"
 #include "mini_game.h"
 #include "mini_renderer.h"
+#include "variables.h"
 
 enum {
   kMiniClimbHudGlyphScale = 1,
@@ -78,7 +80,7 @@ void MiniClimbHud_Render(uint32_t *pixels, int pitch_pixels, const MiniGameState
   if (!MiniClimbEndless_IsActive())
     return;
 
-  int total_centiseconds = (state->frame * 100) / 60;
+  int total_centiseconds = (MiniClimbEndless_RunFrames(state) * 100) / 60;
   int centiseconds = total_centiseconds % 100;
   int total_seconds = total_centiseconds / 100;
   int seconds = total_seconds % 60;
@@ -86,28 +88,51 @@ void MiniClimbHud_Render(uint32_t *pixels, int pitch_pixels, const MiniGameState
   if (minutes > 99)
     minutes = 99;
 
-  int ascent = MiniClimbEndless_AscentPixels();
+  int ascent = MiniClimbEndless_AscentPixels(state);
   if (ascent > 9999)
     ascent = 9999;
-  int floors = MiniClimbEndless_VirtualFloors();
+  int floors = MiniClimbEndless_VirtualFloors(state);
   if (floors > 999)
     floors = 999;
+  int energy = samus_health;
+  if (energy > 999)
+    energy = 999;
 
-  char hud_line[24];
-  snprintf(hud_line, sizeof(hud_line), "%02d:%02d.%02d|+%04d|%03d",
-           minutes, seconds, centiseconds, ascent, floors);
+  char hud_line[32];
+  snprintf(hud_line, sizeof(hud_line), "%02d:%02d.%02d|+%04d|%03d|%03d",
+           minutes, seconds, centiseconds, ascent, floors, energy);
 
   int text_width = MiniClimbHudTextWidth(hud_line);
   int panel_width = text_width + kMiniClimbHudPadX * 2;
   int panel_height = kMiniClimbHudGlyphHeight + kMiniClimbHudPadY * 2;
-  enum { kHudMargin = 2 };
+  enum { kHudMargin = 2, kHudLowEnergy = 30 };
   int panel_x = kHudMargin;
   int panel_y = kHudMargin;
   int text_x = panel_x + kMiniClimbHudPadX;
   int text_y = panel_y + kMiniClimbHudPadY;
 
-  uint32_t panel = 0xC010151Au;
-  uint32_t text = MiniRenderer_ConvertBgr555(0x03FF);
+  bool in_danger = MiniClimbEndless_SamusInLava(state) || samus_health < kHudLowEnergy;
+  uint32_t panel = in_danger ? 0xC0401012u : 0xC010151Au;
+  uint32_t text = MiniRenderer_ConvertBgr555(in_danger ? 0x2D7F : 0x03FF);
   MiniRenderer_FillRect(pixels, pitch_pixels, panel_x, panel_y, panel_width, panel_height, panel);
   MiniClimbHudRenderText(pixels, pitch_pixels, text_x, text_y, hud_line, text);
+
+  // Session line: best ascent and deaths, shown once a run has ended.
+  if (MiniClimbEndless_Deaths(state) > 0) {
+    int best = MiniClimbEndless_BestAscentPixels(state);
+    if (best > 9999)
+      best = 9999;
+    int deaths = MiniClimbEndless_Deaths(state);
+    if (deaths > 99)
+      deaths = 99;
+    char session_line[16];
+    snprintf(session_line, sizeof(session_line), "+%04d|%02d", best, deaths);
+    int session_y = panel_y + panel_height + 1;
+    int session_width = MiniClimbHudTextWidth(session_line) + kMiniClimbHudPadX * 2;
+    MiniRenderer_FillRect(pixels, pitch_pixels, panel_x, session_y,
+                          session_width, panel_height, 0xC010151Au);
+    MiniClimbHudRenderText(pixels, pitch_pixels, panel_x + kMiniClimbHudPadX,
+                           session_y + kMiniClimbHudPadY, session_line,
+                           MiniRenderer_ConvertBgr555(0x4631));
+  }
 }

@@ -960,6 +960,7 @@ static void MiniRenderDecomposedProjectiles(uint32_t *pixels, int pitch_pixels,
 }
 
 static void MiniRenderModeOverlay(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
+  MiniRoomFx_RenderClimbLavaOverlay(pixels, pitch_pixels, state);
   MiniClimbHud_Render(pixels, pitch_pixels, state);
 }
 

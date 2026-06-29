@@ -1,38 +1,32 @@
+// Kernel-side APU bridge: SPC player ownership, RTL APU shims, and music/sfx
+// queue stepping. Must stay free of SDL/host dependencies so it can live in
+// libsm_rev_mini_kernel.a; the SDL device half is mini_audio_host.c.
 #include "mini_audio.h"
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-
-#include <SDL.h>
 
 #include "funcs.h"
 #include "sm_rtl.h"
 #include "spc_player.h"
 #include "variables.h"
 
-enum {
-  kMiniAudioFreq = 44100,
-  kMiniAudioChannels = 2,
-  kMiniAudioSamples = 2048,
-};
-
-static SDL_mutex *g_mini_audio_mutex;
-static SDL_AudioDeviceID g_mini_audio_device;
-static int g_mini_audio_frames_per_block;
-static uint8 *g_mini_audio_buffer;
-static uint8 *g_mini_audio_buffer_cur;
-static uint8 *g_mini_audio_buffer_end;
+static void (*g_mini_audio_lock)(void);
+static void (*g_mini_audio_unlock)(void);
 static bool g_mini_audio_booted_room_music;
 
+void MiniAudio_SetLockHooks(void (*lock)(void), void (*unlock)(void)) {
+  g_mini_audio_lock = lock;
+  g_mini_audio_unlock = unlock;
+}
+
 void RtlApuLock(void) {
-  if (g_mini_audio_mutex != NULL)
-    SDL_LockMutex(g_mini_audio_mutex);
+  if (g_mini_audio_lock != NULL)
+    g_mini_audio_lock();
 }
 
 void RtlApuUnlock(void) {
-  if (g_mini_audio_mutex != NULL)
-    SDL_UnlockMutex(g_mini_audio_mutex);
+  if (g_mini_audio_unlock != NULL)
+    g_mini_audio_unlock();
 }
 
 void RtlApuWrite(uint32 adr, uint8 val) {
@@ -68,7 +62,7 @@ void RtlRenderAudio(int16 *audio_buffer, int samples, int channels) {
   RtlApuUnlock();
 }
 
-static bool MiniAudio_EnsureSpcPlayer(void) {
+bool MiniAudio_EnsureSpcPlayer(void) {
   if (g_spc_player != NULL)
     return true;
   g_spc_player = SpcPlayer_Create();
@@ -79,94 +73,7 @@ static bool MiniAudio_EnsureSpcPlayer(void) {
   return true;
 }
 
-static void MiniAudio_Callback(void *userdata, uint8 *stream, int len) {
-  (void)userdata;
-  if (stream == NULL || len <= 0)
-    return;
-  memset(stream, 0, (size_t)len);
-  if (g_mini_audio_buffer == NULL || g_mini_audio_frames_per_block <= 0)
-    return;
-
-  uint8 *out = stream;
-  int remaining = len;
-  while (remaining > 0) {
-    if (g_mini_audio_buffer_cur == g_mini_audio_buffer_end) {
-      RtlRenderAudio((int16 *)g_mini_audio_buffer, g_mini_audio_frames_per_block,
-                     kMiniAudioChannels);
-      g_mini_audio_buffer_cur = g_mini_audio_buffer;
-      g_mini_audio_buffer_end =
-          g_mini_audio_buffer +
-          g_mini_audio_frames_per_block * kMiniAudioChannels * (int)sizeof(int16);
-    }
-
-    int available = (int)(g_mini_audio_buffer_end - g_mini_audio_buffer_cur);
-    int copy = available < remaining ? available : remaining;
-    memcpy(out, g_mini_audio_buffer_cur, (size_t)copy);
-    out += copy;
-    g_mini_audio_buffer_cur += copy;
-    remaining -= copy;
-  }
-}
-
-bool MiniAudio_Init(void) {
-  if (!MiniAudio_EnsureSpcPlayer()) {
-    fprintf(stderr, "mini: audio disabled: failed to create SPC player\n");
-    return false;
-  }
-  if (g_mini_audio_mutex == NULL) {
-    g_mini_audio_mutex = SDL_CreateMutex();
-    if (g_mini_audio_mutex == NULL) {
-      fprintf(stderr, "mini: audio disabled: SDL_CreateMutex failed: %s\n", SDL_GetError());
-      return false;
-    }
-  }
-  if (g_mini_audio_device != 0)
-    return true;
-
-  SDL_AudioSpec want = {0};
-  SDL_AudioSpec have = {0};
-  want.freq = kMiniAudioFreq;
-  want.format = AUDIO_S16;
-  want.channels = kMiniAudioChannels;
-  want.samples = kMiniAudioSamples;
-  want.callback = MiniAudio_Callback;
-
-  g_mini_audio_device = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
-  if (g_mini_audio_device == 0) {
-    fprintf(stderr, "mini: audio disabled: SDL_OpenAudioDevice failed: %s\n", SDL_GetError());
-    return false;
-  }
-
-  g_mini_audio_frames_per_block = (534 * have.freq) / 32000;
-  g_mini_audio_buffer = (uint8 *)malloc(
-      (size_t)g_mini_audio_frames_per_block * kMiniAudioChannels * sizeof(int16));
-  if (g_mini_audio_buffer == NULL) {
-    fprintf(stderr, "mini: audio disabled: failed to allocate audio buffer\n");
-    SDL_CloseAudioDevice(g_mini_audio_device);
-    g_mini_audio_device = 0;
-    return false;
-  }
-  g_mini_audio_buffer_cur = g_mini_audio_buffer;
-  g_mini_audio_buffer_end = g_mini_audio_buffer;
-  SDL_PauseAudioDevice(g_mini_audio_device, 0);
-  return true;
-}
-
-void MiniAudio_Shutdown(void) {
-  if (g_mini_audio_device != 0) {
-    SDL_PauseAudioDevice(g_mini_audio_device, 1);
-    SDL_CloseAudioDevice(g_mini_audio_device);
-    g_mini_audio_device = 0;
-  }
-  free(g_mini_audio_buffer);
-  g_mini_audio_buffer = NULL;
-  g_mini_audio_buffer_cur = NULL;
-  g_mini_audio_buffer_end = NULL;
-  g_mini_audio_frames_per_block = 0;
-  if (g_mini_audio_mutex != NULL) {
-    SDL_DestroyMutex(g_mini_audio_mutex);
-    g_mini_audio_mutex = NULL;
-  }
+void MiniAudio_ResetRoomMusicBoot(void) {
   g_mini_audio_booted_room_music = false;
 }
 

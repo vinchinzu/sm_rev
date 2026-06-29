@@ -47,6 +47,8 @@ The mini target is now split into clearer responsibilities under [`src/mini/`](.
 - [mini_replay.c](../src/mini/mini_replay.c): versioned replay artifact read/write and state-hash verification
 - [mini_renderer.c](../src/mini/mini_renderer.c): software frame rendering and screenshot output
 - [mini_asset_bootstrap.c](../src/mini/mini_asset_bootstrap.c): editor/ROM asset import, Samus visual bootstrap, and mini room sprite setup
+- [mini_audio.c](../src/mini/mini_audio.c): kernel-side APU bridge (SPC player, RTL APU shims, music/sfx queue stepping); no SDL
+- [mini_audio_host.c](../src/mini/mini_audio_host.c): SDL audio device and mutex; installs lock hooks into the kernel bridge and stays out of `libsm_rev_mini_kernel.a`
 - [mini_ppu_stub.c](../src/mini/mini_ppu_stub.c): mini-owned VRAM/CGRAM/DMA register emulation for rendering and asset uploads
 - [mini_game.c](../src/mini/mini_game.c): gameplay-state setup and per-frame update
 - [mini_net_bridge.c](../src/mini/mini_net_bridge.c): narrow C ABI for local browser multiplayer host snapshots, inputs, and per-player cameras
@@ -82,7 +84,31 @@ update path.
   `DrawSamusAndProjectiles` (`0x90EB35`).
 - `mini_climb_endless` owns down-scroller camera follow and vertical world wrap
   (projectiles shift with each wrap via `MiniWorldShift_ApplyY`).
-- Rising lava is stubbed (`lava_enabled` flips after 60s; damage/rise TBD).
+- Climb progress (`virtual_floors`, ascent score, lava) lives in
+  `MiniGameState.climb` (`MiniClimbState`), so `MiniSaveState`/`MiniLoadState`,
+  rollback, and `MiniStateHash` cover it with no module side channels. Run mode
+  itself is process-level boot configuration (`mini_run_mode`), chosen by the
+  host before kernel init and restored by `MiniLoadState`.
+- Rising lava drives the run loop: after a 10s grace window each run, lava
+  enters from below the bottom platform and rises faster with every virtual
+  floor (Q8 speed, capped), never trailing Samus by more than ~1.5 screens.
+  Contact drains energy on a fixed cadence; reaching zero energy (or any
+  original-runtime death transition) restarts the run from the bottom platform
+  with the score and lava reset while the deaths counter and session-best
+  ascent persist.
+- Wrap band selection is a deterministic per-floor shuffle whose window slides
+  toward the harder high-row bands as the lava speed tier rises
+  (`MiniClimbEndless_NextWrapTargetRow`), so platform layouts vary more and get
+  sparser as the lava speeds up.
+- Climb difficulty tier also tightens mini-sim Space Pirate fire cadence and
+  gives their shots vertical aim toward Samus; on the ROM path the original
+  enemy AI is authoritative.
+- The HUD shows run clock, ascent score, floors, and energy, flashes red while
+  submerged or low on energy, and adds a session line (best ascent | deaths)
+  after the first death. The renderer overlays animated lava plus a
+  bottom-of-screen proximity warning and a heat tint that grows with the tier.
+- Known limitation: `MiniWorldShift_ApplyY` only shifts the live Samus globals,
+  not per-player saved runtimes, so endless wrap is single-player only for now.
 
 Linux:
 - `make mini`

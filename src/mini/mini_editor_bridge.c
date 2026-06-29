@@ -934,6 +934,26 @@ static bool MiniParseScroll(cJSON *scroll, MiniEditorRoom *room) {
   return true;
 }
 
+static void MiniAssignClimbRoomDefaults(MiniEditorRoom *room) {
+  if (room->room_id != kMiniClimbEndlessRoomId && strcmp(room->handle, "climb") != 0)
+    return;
+
+  MiniRoomInfo info = {
+    .room_id = room->room_id,
+    .room_width_blocks = room->width_blocks,
+    .room_height_blocks = room->height_blocks,
+    .camera_target_x_percent = room->camera_target_x_percent,
+  };
+  snprintf(info.room_handle, sizeof(info.room_handle), "%s", room->handle);
+  MiniClimbEndless_ApplySpawnDefaults(&info);
+  room->spawn_x = info.spawn_x;
+  room->spawn_y = info.spawn_y;
+  room->camera_x = info.camera_x;
+  room->camera_y = info.camera_y;
+  room->initial_suit = kMiniEditorSamusSuit_Power;
+  room->camera_target_y_percent = info.camera_target_y_percent;
+}
+
 static void MiniAssignLandingSiteDefaults(MiniEditorRoom *room) {
   if (room->room_id != kMiniEditorBridgeRoomId_LandingSite && strcmp(room->handle, "landingSite") != 0)
     return;
@@ -944,7 +964,7 @@ static void MiniAssignLandingSiteDefaults(MiniEditorRoom *room) {
 }
 
 static void MiniAssignRoomDefaults(MiniEditorRoom *room) {
-  MiniClimbEndless_AssignRoomDefaults(room);
+  MiniAssignClimbRoomDefaults(room);
   MiniAssignLandingSiteDefaults(room);
 }
 
@@ -1068,7 +1088,7 @@ static bool MiniParseRoomJson(const char *path, MiniEditorRoom *room) {
       room->block_words[i] = BlockTileWithTypeIndex(0, room->collision_types[i]);
   }
   if (ok && MiniRunMode_IsClimbEndless())
-    MiniClimbEndless_AssignRoomDefaults(room);
+    MiniAssignClimbRoomDefaults(room);
   if (ok && !cJSON_IsObject(camera))
     MiniAssignRoomDefaults(room);
   cJSON_Delete(root);

@@ -9,7 +9,7 @@
 #include "default_controls.h"
 #include "features.h"
 #include "ida_types.h"
-#include "mini_audio.h"
+#include "mini_audio_host.h"
 #include "mini_climb_endless.h"
 #include "mini_enemy_metadata.h"
 #include "mini_enemy_runtime.h"
@@ -48,7 +48,7 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
   const MiniEnemyRuntimeState *first_pirate =
       enemy_telemetry.has_first_pirate ? &enemy_telemetry.first_pirate : NULL;
   int clock_centiseconds = (state->frame * 100) / 60;
-  int climb_score = MiniClimbEndless_AscentPixels();
+  int climb_score = MiniClimbEndless_AscentPixels(state);
   bool has_any_enemies = state->room.has_original_enemies || enemy_telemetry.count > 0;
   printf("{\"build\":\"%s\",\"headless\":%s,\"frames\":%d,"
          "\"no_rom\":%s,"
@@ -96,8 +96,10 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          "\"first_projectile_x\":%u,\"first_projectile_y\":%u,"
          "\"first_projectile_dir\":%u,\"first_projectile_owner\":%u,"
          "\"climb_endless\":%s,\"virtual_floors\":%d,"
-         "\"climb_score\":%d,\"clock_frames\":%d,\"clock_centiseconds\":%d,"
-         "\"lava_enabled\":%s,\"lava_floor_y\":%d,"
+         "\"climb_score\":%d,\"climb_best_score\":%d,\"climb_deaths\":%d,"
+         "\"clock_frames\":%d,\"clock_centiseconds\":%d,"
+         "\"lava_enabled\":%s,\"lava_floor_y\":%d,\"lava_speed_q8\":%d,"
+         "\"climb_difficulty_tier\":%d,"
          "\"state_hash\":\"0x%016llx\"}\n",
          MiniRuntime_BuildName(),
          options->headless ? "true" : "false", state->frame,
@@ -178,12 +180,16 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          first_projectile != NULL ? first_projectile->direction : 0,
          first_projectile_owner,
          MiniRunMode_IsClimbEndless() ? "true" : "false",
-         MiniClimbEndless_VirtualFloors(),
+         MiniClimbEndless_VirtualFloors(state),
          climb_score,
+         MiniClimbEndless_BestAscentPixels(state),
+         MiniClimbEndless_Deaths(state),
          state->frame,
          clock_centiseconds,
-         MiniClimbEndless_LavaEnabled() ? "true" : "false",
-         MiniClimbEndless_LavaFloorY(),
+         MiniClimbEndless_LavaEnabled(state) ? "true" : "false",
+         MiniClimbEndless_LavaFloorY(state),
+         MiniClimbEndless_LavaSpeedQ8(state),
+         MiniClimbEndless_DifficultyTier(state),
          (unsigned long long)state_hash);
 }
 
@@ -306,7 +312,7 @@ static bool MiniRunMode_UsesClimbRoom(MiniRunMode mode) {
 
 static void ConfigureRoomSelectionForRun(const MiniOptions *options,
                                          const MiniReplayArtifact *replay) {
-  MiniRunMode_Configure(options->run_mode);
+  MiniRunMode_Set(options->run_mode);
   MiniStubs_SetForceNoRom(options->force_no_rom);
   if (MiniRunMode_UsesClimbRoom(options->run_mode)) {
     const char *room_path = RoomExportPathForRun(options, replay);

@@ -2137,7 +2137,7 @@ static void TestClimbRomEnemyVisualBootstrapIfAvailable(void) {
   if (access(room_path, R_OK) != 0)
     return;
 
-  MiniRunMode_Configure(kMiniRunMode_ClimbOriginal);
+  MiniRunMode_Set(kMiniRunMode_ClimbOriginal);
   MiniStubs_SetRoomExportPath(room_path);
   MiniGameState *state = MiniCreate(kMiniGameWidth, kMiniGameHeight);
   Require(state != NULL, "MiniCreate failed for climb enemy visual bootstrap test");
@@ -2199,17 +2199,20 @@ static void TestClimbEndlessWrapContractsIfAvailable(void) {
   int before_delta_y = (int16)(samus_y_pos - samus_prev_y_pos);
   int before_samus_world_y = state->players[0].samus.world_y;
   int before_enemy_y = enemy_data[0].y_pos;
-  int before_virtual_floors = MiniClimbEndless_VirtualFloors();
+  int before_virtual_floors = MiniClimbEndless_VirtualFloors(state);
+  int expected_row = MiniClimbEndless_NextWrapTargetRow(state);
+  Require(expected_row >= 48 && expected_row <= 112 && (expected_row % 16) == 0,
+          "climb endless wrap target must stay on an authored 16-row band");
 
   MiniClimbEndless_Tick(state);
   int applied_shift_y = state->players[0].samus.world_y - before_samus_world_y;
 
-  Require(MiniClimbEndless_VirtualFloors() == before_virtual_floors + 1,
+  Require(MiniClimbEndless_VirtualFloors(state) == before_virtual_floors + 1,
           "climb endless wrap did not record one virtual floor");
-  Require(MiniClimbEndless_AscentPixels() > 0,
+  Require(MiniClimbEndless_AscentPixels(state) > 0,
           "climb endless score did not track upward progress");
-  Require(layer1_y_pos == 48 * kMiniBlockSize,
-          "climb endless wrap did not shift to the first authored shaft band");
+  Require(layer1_y_pos == expected_row * kMiniBlockSize,
+          "climb endless wrap did not shift to the selected authored shaft band");
   Require(enemy_data[0].y_pos == (uint16)(before_enemy_y + applied_shift_y),
           "climb endless wrap did not shift original ROM enemies");
   Require((int16)(samus_y_pos - samus_prev_y_pos) == before_delta_y,
@@ -2231,17 +2234,82 @@ static void TestClimbEndlessWrapContractsIfAvailable(void) {
   state->samus = state->players[0].samus;
   before_samus_world_y = state->players[0].samus.world_y;
   before_enemy_y = enemy_data[0].y_pos;
-  before_virtual_floors = MiniClimbEndless_VirtualFloors();
+  before_virtual_floors = MiniClimbEndless_VirtualFloors(state);
+  expected_row = MiniClimbEndless_NextWrapTargetRow(state);
+  Require(expected_row >= 48 && expected_row <= 112 && (expected_row % 16) == 0,
+          "climb endless second wrap target must stay on an authored 16-row band");
 
   MiniClimbEndless_Tick(state);
   applied_shift_y = state->players[0].samus.world_y - before_samus_world_y;
 
-  Require(MiniClimbEndless_VirtualFloors() == before_virtual_floors + 1,
+  Require(MiniClimbEndless_VirtualFloors(state) == before_virtual_floors + 1,
           "climb endless second wrap did not record one virtual floor");
-  Require(layer1_y_pos == 96 * kMiniBlockSize,
-          "climb endless second wrap did not shift to a varied authored shaft band");
+  Require(layer1_y_pos == expected_row * kMiniBlockSize,
+          "climb endless second wrap did not shift to the selected authored shaft band");
   Require(enemy_data[0].y_pos == (uint16)(before_enemy_y + applied_shift_y),
           "climb endless second wrap did not shift original ROM enemies");
+
+  MiniDestroy(state);
+  MiniStubs_SetRoomExportPath(NULL);
+  MiniClimbEndless_SetActive(false);
+}
+
+static void TestClimbLavaAndRespawnContractsIfAvailable(void) {
+  const char *room_path = MiniClimbEndless_DefaultRoomExportPath();
+  if (access(room_path, R_OK) != 0)
+    return;
+
+  MiniClimbEndless_SetActive(true);
+  MiniStubs_SetRoomExportPath(room_path);
+  MiniGameState *state = MiniCreate(kMiniGameWidth, kMiniGameHeight);
+  Require(state != NULL, "MiniCreate failed for climb lava test");
+  Require(!MiniClimbEndless_LavaEnabled(state),
+          "climb lava must stay disabled during the grace window");
+  Require(MiniClimbEndless_LavaSpeedQ8(state) == 0,
+          "climb lava speed must be zero before lava enables");
+
+  state->frame = state->climb.lava_enable_frame;
+  MiniClimbEndless_Tick(state);
+  Require(MiniClimbEndless_LavaEnabled(state),
+          "climb lava did not enable after the grace window");
+  Require(MiniClimbEndless_LavaFloorY(state) > state->players[0].samus.world_y,
+          "climb lava must start below Samus");
+  Require(MiniClimbEndless_LavaSpeedQ8(state) > 0,
+          "climb lava speed must be positive once enabled");
+
+  int floor_before = MiniClimbEndless_LavaFloorY(state);
+  for (int i = 0; i < 32; i++)
+    MiniClimbEndless_Tick(state);
+  Require(MiniClimbEndless_LavaFloorY(state) < floor_before,
+          "climb lava did not rise over time");
+
+  uint16 full_health = samus_max_health;
+  Require(samus_health == full_health, "climb run should start at full energy");
+  state->climb.lava_floor_y = state->players[0].samus.world_y - 64;
+  state->climb.lava_damage_cooldown = 0;
+  Require(MiniClimbEndless_SamusInLava(state),
+          "Samus below the lava surface must count as submerged");
+  MiniClimbEndless_Tick(state);
+  Require(samus_health < full_health, "climb lava contact did not drain energy");
+
+  samus_health = 1;
+  state->climb.lava_damage_cooldown = 0;
+  state->climb.ascent_pixels = 1234;
+  MiniClimbEndless_Tick(state);
+  Require(MiniClimbEndless_Deaths(state) == 1,
+          "climb lava death did not record a death");
+  Require(samus_health == full_health,
+          "climb respawn did not restore full energy");
+  Require(samus_y_pos == (uint16)state->room.spawn_y &&
+              samus_x_pos == (uint16)state->room.spawn_x,
+          "climb respawn did not return Samus to the bottom spawn");
+  Require(MiniClimbEndless_AscentPixels(state) == 0 &&
+              MiniClimbEndless_VirtualFloors(state) == 0,
+          "climb respawn did not reset the run score");
+  Require(MiniClimbEndless_BestAscentPixels(state) >= 1234,
+          "climb respawn did not keep the session-best ascent");
+  Require(!MiniClimbEndless_LavaEnabled(state),
+          "climb respawn did not reset the lava grace window");
 
   MiniDestroy(state);
   MiniStubs_SetRoomExportPath(NULL);
@@ -2264,7 +2332,7 @@ static void TestClimbModeSnapshotRoundTripIfAvailable(void) {
   samus_prev_y_pos = (uint16)(samus_y_pos + 2);
   state->players[0].samus.world_y = samus_y_pos;
   MiniClimbEndless_Tick(state);
-  int expected_virtual_floors = MiniClimbEndless_VirtualFloors();
+  int expected_virtual_floors = MiniClimbEndless_VirtualFloors(state);
   Require(expected_virtual_floors > 0, "climb snapshot test did not advance virtual floors");
 
   size_t snapshot_size = MiniSaveStateSize();
@@ -2273,11 +2341,12 @@ static void TestClimbModeSnapshotRoundTripIfAvailable(void) {
   Require(MiniSaveState(state, snapshot, snapshot_size), "MiniSaveState failed for climb mode");
 
   MiniClimbEndless_SetActive(false);
-  Require(!MiniClimbEndless_IsActive(), "climb mode should reset after SetActive(false)");
+  Require(!MiniClimbEndless_IsActive(), "climb mode should deactivate after SetActive(false)");
+  state->climb = (MiniClimbState){0};
 
   Require(MiniLoadState(state, snapshot, snapshot_size), "MiniLoadState failed for climb mode");
   Require(MiniClimbEndless_IsActive(), "climb mode not restored from snapshot");
-  Require(MiniClimbEndless_VirtualFloors() == expected_virtual_floors,
+  Require(MiniClimbEndless_VirtualFloors(state) == expected_virtual_floors,
           "climb virtual floors not restored from snapshot");
 
   free(snapshot);
@@ -2373,6 +2442,7 @@ int main(void) {
   RunFallbackTestsInIsolatedCwd();
   TestClimbRomEnemyVisualBootstrapIfAvailable();
   TestClimbEndlessWrapContractsIfAvailable();
+  TestClimbLavaAndRespawnContractsIfAvailable();
   TestClimbModeSnapshotRoundTripIfAvailable();
   TestRomRoomDeterminismIfAvailable();
   return 0;

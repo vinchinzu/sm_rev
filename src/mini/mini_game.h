@@ -108,6 +108,23 @@ typedef struct MiniProjectileState {
   uint8 owner_by_slot[kSamusProjectileSlotCount];
 } MiniProjectileState;
 
+// Endless-climb progress. Lives in MiniGameState so save states, rollback,
+// and the state hash cover it without module side channels.
+typedef struct MiniClimbState {
+  int virtual_floors;
+  bool lava_enabled;
+  int lava_floor_y;
+  int lava_rise_carry_q8;
+  int lava_enable_frame;
+  int lava_damage_cooldown;
+  int run_start_frame;
+  int deaths;
+  int best_ascent_pixels;
+  int ascent_pixels;
+  int last_samus_y;
+  bool has_score_anchor;
+} MiniClimbState;
+
 typedef struct MiniGameState {
   MiniViewportState viewport;
   MiniRoomState room;
@@ -116,6 +133,7 @@ typedef struct MiniGameState {
   MiniControlState controls;
   MiniProjectileState projectile_state;
   MiniEnemyState enemy_state;
+  MiniClimbState climb;
   int player_count;
   MiniPlayerInputState player_inputs[kMiniMaxPlayers];
   MiniPlayerState players[kMiniMaxPlayers];

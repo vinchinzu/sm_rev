@@ -1,6 +1,7 @@
 #include "mini_room_fx.h"
 
 #include "ida_types.h"
+#include "mini_climb_endless.h"
 #include "mini_run_mode.h"
 #include "mini_defs.h"
 #include "mini_editor_bridge.h"
@@ -142,6 +143,87 @@ static void MiniRoomFx_RenderHazeOverlay(uint32_t *pixels, int pitch_pixels, con
         continue;
       uint32_t base = pixels[y * pitch_pixels + x];
       pixels[y * pitch_pixels + x] = MiniRoomFx_BlendColor(base, haze, 1, 8);
+    }
+  }
+}
+
+static void MiniRoomFx_RenderClimbHeatTint(uint32_t *pixels, int pitch_pixels, int tier) {
+  if (tier <= 0)
+    return;
+  uint32_t heat = 0xFFFF6020u;
+  for (int y = 0; y < kMiniGameHeight; y++) {
+    for (int x = 0; x < kMiniGameWidth; x++) {
+      uint32_t base = pixels[y * pitch_pixels + x];
+      pixels[y * pitch_pixels + x] = MiniRoomFx_BlendColor(base, heat, tier, 48);
+    }
+  }
+}
+
+static void MiniRoomFx_RenderClimbLavaWarning(uint32_t *pixels, int pitch_pixels,
+                                              int gap_below_screen, int frame) {
+  enum { kWarningRange = 240 };
+  if (gap_below_screen >= kWarningRange)
+    return;
+  // Pulse faster and brighter the closer the lava gets to the screen edge.
+  int closeness = kWarningRange - gap_below_screen;
+  int pulse_period = gap_below_screen < 80 ? 8 : 16;
+  if (((frame / pulse_period) & 1) == 0)
+    return;
+  uint32_t warning = 0xFFFF2810u;
+  int numer = 1 + closeness / 60;
+  for (int y = kMiniGameHeight - 4; y < kMiniGameHeight; y++) {
+    for (int x = 0; x < kMiniGameWidth; x++) {
+      uint32_t base = pixels[y * pitch_pixels + x];
+      pixels[y * pitch_pixels + x] = MiniRoomFx_BlendColor(base, warning, numer, 5);
+    }
+  }
+}
+
+void MiniRoomFx_RenderClimbLavaOverlay(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
+  if (state == NULL || !MiniRunMode_IsClimbEndless())
+    return;
+
+  int frame = state->frame;
+  MiniRoomFx_RenderClimbHeatTint(pixels, pitch_pixels, MiniClimbEndless_DifficultyTier(state));
+  if (!state->climb.lava_enabled)
+    return;
+
+  int surface_y = state->climb.lava_floor_y - state->viewport.camera_y;
+  if (surface_y >= kMiniGameHeight) {
+    MiniRoomFx_RenderClimbLavaWarning(pixels, pitch_pixels, surface_y - kMiniGameHeight, frame);
+    return;
+  }
+
+  uint32_t glow = 0xFFFF9030u;
+  uint32_t crest = 0xFFFFE080u;
+  uint32_t body = 0xFFE03808u;
+  uint32_t deep = 0xFF801000u;
+  int start_y = surface_y < 0 ? 0 : surface_y;
+  for (int y = start_y; y < kMiniGameHeight; y++) {
+    int depth = y - surface_y;
+    int wave = MiniRoomFx_SmallWaveOffset(y, frame >> 2, 2);
+    for (int x = 0; x < kMiniGameWidth; x++) {
+      uint32_t base = pixels[y * pitch_pixels + x];
+      int phase = x + state->viewport.camera_x + wave;
+      uint32_t tint;
+      int numer;
+      if (depth < 2) {
+        tint = crest;
+        numer = 4;
+      } else {
+        bool bubble = ((phase * 5 + (y << 2) + frame * 3) % 97) < 3;
+        tint = bubble ? crest : (depth > 48 ? deep : body);
+        numer = depth > 16 ? 4 : 3;
+      }
+      pixels[y * pitch_pixels + x] = MiniRoomFx_BlendColor(base, tint, numer, 5);
+    }
+  }
+  // Soft glow line floating just above the surface.
+  if (surface_y - 1 >= 0 && surface_y - 1 < kMiniGameHeight) {
+    int y = surface_y - 1;
+    for (int x = 0; x < kMiniGameWidth; x++) {
+      uint32_t base = pixels[y * pitch_pixels + x];
+      pixels[y * pitch_pixels + x] = MiniRoomFx_BlendColor(base, glow, 1, 3);
     }
   }
 }

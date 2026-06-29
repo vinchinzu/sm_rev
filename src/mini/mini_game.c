@@ -28,7 +28,7 @@ enum {
   kMiniItem_VariaSuit = 1,
   kMiniItem_GravitySuit = 0x20,
   kMiniSnapshotMagic = 0x4D53534D,
-  kMiniSnapshotVersion = 8,
+  kMiniSnapshotVersion = 10,
   kMiniRamSnapshotSize = 0x20000,
   kMiniSramSnapshotSize = 0x2000,
   kMiniPlayerRuntimePreProjectileOffset = 0xA94,
@@ -43,7 +43,6 @@ typedef struct MiniStateSnapshot {
   MiniStubsSnapshot stubs;
   MiniPpuSnapshot ppu;
   MiniRunMode run_mode;
-  MiniClimbModeSnapshot climb_mode;
   uint8 ram[kMiniRamSnapshotSize];
   uint8 sram[kMiniSramSnapshotSize];
   bool use_my_apu_code;
@@ -428,7 +427,7 @@ void MiniGameState_Init(MiniGameState *state, int viewport_width, int viewport_h
   if (MiniRunMode_IsClimbRoom()) {
     MiniClimbEndless_ApplySpawnDefaults(&room);
     if (MiniRunMode_IsClimbEndless())
-      MiniClimbEndless_InitAfterRoom(&room);
+      MiniClimbEndless_InitAfterRoom(state, &room);
     MiniStubs_UpdateRoomInfo(&room);
   }
 
@@ -815,17 +814,19 @@ uint64_t MiniGameState_ComputeHash(const MiniGameState *state) {
   hash = MiniHashBytes(hash, g_ram, sizeof(g_ram));
   hash = MiniHashBytes(hash, g_sram, 0x2000);
   hash = MiniHashBytes(hash, MiniPpu_GetVram(), kMiniPpuVramSize);
-  if (MiniRunMode_IsClimbEndless()) {
-    MiniClimbModeSnapshot climb_mode;
-    MiniClimbEndless_SaveSnapshot(&climb_mode);
-    hash = MiniHashInt(hash, (int)MiniRunMode_Get());
-    hash = MiniHashInt(hash, climb_mode.virtual_floors);
-    hash = MiniHashBool(hash, climb_mode.lava_enabled);
-    hash = MiniHashInt(hash, climb_mode.lava_floor_y);
-    hash = MiniHashInt(hash, climb_mode.ascent_pixels);
-    hash = MiniHashInt(hash, climb_mode.last_samus_y);
-    hash = MiniHashBool(hash, climb_mode.has_score_anchor);
-  }
+  hash = MiniHashInt(hash, (int)MiniRunMode_Get());
+  hash = MiniHashInt(hash, state->climb.virtual_floors);
+  hash = MiniHashBool(hash, state->climb.lava_enabled);
+  hash = MiniHashInt(hash, state->climb.lava_floor_y);
+  hash = MiniHashInt(hash, state->climb.lava_rise_carry_q8);
+  hash = MiniHashInt(hash, state->climb.lava_enable_frame);
+  hash = MiniHashInt(hash, state->climb.lava_damage_cooldown);
+  hash = MiniHashInt(hash, state->climb.run_start_frame);
+  hash = MiniHashInt(hash, state->climb.deaths);
+  hash = MiniHashInt(hash, state->climb.best_ascent_pixels);
+  hash = MiniHashInt(hash, state->climb.ascent_pixels);
+  hash = MiniHashInt(hash, state->climb.last_samus_y);
+  hash = MiniHashBool(hash, state->climb.has_score_anchor);
   return hash;
 }
 
@@ -890,7 +891,6 @@ bool MiniSaveState(const MiniGameState *state, void *buffer, size_t buffer_size)
   snapshot->version = kMiniSnapshotVersion;
   snapshot->game = *state;
   snapshot->run_mode = MiniRunMode_Get();
-  MiniClimbEndless_SaveSnapshot(&snapshot->climb_mode);
   MiniStubs_SaveSnapshot(&snapshot->stubs);
   MiniPpu_SaveSnapshot(&snapshot->ppu);
   memcpy(snapshot->ram, g_ram, sizeof(snapshot->ram));
@@ -912,7 +912,6 @@ bool MiniLoadState(MiniGameState *state, const void *buffer, size_t buffer_size)
 
   *state = snapshot->game;
   MiniRunMode_Set(snapshot->run_mode);
-  MiniClimbEndless_LoadSnapshot(&snapshot->climb_mode);
   MiniStubs_LoadSnapshot(&snapshot->stubs);
   MiniPpu_LoadSnapshot(&snapshot->ppu);
   memcpy(g_ram, snapshot->ram, sizeof(snapshot->ram));

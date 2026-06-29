@@ -27,7 +27,7 @@ static void PrintUsage(const char *argv0) {
           "  --no-rom  Force editor-export rooms and assets even when a local ROM is present.\n"
           "  --background MODE  Select mini backdrop mode: game or generated.\n"
           "  --ai-background  Alias for --background generated.\n"
-          "  --climb-endless  The Climb only: bottom spawn, infinite ascent wrap (lava later).\n"
+          "  --climb-endless  The Climb only: bottom spawn, infinite ascent wrap, rising lava runs.\n"
           "  --climb-original  The Climb only: original room runtime without endless wrapping.\n",
           argv0);
 }

@@ -1,16 +1,9 @@
 #include "mini_run_mode.h"
 
-#include "mini_climb_endless.h"
-
 static MiniRunMode g_run_mode = kMiniRunMode_LandingSite;
 
 void MiniRunMode_Set(MiniRunMode mode) {
   g_run_mode = mode;
-}
-
-void MiniRunMode_Configure(MiniRunMode mode) {
-  MiniRunMode_Set(mode);
-  MiniClimbEndless_ResetProgress();
 }
 
 MiniRunMode MiniRunMode_Get(void) {

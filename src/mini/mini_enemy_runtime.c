@@ -319,12 +319,20 @@ static void MiniSpawnPirateShot(MiniGameState *state, const MiniEnemyRuntimeStat
     if (shot->active)
       continue;
     int dir = pirate->facing_right ? 1 : -1;
+    // In the climb, pirates lob shots toward Samus's height so vertical
+    // platforming stays contested instead of trivially out-ranging them.
+    int y_velocity = 0;
+    if (MiniRunMode_IsClimbEndless()) {
+      int target_dy = state->players[0].samus.world_y - pirate->y;
+      if (abs(target_dy) > 24)
+        y_velocity = target_dy > 0 ? 1 : -1;
+    }
     *shot = (MiniEnemyShotState){
       .active = true,
       .x = pirate->x + dir * (pirate->x_radius + 6),
       .y = pirate->y - pirate->y_radius / 3,
       .x_velocity = dir * 4,
-      .y_velocity = 0,
+      .y_velocity = y_velocity,
       .radius = 5,
       .damage = 20,
     };
@@ -500,7 +508,7 @@ void MiniEnemyRuntime_Update(MiniGameState *state) {
       enemy->shoot_cooldown--;
     } else {
       MiniSpawnPirateShot(state, enemy);
-      enemy->shoot_cooldown = 64;
+      enemy->shoot_cooldown = MiniClimbEndless_PirateShotCooldownFrames(state);
     }
   }
   MiniHandleSamusProjectilesVsEnemies(state);

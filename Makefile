@@ -51,7 +51,7 @@ MINI_RUNTIME_SRCS := $(wildcard src/mini/*.c)
 MINI_SHARED_ENGINE_SRCS := $(filter-out src/main.c src/sm_cpu_infra.c src/sm_rtl.c,$(CORE_SRCS))
 MINI_EXTRA_SRCS := third_party/cJSON.c src/snes/dsp.c
 MINI_SRCS := $(MINI_RUNTIME_SRCS) $(MINI_SHARED_ENGINE_SRCS) $(MINI_EXTRA_SRCS)
-MINI_KERNEL_RUNTIME_SRCS := $(filter-out src/mini/mini_main.c src/mini/mini_runtime.c src/mini/mini_renderer.c src/mini/mini_record.c src/mini/mini_input_script.c src/mini/mini_backdrop.c,$(MINI_RUNTIME_SRCS))
+MINI_KERNEL_RUNTIME_SRCS := $(filter-out src/mini/mini_main.c src/mini/mini_runtime.c src/mini/mini_renderer.c src/mini/mini_record.c src/mini/mini_input_script.c src/mini/mini_backdrop.c src/mini/mini_audio_host.c,$(MINI_RUNTIME_SRCS))
 MINI_KERNEL_SRCS := $(MINI_KERNEL_RUNTIME_SRCS) $(MINI_SHARED_ENGINE_SRCS) $(MINI_EXTRA_SRCS)
 MINI_KERNEL_OBJS := $(MINI_KERNEL_SRCS:%.c=%.mini.o)
 MINI_KERNEL_LIB := libsm_rev_mini_kernel.a
