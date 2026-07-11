@@ -7,6 +7,7 @@
 #include "variables.h"
 #include "sm_rtl.h"
 #include "funcs.h"
+#include "samus_env.h"
 
 static Func_U8 *const off_91FE8A[4] = {  // 0x91FDAE
   HandleCollDueToChangedPose_Solid_NoColl,
@@ -35,13 +36,13 @@ void HandleCollDueToChangedPose(void) {
     return;
   samus_y_radius = kPoseParams[samus_prev_pose].y_radius;
   samus_y_radius_diff = kPoseParams[samus_pose].y_radius - v0;
-  samus_collision_direction = 2;
+  samus_collision_direction = kSamusCollisionDirection_Up;
   cres = Samus_CheckSolidEnemyColl(INT16_SHL16(samus_y_radius_diff));
   samus_collision_flag = cres.collision, amt = cres.amt;
   if (samus_collision_flag)
     solid_enemy_collision_flags = 1;
   samus_space_to_move_up_enemy = (amt >> 16);
-  samus_collision_direction = 3;
+  samus_collision_direction = kSamusCollisionDirection_Down;
   cres = Samus_CheckSolidEnemyColl(INT16_SHL16(samus_y_radius_diff));
   samus_collision_flag = cres.collision, amt = cres.amt;
   if (samus_collision_flag)
@@ -76,7 +77,7 @@ uint8 HandleCollDueToChangedPose_Solid_CollBoth(void) {  // 0x91FE9C
 uint8 HandleCollDueToChangedPose_Solid_CollAbove(void) {  // 0x91FE9E
   uint16 v1 = samus_y_radius;
   samus_y_radius = kPoseParams[samus_pose].y_radius;
-  samus_collision_direction = 3;
+  samus_collision_direction = kSamusCollisionDirection_Down;
   CheckEnemyColl_Result cres = Samus_CheckSolidEnemyColl(INT16_SHL16(samus_y_radius_diff - samus_space_to_move_up_enemy));
   samus_y_radius = v1;
   samus_collision_flag = cres.collision;
@@ -89,7 +90,7 @@ uint8 HandleCollDueToChangedPose_Solid_CollAbove(void) {  // 0x91FE9E
 uint8 HandleCollDueToChangedPose_Solid_CollBelow(void) {  // 0x91FEDF
   uint16 v1 = samus_y_radius;
   samus_y_radius = kPoseParams[samus_pose].y_radius;
-  samus_collision_direction = 2;
+  samus_collision_direction = kSamusCollisionDirection_Up;
   CheckEnemyColl_Result cres = Samus_CheckSolidEnemyColl(INT16_SHL16(samus_y_radius_diff - samus_space_to_move_down_enemy));
   samus_y_radius = v1;
   samus_collision_flag = cres.collision;

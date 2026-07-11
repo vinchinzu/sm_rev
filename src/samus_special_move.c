@@ -22,9 +22,9 @@ uint8 Samus_GrappleWallJumpCheck(int32 amt) {  // 0x909CAC
   if (samus_pose_x_dir != kSamusPoseXDir_FaceRight) {
     if (samus_pose_x_dir != kSamusPoseXDir_FaceLeft)
       return 0;
-    samus_collision_direction = 1;
+    samus_collision_direction = kSamusCollisionDirection_Right;
   } else {
-    samus_collision_direction = 0;
+    samus_collision_direction = kSamusCollisionDirection_Left;
   }
   CheckEnemyColl_Result cres = Samus_CheckSolidEnemyColl(amt);
   if (!cres.collision) {
@@ -167,7 +167,7 @@ void Samus_ShinesparkMove_Y(void) {  // 0x90D1FF
   AddToHiLo(&samus_y_speed, &samus_y_subspeed, __PAIR32__(substate, suit_pickup_light_beam_pos));
   int32 amt = Samus_ClampSpeedHi(__PAIR32__(samus_y_speed, samus_y_subspeed), 14);
   amt -= __PAIR32__(extra_samus_y_displacement, extra_samus_y_subdisplacement);
-  samus_collision_direction = 2;
+  samus_collision_direction = kSamusCollisionDirection_Up;
   CheckEnemyColl_Result cres = Samus_CheckSolidEnemyColl(Samus_ClampSpeedHi(amt, 15));
   amt = cres.amt;
   if (cres.collision) {

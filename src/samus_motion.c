@@ -17,11 +17,6 @@ enum SamusVerticalDirection {
   kSamusYDir_Falling = 2,
 };
 
-enum SamusCollisionDirection {
-  kSamusCollisionDirection_Up = 2,
-  kSamusCollisionDirection_Down = 3,
-};
-
 // Sentinel used as the gravity cutoff: when samus_y_speed hits this value
 // during a fall, gravity stops adding. See Samus_MoveY_WithSpeedCalc.
 static const uint16 kSamusYSpeedTerminal = 5;

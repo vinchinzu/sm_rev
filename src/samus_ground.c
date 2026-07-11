@@ -8,7 +8,6 @@
 
 enum {
   kSamusFootstepSfx = 6,
-  kSamusCollisionDirection_Up = 2,
 };
 
 static void Samus_ClearGroundHorizontalState(void) {

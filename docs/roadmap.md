@@ -29,10 +29,13 @@ but this file is the top-level map for modability and portability work.
 
 - Continue semantic cleanup in the Samus movement/collision slice:
   movement states, pose groups, slope/material flags, and camera/nav rules.
+- Prefer shared `SamusCollisionDirection` / solid-enemy contact names from
+  `samus_env.h` over raw direction literals in movement and collision code.
 - Treat `src/block_reaction.h` as the shared block material contract for full,
   mini, and editor-exported collision data.
 - Keep stable mini seams in named modules such as `mini_room_adapter.c`,
-  `mini_system.c`, and `mini_platform_stubs.c`.
+  `mini_system.c`, `mini_platform_stubs.c`, and
+  `mini_multiplayer_players.c`.
 - Prefer typed snapshots and config structs for mini-facing state instead of
   adding more direct global reads.
 - Keep boss/mod work behind explicit config and deterministic save-state tests.

@@ -68,6 +68,25 @@ typedef enum SamusHorizontalAccelMode {
   kSamusXAccelMode_Accelerating = 2,
 } SamusHorizontalAccelMode;
 
+// Low 2 bits of samus_collision_direction select the probe axis/side.
+// Higher bits are used as block-collision subtype flags elsewhere.
+typedef enum SamusCollisionDirection {
+  kSamusCollisionDirection_Left = 0,
+  kSamusCollisionDirection_Right = 1,
+  kSamusCollisionDirection_Up = 2,
+  kSamusCollisionDirection_Down = 3,
+} SamusCollisionDirection;
+
+// Contact side flags written into samus_collides_with_solid_enemy after a
+// horizontal solid collision. These are not the same encoding as
+// SamusCollisionDirection; they are the values the transition/pose path
+// historically tested.
+enum {
+  kSamusSolidEnemyContact_None = 0,
+  kSamusSolidEnemyContact_Left = 4,
+  kSamusSolidEnemyContact_Right = 8,
+};
+
 enum {
   kSpeedBoostCounter_Charged = 0x0400,
 };

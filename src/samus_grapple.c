@@ -203,7 +203,7 @@ static uint16 PostGrappleColl_Vert(PostGrappleCollInfo *pgci, uint16 k) {  // 0x
 }
 
 static void PostGrappleCollisionDetect_Right(void) {  // 0x94834F
-  samus_collision_direction = 1;
+  samus_collision_direction = kSamusCollisionDirection_Right;
   distance_to_eject_samus_left = 0;
   uint16 r28 = Samus_GetYposSpan();
   uint16 prod = Mult8x8((uint16)(samus_y_pos - samus_y_radius) >> 4, room_width_in_blocks);
@@ -222,7 +222,7 @@ static void PostGrappleCollisionDetect_Right(void) {  // 0x94834F
 }
 
 static void PostGrappleCollisionDetect_Left(void) {  // 0x9483B1
-  samus_collision_direction = 0;
+  samus_collision_direction = kSamusCollisionDirection_Left;
   distance_to_eject_samus_right = 0;
   uint16 r28 = Samus_GetYposSpan();
   uint16 prod = Mult8x8((uint16)(samus_y_pos - samus_y_radius) >> 4, room_width_in_blocks);
@@ -241,7 +241,7 @@ static void PostGrappleCollisionDetect_Left(void) {  // 0x9483B1
 }
 
 static void PostGrappleCollisionDetect_Down(void) {  // 0x94840F
-  samus_collision_direction = 3;
+  samus_collision_direction = kSamusCollisionDirection_Down;
   distance_to_eject_samus_up = 0;
   uint16 r28 = Samus_GetXposSpan();
   uint16 R32 = samus_y_radius + samus_y_pos - 1;
@@ -259,7 +259,7 @@ static void PostGrappleCollisionDetect_Down(void) {  // 0x94840F
 }
 
 static void PostGrappleCollisionDetect_Up(void) {  // 0x94846A
-  samus_collision_direction = 2;
+  samus_collision_direction = kSamusCollisionDirection_Up;
   distance_to_eject_samus_down = 0;
   uint16 r28 = Samus_GetXposSpan();
   uint16 R32 = samus_y_pos - samus_y_radius;

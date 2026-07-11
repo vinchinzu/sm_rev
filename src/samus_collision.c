@@ -56,14 +56,14 @@ static int32 Samus_ClampSpeed(int32 amt) {
 
 int32 Samus_CalcDisplacementMoveLeft(int32 amt) {  // 0x90E464
   amt = Samus_CalcSpeed_X(amt);
-  samus_collision_direction = 0;
+  samus_collision_direction = kSamusCollisionDirection_Left;
   amt = __PAIR32__(extra_samus_x_displacement, extra_samus_x_subdisplacement) - amt;
   return Samus_ClampSpeed(amt);
 }
 
 int32 Samus_CalcDisplacementMoveRight(int32 amt) {  // 0x90E4AD
   amt = Samus_CalcSpeed_X(amt);
-  samus_collision_direction = 1;
+  samus_collision_direction = kSamusCollisionDirection_Right;
   amt += __PAIR32__(extra_samus_x_displacement, extra_samus_x_subdisplacement);
   return Samus_ClampSpeed(amt);
 }
@@ -148,9 +148,9 @@ void Samus_AlignYPosSlope(void) {  // 0x9487F4
 void Samus_ClearXSpeedIfColl(void) {  // 0x90E5CE
   if (samus_collision_flag) {
     if (samus_collision_direction)
-      samus_collides_with_solid_enemy = 8;
+      samus_collides_with_solid_enemy = kSamusSolidEnemyContact_Right;
     else
-      samus_collides_with_solid_enemy = 4;
+      samus_collides_with_solid_enemy = kSamusSolidEnemyContact_Left;
     Samus_CancelSpeedBoost();
     samus_x_extra_run_speed = 0;
     samus_x_extra_run_subspeed = 0;
@@ -159,7 +159,7 @@ void Samus_ClearXSpeedIfColl(void) {  // 0x90E5CE
     samus_x_accel_mode = kSamusXAccelMode_None;
   } else {
     input_to_pose_calc = 0;
-    samus_collides_with_solid_enemy = 0;
+    samus_collides_with_solid_enemy = kSamusSolidEnemyContact_None;
   }
 }
 
@@ -204,7 +204,7 @@ static uint8 Samus_WallJumpCheck_Bump(int32 amt) {
     return 0;
 
   if (holding_left) {
-    samus_collision_direction = 1;
+    samus_collision_direction = kSamusCollisionDirection_Right;
     cres = Samus_CheckSolidEnemyColl(amt);
     amt = cres.amt;
     if (!cres.collision) {
@@ -213,7 +213,7 @@ static uint8 Samus_WallJumpCheck_Bump(int32 amt) {
         return 0;
     }
   } else {
-    samus_collision_direction = 0;
+    samus_collision_direction = kSamusCollisionDirection_Left;
     cres = Samus_CheckSolidEnemyColl(amt);
     amt = cres.amt;
     if (!cres.collision) {
@@ -245,7 +245,7 @@ static uint8 Samus_WallJumpCheck_Commit(int32 amt) {
   bool hit_enemy;
   bool hit_block_with_jump;
   if (holding_left) {
-    samus_collision_direction = 1;
+    samus_collision_direction = kSamusCollisionDirection_Right;
     cres = Samus_CheckSolidEnemyColl(amt);
     amt = cres.amt;
     hit_enemy = cres.collision;
@@ -257,7 +257,7 @@ static uint8 Samus_WallJumpCheck_Commit(int32 amt) {
       hit_block_with_jump = false;
     }
   } else {
-    samus_collision_direction = 0;
+    samus_collision_direction = kSamusCollisionDirection_Left;
     cres = Samus_CheckSolidEnemyColl(amt);
     amt = cres.amt;
     hit_enemy = cres.collision;

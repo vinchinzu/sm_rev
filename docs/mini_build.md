@@ -51,6 +51,8 @@ The mini target is now split into clearer responsibilities under [`src/mini/`](.
 - [mini_audio_host.c](../src/mini/mini_audio_host.c): SDL audio device and mutex; installs lock hooks into the kernel bridge and stays out of `libsm_rev_mini_kernel.a`
 - [mini_ppu_stub.c](../src/mini/mini_ppu_stub.c): mini-owned VRAM/CGRAM/DMA register emulation for rendering and asset uploads
 - [mini_game.c](../src/mini/mini_game.c): gameplay-state setup and per-frame update
+- [mini_multiplayer_players.c](../src/mini/mini_multiplayer_players.c): multiplayer player runtime save/load, spawn, facing, and post-movement checks
+- [mini_multiplayer_combat.c](../src/mini/mini_multiplayer_combat.c): two-player projectile ownership and hit reception
 - [mini_net_bridge.c](../src/mini/mini_net_bridge.c): narrow C ABI for local browser multiplayer host snapshots, inputs, and per-player cameras
 - [mini_content_scope.c](../src/mini/mini_content_scope.c): allowed mini content boundary for Landing Site and The Climb modes
 - [mini_room_adapter.c](../src/mini/mini_room_adapter.c): editor/ROM/fallback room selection, collision-map setup, and room-boundary metadata

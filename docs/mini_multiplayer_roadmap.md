@@ -581,9 +581,12 @@ Completed extraction:
 
 Remaining cleanup candidates:
 
-No explicit cleanup candidates remain in this roadmap. Future work should be
-added as a new scoped candidate with a parity plan and a focused test before
-implementation starts.
+- Keep thinning `mini_game.c` by extracting named mini seams. The multiplayer
+  player-runtime cluster now lives in `mini_multiplayer_players.c`; next
+  candidates are the shared multiplayer frame stepper and original-gameplay
+  frame wrapper still inlined in `mini_game.c`.
+- Continue naming proven collision-direction and solid-enemy contact values
+  through `samus_env.h` when touching adjacent Samus movement/collision paths.
 
 ## What "Elegant Reused Code" Means Here
 
