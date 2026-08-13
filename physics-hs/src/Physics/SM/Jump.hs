@@ -23,8 +23,8 @@ handleJumpInput cfg input state
       -- Continue squat
       state { stateJumpSquatFrames = stateJumpSquatFrames state + 1 }
   | stateJumpSquatFrames state >= jumpSquatDuration =
-      -- Fire the jump
-      initJump cfg EnvAir False state  -- TODO: detect env and hi-jump
+      -- Fire the jump (env detection requires liquid tracking, hi-jump needs equipment state)
+      initJump cfg EnvAir False state
   | otherwise = state
   where
     jumpSquatDuration = 4  -- Frames of squat before jump fires

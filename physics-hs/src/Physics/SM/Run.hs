@@ -22,7 +22,10 @@ updateHorizontalMovement cfg input state
                , stateXVel = newVel
                , stateAccelMode = newAccelMode
                }
-  | otherwise = state  -- In air: simplified for now, full air control TODO
+  | otherwise =
+      -- In air: maintain current velocity (no air accel for now, full air control needs collision)
+      let newPos = applyVelocity (stateXPos state) (stateXVel state)
+      in state { stateXPos = newPos }
 
 -- | Apply run acceleration/deceleration based on held buttons.
 --
@@ -55,12 +58,18 @@ accelerateRight cfg currentVel =
 
 -- | Accelerate leftward (negative X).
 --
--- For simplicity, we treat leftward as negated rightward. Full implementation
--- would track signed velocity; for now we only support rightward ground run.
+-- C uses separate left/right tables but same accel values. We mirror the right logic.
+-- Note: In C, leftward velocity is stored as magnitude in the same unsigned fields,
+-- with direction tracked by pose_x_dir. For this pure model, we use the same accel
+-- but would need pose tracking to determine actual screen direction.
 accelerateLeft :: PhysicsConfig -> Velocity -> (Velocity, AccelMode)
-accelerateLeft _cfg currentVel =
-  -- TODO: Proper leftward acceleration with signed velocity
-  (currentVel, AccelNone)
+accelerateLeft cfg currentVel =
+  let maxSpeed = cfgRunMaxSpeed cfg
+      accel = cfgRunAccel cfg
+      newVel = addVelocity currentVel accel
+  in if velExceeds newVel maxSpeed
+     then (maxSpeed, AccelNone)
+     else (newVel, AccelAccelerating)
 
 -- | Check if velocity exceeds maximum (unsigned comparison).
 velExceeds :: Velocity -> Velocity -> Bool
