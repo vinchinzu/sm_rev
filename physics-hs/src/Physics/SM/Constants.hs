@@ -39,23 +39,26 @@ module Physics.SM.Constants
 
 import Physics.SM.Types (ButtonMask (..), MovementType (..), SamusPose (..))
 
--- | Button masks from C kButton_* enum.
+-- | Button masks: retro_rl@66836f5 12-bit packed SNES format.
+--
+-- LOCKED: Do not fork this encoding (matches FrameInput wire format).
+-- Golden: 128=Right (0x080), 129=B+Right (0x081)
 btnB, btnY, btnSelect, btnStart :: ButtonMask
 btnUp, btnDown, btnLeft, btnRight :: ButtonMask
 btnA, btnX, btnL, btnR :: ButtonMask
 
-btnB      = ButtonMask 0x8000
-btnY      = ButtonMask 0x4000
-btnSelect = ButtonMask 0x2000
-btnStart  = ButtonMask 0x1000
-btnUp     = ButtonMask 0x0800
-btnDown   = ButtonMask 0x0400
-btnLeft   = ButtonMask 0x0200
-btnRight  = ButtonMask 0x0100
-btnA      = ButtonMask 0x0080
-btnX      = ButtonMask 0x0040
-btnL      = ButtonMask 0x0020
-btnR      = ButtonMask 0x0010
+btnB      = ButtonMask 0x001
+btnY      = ButtonMask 0x002
+btnSelect = ButtonMask 0x004
+btnStart  = ButtonMask 0x008
+btnUp     = ButtonMask 0x010
+btnDown   = ButtonMask 0x020
+btnLeft   = ButtonMask 0x040
+btnRight  = ButtonMask 0x080
+btnA      = ButtonMask 0x100
+btnX      = ButtonMask 0x200
+btnL      = ButtonMask 0x400
+btnR      = ButtonMask 0x800
 
 -- | Movement types from C kMovementType_* enum.
 mvtStanding, mvtRunning, mvtNormalJumping, mvtSpinJumping :: MovementType

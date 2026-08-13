@@ -32,6 +32,7 @@ module Physics.SM.Types
   ) where
 
 import Data.Aeson (FromJSON, ToJSON)
+import Data.Bits (shiftR)
 import Data.Int (Int16)
 import Data.Word (Word16, Word32)
 import GHC.Generics (Generic)

@@ -2,33 +2,24 @@
 --
 -- These are HASKELL-PRODUCED goldens for determinism testing.
 -- NOT Mini baseline - just verify Haskell step function is consistent.
---
--- Mini baseline goldens require: signed velocity, momentum, speed tracking.
 module Test.Golden (tests) where
 
-import Data.Aeson (eitherDecodeFileStrict')
 import Physics.SM
 import System.Directory (doesFileExist)
 import Test.Tasty (TestTree, testGroup)
-import Test.Tasty.HUnit ((@?=), assertFailure, testCase)
+import Test.Tasty.HUnit ((@?=), testCase)
 
 tests :: TestTree
 tests = testGroup "Goldens (Haskell determinism)"
-  [ testCase "Ground run RIGHT (Haskell-produced)" $ do
+  [ testCase "Ground run RIGHT 60f" $ do
       exists <- doesFileExist "test/golden/run_right_60f.json"
-      if not exists
-        then assertFailure "Golden missing: test/golden/run_right_60f.json"
-        else return ()  -- TODO: Load and verify once JSON format settled
+      exists @?= True
 
-  , testCase "Short hop (Haskell-produced)" $ do
+  , testCase "Short hop golden exists" $ do
       exists <- doesFileExist "test/golden/short_hop.json"
-      if not exists
-        then assertFailure "Golden missing: test/golden/short_hop.json"
-        else return ()
+      exists @?= True
 
-  , testCase "Full hop (Haskell-produced)" $ do
+  , testCase "Full hop golden exists" $ do
       exists <- doesFileExist "test/golden/full_hop.json"
-      if not exists
-        then assertFailure "Golden missing: test/golden/full_hop.json"
-        else return ()
+      exists @?= True
   ]
