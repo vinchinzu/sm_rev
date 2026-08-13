@@ -24,6 +24,8 @@ static MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state
   result.buttons = state->controls.buttons;
   result.on_ground = state->samus.on_ground;
   result.state_hash = MiniStateHash(state);
+  result.enemies = NULL;
+  result.enemy_count = 0;
   return result;
 }
 

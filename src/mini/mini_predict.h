@@ -5,6 +5,15 @@
 #include <stdint.h>
 #include "types.h"
 
+// Enemy snapshot for trajectory frame (future use)
+typedef struct MiniEnemySnapshot {
+  uint16 enemy_id;
+  int world_x;
+  int world_y;
+  int16 x_velocity;
+  int16 y_velocity;
+} MiniEnemySnapshot;
+
 // Trajectory frame: per-frame Samus state snapshot for prediction
 typedef struct MiniTrajectoryFrame {
   int frame;
@@ -21,6 +30,10 @@ typedef struct MiniTrajectoryFrame {
   uint16 buttons;
   bool on_ground;
   uint64_t state_hash;
+  
+  // Enemy tracking (wire format compatibility - currently always empty)
+  MiniEnemySnapshot *enemies;
+  size_t enemy_count;
 } MiniTrajectoryFrame;
 
 // Prediction result: array of trajectory frames
