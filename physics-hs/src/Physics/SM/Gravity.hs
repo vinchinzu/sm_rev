@@ -21,10 +21,9 @@ updateVerticalMovement cfg input state
   | stateOnGround state = state  -- No vertical movement on ground
   | otherwise =
       let state' = checkJumpRelease input state
-          -- Environment detection requires liquid level tracking (fx_y_pos, lava_acid_y_pos)
           state'' = applyGravity cfg EnvAir state'
-          newPos = applyVelocity (stateYPos state'') (stateYVel state'')
-          -- Check landing (v1: flat floor collision)
+          -- Apply Y velocity with direction awareness (rising=subtract, falling=add)
+          newPos = applyVelocityY (stateYPos state'') (stateYVel state'') (stateVerticalDir state'')
           state''' = state'' { stateYPos = newPos }
       in checkLanding cfg state'''
 

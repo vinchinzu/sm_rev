@@ -1,15 +1,15 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 -- | CLI for running Haskell physics predictions.
 --
--- Usage:
---   echo '{"state": {...}, "inputs": [...]}' | sm-predict
---   sm-predict --tape inputs.json --output predictions.json
+-- INPUT: {"start": <SimState>, "inputs": [<FrameInput>, ...]}
+-- OUTPUT: {"start": <SimState>, "frames": [<TrajectoryFrame>, ...], "predictor": "haskell-v1", "inputs": [...]}
+--
+-- Matches retro_rl@66836f5 Trajectory.to_dict() wire format.
 module Main (main) where
 
-import Data.Aeson (FromJSON, ToJSON, eitherDecode, encode, object, withObject, (.:), (.=))
+import Data.Aeson (eitherDecode, encode)
 import Data.ByteString.Lazy qualified as BL
 import Physics.SM
+import Physics.SM.FFI
 import System.Environment (getArgs)
 import System.Exit (die)
 import System.IO (hPutStrLn, stderr)
@@ -28,11 +28,11 @@ usage = die $ unlines
   , "  sm-predict                             # Read JSON from stdin"
   , "  sm-predict --tape IN --output OUT      # Read/write files"
   , ""
-  , "Input JSON format:"
-  , "  {\"state\": {...}, \"inputs\": [...]}"
+  , "Input JSON format (retro_rl@66836f5):"
+  , "  {\"start\": <SimState>, \"inputs\": [<FrameInput>, ...]}"
   , ""
-  , "Output JSON format:"
-  , "  {\"states\": [...]}"
+  , "Output JSON format (Trajectory.to_dict):"
+  , "  {\"start\": <SimState>, \"frames\": [<TrajectoryFrame>, ...], \"predictor\": \"haskell-v1\", \"inputs\": [...]}"
   ]
 
 runStdin :: IO ()
@@ -52,31 +52,21 @@ runFile inputPath outputPath = do
     Right req -> do
       let result = processRequest req
       BL.writeFile outputPath (encode result)
-      hPutStrLn stderr $ "Wrote " ++ show (length (respStates result)) ++ " states to " ++ outputPath
-
--- | Request format: initial state + input tape.
-data PredictRequest = PredictRequest
-  { reqState :: SamusState
-  , reqInputs :: [ControllerInput]
-  } deriving (Show)
-
-instance FromJSON PredictRequest where
-  parseJSON = withObject "PredictRequest" $ \o -> do
-    state <- o .: "state"
-    inputs <- o .: "inputs"
-    return (PredictRequest state inputs)
-
--- | Response format: resulting states.
-newtype PredictResponse = PredictResponse
-  { respStates :: [SamusState]
-  } deriving (Show)
-
-instance ToJSON PredictResponse where
-  toJSON (PredictResponse states) = object ["states" .= states]
+      hPutStrLn stderr $ "Wrote trajectory with " ++ show (length (frames result)) ++ " frames to " ++ outputPath
 
 -- | Run the Haskell physics kernel.
-processRequest :: PredictRequest -> PredictResponse
-processRequest (PredictRequest initialSt inputs) =
+--
+-- Convert retro_rl SimState/FrameInput to internal types, run steps, convert back.
+processRequest :: Trajectory -> Trajectory
+processRequest (Trajectory startSim _ _ inputFrames) =
   let cfg = defaultConfig
-      states = runTape cfg initialSt inputs
-  in PredictResponse states
+      startState = fromSimState startSim
+      inputs = map (\fi -> fromFrameInput fi (ControllerInput (ButtonMask 0) (ButtonMask 0))) inputFrames
+      states = runTape cfg startState inputs
+      trajFrames = map (\s -> TrajectoryFrame (toSimState s) Nothing) states
+  in Trajectory
+       { start = startSim
+       , frames = trajFrames
+       , predictor = "haskell-v1-collision-flat-floor-y200"
+       , inputs = inputFrames
+       }

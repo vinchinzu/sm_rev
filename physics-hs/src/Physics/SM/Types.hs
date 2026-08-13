@@ -96,7 +96,16 @@ addVelocity (Velocity p1 s1) (Velocity p2 s2) =
       newPix = p1 + p2 + carry
   in Velocity newPix newSub
 
--- | Apply velocity to position: pos + vel.
+-- | Apply velocity to position with direction awareness.
+--
+-- For Y: Rising means subtract (move to lower Y), Falling means add (move to higher Y).
+-- For X: Always add (unsigned magnitude, pose determines visual direction).
+applyVelocityY :: Position -> Velocity -> VerticalDirection -> Position
+applyVelocityY pos vel dir = case dir of
+  VDirRising -> subPosition pos (Position (velPixel vel) (velSubpixel vel))
+  VDirFalling -> addPosition pos (Position (velPixel vel) (velSubpixel vel))
+  VDirStationary -> pos
+
 applyVelocity :: Position -> Velocity -> Position
 applyVelocity (Position pp ps) (Velocity vp vs) =
   addPosition (Position pp ps) (Position vp vs)
