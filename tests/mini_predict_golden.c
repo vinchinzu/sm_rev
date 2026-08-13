@@ -373,6 +373,7 @@ static bool test_run_jump_platform_golden(void) {
 
   MiniDestroy(oracle);
   MiniPrediction_Destroy(prediction);
+  printf("  NOTE: Mini baseline does not yet model platform collision (1-tile landing unverified).\n");
   printf("  ✓ Run + jump golden test PASSED (sub-pixel accuracy verified)\n");
   return true;
 }
