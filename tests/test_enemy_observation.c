@@ -88,22 +88,29 @@ static void test_enemy_movement_through_predict(void) {
   uint16 inputs[30];
   memset(inputs, 0, sizeof(inputs));
   
+  // Create initial state with enemies
+  MiniGameState *initial_state = MiniCreate(320, 240);
+  assert(initial_state != NULL);
+  test_spawn_enemies(initial_state);
+  
+  // Save state to snapshot
+  size_t snapshot_size = MiniSaveStateSize();
+  void *snapshot = malloc(snapshot_size);
+  assert(snapshot != NULL);
+  bool saved = MiniSaveState(initial_state, snapshot, snapshot_size);
+  assert(saved && "Failed to save state");
+  MiniDestroy(initial_state);
+  
+  // Now use MiniPredict with the snapshot
   MiniPrediction *prediction = MiniPrediction_Create(frame_count);
   assert(prediction != NULL);
   
-  // Create a state with manually spawned enemies
-  MiniGameState *state = MiniCreate(320, 240);
-  assert(state != NULL);
-  test_spawn_enemies(state);
+  bool success = MiniPredict(prediction, snapshot, snapshot_size, inputs, frame_count, 320, 240);
+  assert(success && "MiniPredict failed");
   
-  // Run prediction - this should call MiniEnemyRuntime_Update each frame
-  prediction->frame_count = 0;
-  for (size_t i = 0; i < frame_count; i++) {
-    MiniStepButtons(state, inputs[i], false);
-    prediction->frames[prediction->frame_count++] = MiniCaptureTrajectoryFrame(state, (int)i);
-  }
+  free(snapshot);
   
-  // Verify enemies are present in frames
+  // Verify enemies are present and moving in frames
   int frames_with_enemies = 0;
   int roach_x_min = 10000, roach_x_max = -10000;
   int roach_y_min = 10000, roach_y_max = -10000;
@@ -130,14 +137,14 @@ static void test_enemy_movement_through_predict(void) {
   
   assert(frames_with_enemies > 0 && "Expected frames to have enemy data");
   
-  // Check that at least one enemy coordinate changed (roach should walk when triggered)
+  // Check that roach actually moved (position changed)
   bool position_changed = (roach_x_max - roach_x_min) > 0 || (roach_y_max - roach_y_min) > 0;
   
   printf("  Position changed: %s\n", position_changed ? "YES" : "NO");
   
   if (!position_changed) {
     printf("  ERROR: Roach position did not change over %zu frames\n", frame_count);
-    printf("  Roach should be triggered by nearby Samus and start walking\n");
+    printf("  Roach should move when MiniEnemyRuntime_Update is called\n");
     // Print first few frames for debugging
     for (size_t i = 0; i < (frame_count < 10 ? frame_count : 10); i++) {
       const MiniTrajectoryFrame *frame = &prediction->frames[i];
@@ -151,14 +158,13 @@ static void test_enemy_movement_through_predict(void) {
       }
       printf("\n");
     }
-    assert(position_changed && "Expected roach to move when triggered by nearby Samus");
+    assert(position_changed && "Expected roach to move via MiniPredict");
   }
   
   printf("  ✓ Roach moved %d pixels in x-direction\n", roach_x_max - roach_x_min);
   printf("  ✓ Enemies captured with type field in trajectory\n");
   
   MiniPrediction_Destroy(prediction);
-  MiniDestroy(state);
   
   printf("✓ Enemy movement test completed\n\n");
 }
