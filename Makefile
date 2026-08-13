@@ -139,8 +139,8 @@ $(MINI_PREDICT_TEST): tests/mini_predict_api.c $(MINI_KERNEL_LIB)
 mini-predict-golden: $(MINI_PREDICT_GOLDEN)
 	./$(MINI_PREDICT_GOLDEN)
 
-$(MINI_PREDICT_GOLDEN): tests/mini_predict_golden.c $(MINI_KERNEL_LIB)
-	$(CC) $(MINI_CFLAGS) $< -o $@ -L. -lsm_rev_mini_kernel $(MINI_LDFLAGS)
+$(MINI_PREDICT_GOLDEN): tests/mini_predict_golden.c tests/mini_test_room.c $(MINI_KERNEL_LIB)
+	$(CC) $(MINI_CFLAGS) tests/mini_predict_golden.c tests/mini_test_room.c -o $@ -L. -lsm_rev_mini_kernel $(MINI_LDFLAGS)
 
 mini-predict-cli: $(MINI_PREDICT_CLI)
 

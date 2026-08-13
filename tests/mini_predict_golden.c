@@ -7,6 +7,7 @@
 #include "mini/mini_defs.h"
 #include "mini/mini_game.h"
 #include "mini/mini_predict.h"
+#include "mini_test_room.h"
 #include "types.h"
 #include "variables.h"  // For samus_x_subpos, samus_y_subpos
 
@@ -35,32 +36,63 @@ static bool test_ground_run_golden(void) {
     inputs[i] = kButton_Right;
   }
 
-  // Run prediction
+  // Create test room and save initial state
+  MiniGameState *test_state = MiniTestRoom_CreateWithFloor(kMiniGameWidth, kMiniGameHeight);
+  if (!test_state) {
+    fprintf(stderr, "FAIL: MiniTestRoom_CreateWithFloor failed\n");
+    return false;
+  }
+  
+  size_t snapshot_size = MiniSaveStateSize();
+  void *snapshot = malloc(snapshot_size);
+  if (!snapshot || !MiniSaveState(test_state, snapshot, snapshot_size)) {
+    MiniDestroy(test_state);
+    fprintf(stderr, "FAIL: MiniSaveState failed\n");
+    return false;
+  }
+  MiniDestroy(test_state);
+
+  // Run prediction from test room snapshot
   MiniPrediction *prediction = MiniPrediction_Create(kFrameCount);
   if (!prediction) {
+    free(snapshot);
     fprintf(stderr, "FAIL: MiniPrediction_Create failed\n");
     return false;
   }
 
-  if (!MiniPredict(prediction, NULL, 0, inputs, kFrameCount, kMiniGameWidth, kMiniGameHeight)) {
+  if (!MiniPredict(prediction, snapshot, snapshot_size, inputs, kFrameCount, kMiniGameWidth, kMiniGameHeight)) {
     MiniPrediction_Destroy(prediction);
+    free(snapshot);
     fprintf(stderr, "FAIL: MiniPredict failed\n");
     return false;
   }
+  free(snapshot);
 
-  // Run oracle (MiniStep)
-  MiniGameState *oracle_state = MiniCreate(kMiniGameWidth, kMiniGameHeight);
+  // Run oracle (MiniStep) with test room (authored movement)
+  MiniGameState *oracle_state = MiniTestRoom_CreateWithFloor(kMiniGameWidth, kMiniGameHeight);
   if (!oracle_state) {
     MiniPrediction_Destroy(prediction);
-    fprintf(stderr, "FAIL: MiniCreate failed for oracle\n");
+    fprintf(stderr, "FAIL: MiniTestRoom_CreateWithFloor failed for oracle\n");
     return false;
   }
+
+  // Debug: Print initial position
+  printf("  Initial: x=%d, y=%d, on_ground=%d, movement_type=%d\n",
+         oracle_state->samus.world_x, oracle_state->samus.world_y,
+         oracle_state->samus.on_ground, oracle_state->samus.movement_type);
 
   // Verify frame-by-frame against oracle at SUB-PIXEL accuracy
   for (size_t i = 0; i < kFrameCount; i++) {
     MiniStepButtons(oracle_state, inputs[i], false);
     
     const MiniTrajectoryFrame *pred_frame = &prediction->frames[i];
+    
+    // Debug: Print position every 10 frames
+    if (i % 10 == 0 || i == kFrameCount - 1) {
+      printf("  Frame %zu: oracle x=%d, pred x=%d, vx=%d, on_ground=%d\n",
+             i, oracle_state->samus.world_x, pred_frame->world_x,
+             oracle_state->samus.x_velocity, oracle_state->samus.on_ground);
+    }
     
     // Sub-pixel accuracy check (SNES RAM $0AF6/$0AF8 for x, $0AFA/$0AFC for y)
     ASSERT_EQ(pred_frame->world_x, oracle_state->samus.world_x, "samus_x");
@@ -114,23 +146,41 @@ static bool test_jump_height_golden(void) {
     full_hop_inputs[i] = 0;
   }
 
-  // Test short hop
+  // Create test room snapshot
+  MiniGameState *test_state = MiniTestRoom_CreateWithFloor(kMiniGameWidth, kMiniGameHeight);
+  if (!test_state) {
+    fprintf(stderr, "FAIL: MiniTestRoom_CreateWithFloor failed\n");
+    return false;
+  }
+  size_t snapshot_size = MiniSaveStateSize();
+  void *snapshot = malloc(snapshot_size);
+  if (!snapshot || !MiniSaveState(test_state, snapshot, snapshot_size)) {
+    MiniDestroy(test_state);
+    fprintf(stderr, "FAIL: MiniSaveState failed\n");
+    return false;
+  }
+  MiniDestroy(test_state);
+
+  // Test short hop from test room
   MiniPrediction *short_prediction = MiniPrediction_Create(kShortHopFrames);
-  if (!short_prediction || !MiniPredict(short_prediction, NULL, 0, short_hop_inputs, kShortHopFrames, kMiniGameWidth, kMiniGameHeight)) {
+  if (!short_prediction || !MiniPredict(short_prediction, snapshot, snapshot_size, short_hop_inputs, kShortHopFrames, kMiniGameWidth, kMiniGameHeight)) {
+    free(snapshot);
     fprintf(stderr, "FAIL: Short hop prediction failed\n");
     return false;
   }
 
-  // Test full hop
+  // Test full hop from test room
   MiniPrediction *full_prediction = MiniPrediction_Create(kFullHopFrames);
-  if (!full_prediction || !MiniPredict(full_prediction, NULL, 0, full_hop_inputs, kFullHopFrames, kMiniGameWidth, kMiniGameHeight)) {
+  if (!full_prediction || !MiniPredict(full_prediction, snapshot, snapshot_size, full_hop_inputs, kFullHopFrames, kMiniGameWidth, kMiniGameHeight)) {
+    free(snapshot);
     MiniPrediction_Destroy(short_prediction);
     fprintf(stderr, "FAIL: Full hop prediction failed\n");
     return false;
   }
+  free(snapshot);
 
-  // Verify short hop against oracle
-  MiniGameState *short_oracle = MiniCreate(kMiniGameWidth, kMiniGameHeight);
+  // Verify short hop against oracle with test room
+  MiniGameState *short_oracle = MiniTestRoom_CreateWithFloor(kMiniGameWidth, kMiniGameHeight);
   if (!short_oracle) {
     MiniPrediction_Destroy(short_prediction);
     MiniPrediction_Destroy(full_prediction);
@@ -152,8 +202,8 @@ static bool test_jump_height_golden(void) {
     }
   }
 
-  // Verify full hop against oracle
-  MiniGameState *full_oracle = MiniCreate(kMiniGameWidth, kMiniGameHeight);
+  // Verify full hop against oracle with test room
+  MiniGameState *full_oracle = MiniTestRoom_CreateWithFloor(kMiniGameWidth, kMiniGameHeight);
   if (!full_oracle) {
     MiniDestroy(short_oracle);
     MiniPrediction_Destroy(short_prediction);
@@ -226,21 +276,39 @@ static bool test_run_jump_platform_golden(void) {
     inputs[i] = kButton_Right;
   }
 
-  // Run prediction
+  // Create test room snapshot
+  MiniGameState *test_state = MiniTestRoom_CreateWithFloor(kMiniGameWidth, kMiniGameHeight);
+  if (!test_state) {
+    fprintf(stderr, "FAIL: MiniTestRoom_CreateWithFloor failed\n");
+    return false;
+  }
+  size_t snapshot_size = MiniSaveStateSize();
+  void *snapshot = malloc(snapshot_size);
+  if (!snapshot || !MiniSaveState(test_state, snapshot, snapshot_size)) {
+    MiniDestroy(test_state);
+    fprintf(stderr, "FAIL: MiniSaveState failed\n");
+    return false;
+  }
+  MiniDestroy(test_state);
+
+  // Run prediction from test room
   MiniPrediction *prediction = MiniPrediction_Create(kFrameCount);
   if (!prediction) {
+    free(snapshot);
     fprintf(stderr, "FAIL: MiniPrediction_Create failed\n");
     return false;
   }
 
-  if (!MiniPredict(prediction, NULL, 0, inputs, kFrameCount, kMiniGameWidth, kMiniGameHeight)) {
+  if (!MiniPredict(prediction, snapshot, snapshot_size, inputs, kFrameCount, kMiniGameWidth, kMiniGameHeight)) {
+    free(snapshot);
     MiniPrediction_Destroy(prediction);
     fprintf(stderr, "FAIL: MiniPredict failed\n");
     return false;
   }
+  free(snapshot);
 
-  // Verify against oracle at sub-pixel accuracy
-  MiniGameState *oracle = MiniCreate(kMiniGameWidth, kMiniGameHeight);
+  // Verify against oracle at sub-pixel accuracy with test room
+  MiniGameState *oracle = MiniTestRoom_CreateWithFloor(kMiniGameWidth, kMiniGameHeight);
   if (!oracle) {
     MiniPrediction_Destroy(prediction);
     return false;
