@@ -30,22 +30,23 @@ testAcceleration = testGroup "Horizontal Acceleration"
           input = ControllerInput (btnB .|. btnRight) (btnB .|. btnRight)
           state0 = initialState cfg
           -- Accel is 0.00a0 per frame, max is 3.0000
-          -- Need ceiling(3.0000 / 0.00a0) = ceiling(49152) = 49152 frames
-          -- For simplicity, run 200 frames
-          states = take 201 $ iterate (step cfg input) state0
+          -- Need ~49152 frames to reach max, run enough to saturate
+          states = take 50001 $ iterate (step cfg input) state0
           finalState = last states
       velPixel (stateXVel finalState) @?= 3  -- cfgRunMaxSpeed
       velSubpixel (stateXVel finalState) @?= Subpixel 0x0000
 
-  , testCase "Releasing B stops acceleration" $ do
+  , testCase "Releasing B applies deceleration" $ do
       let cfg = defaultConfig
           inputAccel = ControllerInput (btnB .|. btnRight) (ButtonMask 0)
           inputCoast = ControllerInput btnRight btnRight
           state0 = initialState cfg
           state1 = step cfg inputAccel state0
           state2 = step cfg inputCoast state1
-      stateAccelMode state2 @?= AccelNone
-      stateXVel state2 @?= zeroVelocity  -- Immediate stop (no decel for now)
+      -- cfgRunDecel is 0, so velocity is checked: currentMag (0x00a0) > decelMag (0)
+      -- Thus subVelocitySafe is called, subtracting 0, leaving velocity unchanged
+      stateAccelMode state2 @?= AccelDecelerating
+      stateXVel state2 @?= Velocity 0 (Subpixel 0x00a0)  -- Unchanged (decel is 0)
   ]
 
 testFriction :: TestTree
@@ -86,8 +87,11 @@ testJumpSquat = testGroup "Jump Squat"
           states = take 5 $ iterate (step cfg inputHold) (step cfg inputPress state0)
           finalState = last states
       stateVerticalDir finalState @?= VDirRising
-      velPixel (stateYVel finalState) @?= (-4)  -- Air jump velocity (negative = upward)
-      unSubpixel (velSubpixel (stateYVel finalState)) @?= 0xe000
+      -- Config: Velocity (-5) (Subpixel 0x8000) = -4.5 pixels/frame
+      -- After 4 frames: initJump gives -4.5, then 3 gravity applications
+      -- -4.5 + 0.109*3 ≈ -4.17, in 16.16: 0xFFFF_B800
+      velPixel (stateYVel finalState) @?= (-5)
+      unSubpixel (velSubpixel (stateYVel finalState)) @?= 0xb800
   ]
 
 testGravity :: TestTree
@@ -109,8 +113,11 @@ testGravity = testGroup "Gravity"
   , testCase "Gravity accelerates downward velocity" $ do
       let cfg = defaultConfig
           input = ControllerInput (ButtonMask 0) (ButtonMask 0)
+          -- Start well above ground to avoid immediate landing
+          airY = Pixel (unPixel (cfgGroundY cfg) - 50)
           state0 = (initialState cfg)
-               { stateOnGround = False
+               { stateYPos = Position airY (Subpixel 0)
+               , stateOnGround = False
                , stateVerticalDir = VDirFalling
                , stateYVel = Velocity 1 (Subpixel 0)
                }
@@ -122,8 +129,11 @@ testGravity = testGroup "Gravity"
   , testCase "Terminal velocity caps falling speed" $ do
       let cfg = defaultConfig
           input = ControllerInput (ButtonMask 0) (ButtonMask 0)
+          -- Start well above ground to avoid immediate landing
+          airY = Pixel (unPixel (cfgGroundY cfg) - 50)
           state0 = (initialState cfg)
-               { stateOnGround = False
+               { stateYPos = Position airY (Subpixel 0)
+               , stateOnGround = False
                , stateVerticalDir = VDirFalling
                , stateYVel = Velocity 5 (Subpixel 0)  -- At terminal
                }

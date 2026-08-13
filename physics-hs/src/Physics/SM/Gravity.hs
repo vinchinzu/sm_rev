@@ -72,8 +72,9 @@ clampTerminalVelocity :: PhysicsConfig -> SamusState -> SamusState
 clampTerminalVelocity _cfg state =
   let vel = stateYVel state
       velPix = velPixel vel
+      velSub = velSubpixel vel
       termPix = 5 :: Int16  -- Terminal velocity: 5 pixels/frame downward
-  in if velPix > termPix
+  in if velPix > termPix || (velPix == termPix && unSubpixel velSub > 0)
      then state { stateYVel = Velocity termPix (Subpixel 0) }
      else state
 
