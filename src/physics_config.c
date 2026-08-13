@@ -246,8 +246,8 @@ void LoadPhysicsConfig(void) {
     if (g_physics_mods.gravity_scale_percent   != 100 ||
         g_physics_mods.run_speed_scale_percent != 100 ||
         g_physics_mods.jump_scale_percent      != 100) {
-      printf("[physics] mods active: gravity=%u%% run=%u%% jump=%u%%\n",
-             g_physics_mods.gravity_scale_percent,
+      fprintf(stderr, "[physics] mods active: gravity=%u%% run=%u%% jump=%u%%\n",
+              g_physics_mods.gravity_scale_percent,
              g_physics_mods.run_speed_scale_percent,
              g_physics_mods.jump_scale_percent);
     }

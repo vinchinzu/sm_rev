@@ -77,6 +77,7 @@ uint16 SnesModulus(uint16 a, uint8 b) {
 
 bool Unreachable(void) {
   Die("Unreachable\n");
+  return false;
 }
 
 NORETURN void Die(const char *error) {

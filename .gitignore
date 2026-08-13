@@ -1,68 +1,33 @@
-# ROMs and local game binaries
-*.smc
-*.sfc
-sm_rev
-sm_rev_mini
-sm_rev_moddable
-.claude/
-*.mp4
-
 # Build artifacts
 *.o
 *.a
 *.so
 *.dylib
-*.dll
-*.exe
-build/
-dist/
-out/
+
+# Binaries
+sm_rev
+sm_rev_mini
+sm_rev_moddable
+sm_rev_predict
+sm_rev_mini_predict_test
+sm_rev_mini_predict_golden
+sm_rev_mini_rollback_test
+sm_rev_mini_rust_host
+libsm_rev_mini_kernel.a
+libsm_rev_mini_browser.so
 
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
 .pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.tox/
-.nox/
-.coverage
-.coverage.*
-htmlcov/
-.venv/
-venv/
-env/
-ENV/
 
-# Tooling and local agent state
-.beads/
-beads/
-.gemini/
-
-# Logs and scratch files
-*.log
-*.tmp
-*.bak
-*.orig
-*.rej
+# Editor
+.vscode/
+.idea/
 *.swp
 *.swo
 *~
-scratch.patch
 
-# Local recovery/output directories
-recovered/
-recovered_matched/
-
-# Generated local mini bridge assets
-assets/local_mini/
-assets/
-
-# sm_orig: local reference checkout of the upstream project (not part of sm_rev)
-sm_orig/
-
-# Keep local save files available
-!saves/
-!saves/**
+# OS
+.DS_Store
+Thumbs.db

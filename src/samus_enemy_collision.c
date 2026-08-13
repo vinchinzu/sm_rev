@@ -59,6 +59,7 @@ static SolidEnemyCollisionKind Samus_CheckSolidEnemyContact(
     return *distance_to_collision >= 0 ? kSolidEnemyCollision_Gap : kSolidEnemyCollision_None;
   default:
     Unreachable();
+    return kSolidEnemyCollision_None;
   }
 }
 

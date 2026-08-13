@@ -428,6 +428,9 @@ void MiniAuthoredMovement_Step(MiniGameState *state) {
   bool touching_left_wall = MiniAuthoredSamusTouchesWall(state, -1);
   bool touching_right_wall = MiniAuthoredSamusTouchesWall(state, 1);
   state->samus.x_velocity = right == left ? 0 : (right ? run_speed : -run_speed);
+  
+  bool jump_held = (buttons & kButton_A) != 0;
+  
   if (jump_pressed && state->samus.on_ground && !is_ball) {
     state->samus.y_velocity = -MiniAuthoredJumpSpeed();
     state->samus.on_ground = false;
@@ -437,7 +440,12 @@ void MiniAuthoredMovement_Step(MiniGameState *state) {
     state->samus.x_velocity = touching_right_wall && !touching_left_wall ? -run_speed : run_speed;
     state->samus.on_ground = false;
   } else if (!state->samus.on_ground) {
-    state->samus.y_velocity += gravity;
+    // Variable jump: reduce gravity when button held and moving upward
+    int effective_gravity = gravity;
+    if (jump_held && state->samus.y_velocity < 0) {
+      effective_gravity = 0;  // No gravity while held and rising (stronger effect)
+    }
+    state->samus.y_velocity += effective_gravity;
     if (state->samus.y_velocity > max_fall_velocity)
       state->samus.y_velocity = max_fall_velocity;
   } else {
