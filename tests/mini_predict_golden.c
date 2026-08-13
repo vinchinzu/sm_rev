@@ -53,7 +53,8 @@ static bool test_ground_run_golden(void) {
   MiniDestroy(test_state);
 
   // Run prediction from snapshot
-  MiniPrediction *prediction = MiniPrediction_Create(kFrameCount);
+  // When loading a snapshot, prediction captures frame 0 (pre-step) plus all input frames
+  MiniPrediction *prediction = MiniPrediction_Create(kFrameCount + 1);
   if (!prediction) {
     free(snapshot);
     fprintf(stderr, "FAIL: MiniPrediction_Create failed\n");
@@ -91,10 +92,11 @@ static bool test_ground_run_golden(void) {
          oracle_state->samus.on_ground, oracle_state->samus.movement_type);
 
   // Verify frame-by-frame against oracle at SUB-PIXEL accuracy
+  // Note: frames[0] is the pre-step state, frames[1..N] are post-step for inputs[0..N-1]
   for (size_t i = 0; i < kFrameCount; i++) {
     MiniStepButtons(oracle_state, inputs[i], false);
     
-    const MiniTrajectoryFrame *pred_frame = &prediction->frames[i];
+    const MiniTrajectoryFrame *pred_frame = &prediction->frames[i + 1];  // Skip frame 0 (pre-step)
     
     // Debug: Print position every 10 frames
     if (i % 10 == 0 || i == kFrameCount - 1) {
@@ -117,7 +119,7 @@ static bool test_ground_run_golden(void) {
   }
 
   // Print final position for verification
-  const MiniTrajectoryFrame *final_frame = &prediction->frames[kFrameCount - 1];
+  const MiniTrajectoryFrame *final_frame = &prediction->frames[kFrameCount];  // Last post-step frame
   printf("  Final position after %zu frames: x=%d.%04x, y=%d.%04x\n",
          kFrameCount,
          final_frame->samus_x, final_frame->samus_x_sub & 0xFFFF,
@@ -170,7 +172,8 @@ static bool test_jump_height_golden(void) {
   MiniDestroy(test_state);
 
   // Test short hop from test room
-  MiniPrediction *short_prediction = MiniPrediction_Create(kShortHopFrames);
+  // When loading a snapshot, allocate space for pre-step frame + all inputs
+  MiniPrediction *short_prediction = MiniPrediction_Create(kShortHopFrames + 1);
   if (!short_prediction || !MiniPredict(short_prediction, snapshot, snapshot_size, short_hop_inputs, kShortHopFrames, kMiniGameWidth, kMiniGameHeight)) {
     free(snapshot);
     fprintf(stderr, "FAIL: Short hop prediction failed\n");
@@ -178,7 +181,7 @@ static bool test_jump_height_golden(void) {
   }
 
   // Test full hop from test room
-  MiniPrediction *full_prediction = MiniPrediction_Create(kFullHopFrames);
+  MiniPrediction *full_prediction = MiniPrediction_Create(kFullHopFrames + 1);
   if (!full_prediction || !MiniPredict(full_prediction, snapshot, snapshot_size, full_hop_inputs, kFullHopFrames, kMiniGameWidth, kMiniGameHeight)) {
     free(snapshot);
     MiniPrediction_Destroy(short_prediction);
@@ -195,11 +198,11 @@ static bool test_jump_height_golden(void) {
     return false;
   }
 
-  int short_peak_y = short_prediction->frames[0].samus_y;
+  int short_peak_y = short_prediction->frames[1].samus_y;  // Start from frame 1 (first post-step)
   size_t short_peak_frame = 0;
   for (size_t i = 0; i < kShortHopFrames; i++) {
     MiniStepButtons(short_oracle, short_hop_inputs[i], false);
-    const MiniTrajectoryFrame *frame = &short_prediction->frames[i];
+    const MiniTrajectoryFrame *frame = &short_prediction->frames[i + 1];  // Skip frame 0 (pre-step)
     
     ASSERT_EQ(frame->samus_y, short_oracle->samus.world_y, "short_hop_y");
     ASSERT_EQ(frame->samus_y_sub, samus_y_subpos, "short_hop_y_sub");
@@ -219,11 +222,11 @@ static bool test_jump_height_golden(void) {
     return false;
   }
 
-  int full_peak_y = full_prediction->frames[0].samus_y;
+  int full_peak_y = full_prediction->frames[1].samus_y;  // Start from frame 1 (first post-step)
   size_t full_peak_frame = 0;
   for (size_t i = 0; i < kFullHopFrames; i++) {
     MiniStepButtons(full_oracle, full_hop_inputs[i], false);
-    const MiniTrajectoryFrame *frame = &full_prediction->frames[i];
+    const MiniTrajectoryFrame *frame = &full_prediction->frames[i + 1];  // Skip frame 0 (pre-step)
     
     ASSERT_EQ(frame->samus_y, full_oracle->samus.world_y, "full_hop_y");
     ASSERT_EQ(frame->samus_y_sub, samus_y_subpos, "full_hop_y_sub");
@@ -300,7 +303,8 @@ static bool test_run_jump_platform_golden(void) {
   MiniDestroy(test_state);
 
   // Run prediction from snapshot
-  MiniPrediction *prediction = MiniPrediction_Create(kFrameCount);
+  // When loading a snapshot, allocate space for pre-step frame + all inputs
+  MiniPrediction *prediction = MiniPrediction_Create(kFrameCount + 1);
   if (!prediction) {
     free(snapshot);
     fprintf(stderr, "FAIL: MiniPrediction_Create failed\n");
@@ -324,7 +328,7 @@ static bool test_run_jump_platform_golden(void) {
   }
   free(snapshot);
 
-  int peak_y = prediction->frames[0].samus_y;
+  int peak_y = prediction->frames[1].samus_y;  // Start from frame 1 (first post-step)
   size_t peak_frame = 0;
   size_t takeoff_frame = 0;
   size_t landing_frame = 0;
@@ -332,7 +336,7 @@ static bool test_run_jump_platform_golden(void) {
 
   for (size_t i = 0; i < kFrameCount; i++) {
     MiniStepButtons(oracle, inputs[i], false);
-    const MiniTrajectoryFrame *frame = &prediction->frames[i];
+    const MiniTrajectoryFrame *frame = &prediction->frames[i + 1];  // Skip frame 0 (pre-step)
     
     // Sub-pixel accuracy verification (SNES RAM $0AF6/$0AF8 for x, $0AFA/$0AFC for y)
     ASSERT_EQ(frame->samus_x, oracle->samus.world_x, "combined_x");
@@ -343,7 +347,7 @@ static bool test_run_jump_platform_golden(void) {
     ASSERT_EQ(frame->velocity_y, oracle->samus.y_velocity, "combined_vy");
     
     // Track jump phases (infer from velocity_y: negative = rising, positive = falling, zero on ground)
-    bool is_grounded = (frame->velocity_y == 0 && i > 0 && prediction->frames[i-1].velocity_y >= 0);
+    bool is_grounded = (frame->velocity_y == 0 && i > 0 && prediction->frames[i].velocity_y >= 0);
     if (!in_air && !is_grounded) {
       takeoff_frame = i;
       in_air = true;
@@ -358,7 +362,7 @@ static bool test_run_jump_platform_golden(void) {
     }
   }
 
-  const MiniTrajectoryFrame *final_frame = &prediction->frames[kFrameCount - 1];
+  const MiniTrajectoryFrame *final_frame = &prediction->frames[kFrameCount];  // Last post-step frame
   printf("  Takeoff frame: %zu\n", takeoff_frame);
   printf("  Peak y=%d at frame %zu\n", peak_y, peak_frame);
   if (landing_frame > 0) {
@@ -369,7 +373,7 @@ static bool test_run_jump_platform_golden(void) {
          final_frame->samus_x, final_frame->samus_x_sub & 0xFFFF,
          final_frame->samus_y, final_frame->samus_y_sub & 0xFFFF);
   printf("  Horizontal distance: %d pixels\n",
-         final_frame->samus_x - prediction->frames[0].samus_x);
+         final_frame->samus_x - prediction->frames[1].samus_x);  // Compare to first post-step frame
 
   MiniDestroy(oracle);
   MiniPrediction_Destroy(prediction);

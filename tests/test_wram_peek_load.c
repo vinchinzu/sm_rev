@@ -69,26 +69,32 @@ static void TestPredictFromLoadedState(void) {
   fclose(f);
   assert(read_size == MiniSaveStateSize());
   
-  // Get initial position from snapshot's g_ram
-  MiniGameState *temp_state = MiniCreate(320, 240);
-  assert(temp_state != NULL);
-  assert(MiniLoadState(temp_state, snapshot, MiniSaveStateSize()));
+  // CRITICAL: Verify g_ram values immediately after MiniLoadState, BEFORE any step
+  MiniGameState *state = MiniCreate(320, 240);
+  assert(state != NULL);
+  assert(MiniLoadState(state, snapshot, MiniSaveStateSize()));
   
-  uint16 initial_x = ReadU16LE(g_ram, kWramAddr_SamusX);
-  uint16 initial_x_sub = ReadU16LE(g_ram, kWramAddr_SamusXSub);
-  uint16 initial_y = ReadU16LE(g_ram, kWramAddr_SamusY);
-  uint16 initial_y_sub = ReadU16LE(g_ram, kWramAddr_SamusYSub);
+  // Capture pre-step position from g_ram (this is the TRUE loaded state)
+  uint16 loaded_x = ReadU16LE(g_ram, kWramAddr_SamusX);
+  uint16 loaded_x_sub = ReadU16LE(g_ram, kWramAddr_SamusXSub);
+  uint16 loaded_y = ReadU16LE(g_ram, kWramAddr_SamusY);
+  uint16 loaded_y_sub = ReadU16LE(g_ram, kWramAddr_SamusYSub);
   
-  MiniDestroy(temp_state);
+  printf("\n  Loaded from g_ram (pre-step): x=%d.%d, y=%d.%d\n", 
+         loaded_x, loaded_x_sub, loaded_y, loaded_y_sub);
+  
+  MiniDestroy(state);
   
   // Run prediction: 60 frames of Right button (0x100 in Mini format)
-  const int frame_count = 60;
+  // REQUIRED A: When loading a snapshot, frames[0] is captured BEFORE any MiniStepButtons
+  const int input_count = 60;
   uint16 buttons[60];
-  for (int i = 0; i < frame_count; i++) {
+  for (int i = 0; i < input_count; i++) {
     buttons[i] = 0x100;  // Mini button format: Right
   }
   
-  MiniPrediction *prediction = MiniPrediction_Create(frame_count);
+  // Allocate space for pre-step frame (frame 0) plus all input frames
+  MiniPrediction *prediction = MiniPrediction_Create(input_count + 1);
   assert(prediction != NULL);
   
   bool success = MiniPredict(
@@ -96,7 +102,7 @@ static void TestPredictFromLoadedState(void) {
     snapshot,
     MiniSaveStateSize(),
     buttons,
-    frame_count,
+    input_count,
     320,
     240
   );
@@ -105,26 +111,26 @@ static void TestPredictFromLoadedState(void) {
   free(snapshot);
   
   // TEST SCOPE: Frame-0 hydrate only
-  // This test verifies that --load-state correctly hydrates g_ram at frame 0.
-  // It does NOT test grounded-walk residuals vs SuperMetroidEnv (that's later work).
-  // Mini authored movement may not produce position changes without proper room setup.
+  // This test verifies that --load-state correctly captures frame 0 BEFORE stepping.
+  // frames[0] is the pre-step state from loaded g_ram.
+  // frames[1..N] are post-step states after each input.
+  // This does NOT test grounded-walk residuals vs SuperMetroidEnv (that's later work).
   
-  assert(prediction->frame_count > 0);
+  assert(prediction->frame_count == (size_t)(input_count + 1));  // pre-step + all inputs
   const MiniTrajectoryFrame *frame0 = &prediction->frames[0];
   
-  printf("  Frame 0: x=%d.%d, y=%d.%d\n", 
+  printf("  frames[0] (pre-step): x=%d.%d, y=%d.%d\n", 
          frame0->samus_x, frame0->samus_x_sub,
          frame0->samus_y, frame0->samus_y_sub);
-  printf("  Expected: x=%d.%d, y=%d.%d\n",
-         initial_x, initial_x_sub, initial_y, initial_y_sub);
   
-  // Assert frame 0 matches the blob's g_ram values
-  assert(frame0->samus_x == initial_x);
-  assert(frame0->samus_x_sub == initial_x_sub);
-  assert(frame0->samus_y == initial_y);
-  assert(frame0->samus_y_sub == initial_y_sub);
+  // Frame 0 should exactly match loaded values (pre-step capture)
+  assert(frame0->samus_x == loaded_x);
+  assert(frame0->samus_x_sub == loaded_x_sub);
+  assert(frame0->samus_y == loaded_y);
+  assert(frame0->samus_y_sub == loaded_y_sub);
   
-  printf("PASSED (frame-0 hydrate verified, grounded-walk R(τ) vs SuperMetroidEnv is later work)\n");
+  printf("PASSED (frames[0] is pre-step state from loaded g_ram)\n");
+  printf("Note: grounded-walk R(τ) vs SuperMetroidEnv is later work\n");
   
   MiniPrediction_Destroy(prediction);
 }

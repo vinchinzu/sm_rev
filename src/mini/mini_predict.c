@@ -118,11 +118,16 @@ bool MiniPredict(MiniPrediction *prediction,
   if (!prediction || !input_buttons || input_count == 0)
     return false;
 
-  if (input_count > prediction->capacity)
+  // When loading a snapshot, we capture frame 0 BEFORE stepping (pre-step state),
+  // then frames 1..N after each input. Without a snapshot, we only capture post-step frames.
+  size_t required_capacity = (state_snapshot != NULL) ? (input_count + 1) : input_count;
+  if (required_capacity > prediction->capacity)
     return false;
 
   MiniGameState *state = NULL;
   bool created_state = false;
+
+  prediction->frame_count = 0;
 
   if (state_snapshot != NULL && snapshot_size > 0) {
     state = MiniCreate(viewport_width, viewport_height);
@@ -133,6 +138,10 @@ bool MiniPredict(MiniPrediction *prediction,
       MiniDestroy(state);
       return false;
     }
+    
+    // REQUIRED A: Capture frame 0 BEFORE any MiniStepButtons.
+    // This is the loaded state from g_ram, before any simulation steps.
+    prediction->frames[prediction->frame_count++] = MiniCaptureTrajectoryFrame(state, 0);
   } else {
     state = MiniCreate(viewport_width, viewport_height);
     if (!state)
@@ -140,10 +149,13 @@ bool MiniPredict(MiniPrediction *prediction,
     created_state = true;
   }
 
-  prediction->frame_count = 0;
+  // Step through inputs and capture post-step frames.
+  // For snapshot loads: frames[1..N] are post-step for inputs[0..N-1]
+  // Without snapshot: frames[0..N-1] are post-step for inputs[0..N-1]
   for (size_t i = 0; i < input_count; i++) {
     MiniStepButtons(state, input_buttons[i], false);
-    prediction->frames[prediction->frame_count++] = MiniCaptureTrajectoryFrame(state, (int)i);
+    int frame_num = (state_snapshot != NULL) ? (int)(i + 1) : (int)i;
+    prediction->frames[prediction->frame_count++] = MiniCaptureTrajectoryFrame(state, frame_num);
   }
 
   if (created_state)

@@ -58,7 +58,7 @@ The `start` field in JSON stdin is echo-only. Mini does NOT hydrate from JSON `S
 
 ### Output Format
 
-Frame 0 in the trajectory matches the loaded state:
+**Frame 0 is the pre-step state** from the loaded blob, captured BEFORE any `MiniStepButtons` call. Subsequent frames are post-step:
 
 ```json
 {
@@ -70,12 +70,21 @@ Frame 0 in the trajectory matches the loaded state:
       "samus_y": 176,
       "samus_y_sub": 0,
       ...
+    },
+    {
+      "frame": 1,
+      "samus_x": 128,  // after first input
+      ...
     }
   ],
   "predictor": "sm_rev",
   "inputs": [...]
 }
 ```
+
+When `--load-state` is provided, the trajectory has `N+1` frames for `N` inputs:
+- `frames[0]`: pre-step state (loaded blob)
+- `frames[1..N]`: post-step states after inputs[0..N-1]
 
 ## Creating Fixtures
 
@@ -159,9 +168,10 @@ python3 tests/test_load_state_cli.py
 ```
 
 The test asserts:
-1. Frame 0 position matches the blob's `$0AF6`/`$0AF8`/`$0AFA`/`$0AFC`
+1. **Frame 0 is the pre-step state** from the blob's `$0AF6`/`$0AF8`/`$0AFA`/`$0AFC`
 2. Position values include subpixels (16.16 fixed-point)
 3. CLI works with both `--load-state <path>` and without (legacy)
+4. When loading a state, the trajectory has `N+1` frames for `N` inputs
 
 ## Out of Scope
 

@@ -231,7 +231,9 @@ int main(int argc, char **argv) {
   }
 
   // Run prediction
-  MiniPrediction *prediction = MiniPrediction_Create(input_count);
+  // When loading a snapshot, we need space for frame 0 (pre-step) plus all input frames
+  size_t prediction_capacity = (snapshot != NULL) ? (input_count + 1) : input_count;
+  MiniPrediction *prediction = MiniPrediction_Create(prediction_capacity);
   if (!prediction) {
     if (snapshot)
       free(snapshot);
