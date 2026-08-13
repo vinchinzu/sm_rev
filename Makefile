@@ -134,7 +134,7 @@ $(MINI_ROLLBACK_TEST): tests/mini_rollback_api.c $(MINI_KERNEL_LIB)
 mini-predict-test: $(MINI_PREDICT_TEST)
 	./$(MINI_PREDICT_TEST)
 
-$(MINI_PREDICT_TEST): tests/mini_predict_api.c $(MINI_KERNEL_LIB)
+# $(MINI_PREDICT_TEST): tests/mini_predict_api.c $(MINI_KERNEL_LIB)  # Removed: superseded by mini_predict_golden.c
 	$(CC) $(MINI_CFLAGS) $< -o $@ -L. -lsm_rev_mini_kernel $(MINI_LDFLAGS)
 
 mini-predict-golden: $(MINI_PREDICT_GOLDEN)

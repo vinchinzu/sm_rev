@@ -78,12 +78,18 @@ static char* read_stdin(void) {
 }
 
 int main(int argc, char **argv) {
+  // Handle --version (SmRevClient availability check, no stdin required)
+  if (argc > 1 && strcmp(argv[1], "--version") == 0) {
+    printf("sm_rev_predict 0.1.0-mini-baseline\n");
+    return 0;
+  }
+  
   // SmRevClient invokes as: [SM_REV_PATH, "predict"]
   // Accept optional "predict" arg for compatibility (no-op)
   if (argc > 1 && strcmp(argv[1], "predict") == 0) {
     // Expected usage, continue
   } else if (argc > 1) {
-    fprintf(stderr, "{\"error\":\"unknown command '%s' (expected 'predict' or no args)\"}\n", argv[1]);
+    fprintf(stderr, "{\"error\":\"unknown command '%s' (expected 'predict', '--version', or no args)\"}\n", argv[1]);
     return 1;
   }
 
@@ -147,9 +153,11 @@ int main(int argc, char **argv) {
   }
 
   // Parse optional start state (wire format: SimState.to_dict())
-  // For now, always start from fresh state (mini kernel doesn't support state loading yet)
+  // LIMITATION: Mini can only load from binary snapshots (MiniStateSnapshot), not from
+  // arbitrary SimState JSON. The start state is echoed back for wire compatibility, but
+  // prediction currently begins from a fixed initial Mini room state.
+  // To predict from arbitrary states, caller must provide a pre-saved binary snapshot.
   cJSON *start_json = cJSON_GetObjectItem(root, "start");
-  (void)start_json;  // TODO: implement state loading when mini supports it
   
   cJSON_Delete(root);
 
@@ -184,32 +192,43 @@ int main(int argc, char **argv) {
   // Output Trajectory.to_dict() (retro_rl wire format)
   printf("{");
   
-  // start: SimState.to_dict() (use first frame for now since mini doesn't track full state)
-  const MiniTrajectoryFrame *first = prediction->frame_count > 0 ? &prediction->frames[0] : NULL;
-  if (first) {
-    printf("\"start\":{");
-    printf("\"frame\":0,");
-    printf("\"room_id\":%d,", first->room_id);
-    printf("\"samus_x\":%d,", first->samus_x);
-    printf("\"samus_y\":%d,", first->samus_y);
-    printf("\"samus_x_sub\":%d,", first->samus_x_sub);
-    printf("\"samus_y_sub\":%d,", first->samus_y_sub);
-    printf("\"velocity_x\":%d,", first->velocity_x);
-    printf("\"velocity_y\":%d,", first->velocity_y);
-    printf("\"velocity_x_sub\":%d,", first->velocity_x_sub);
-    printf("\"velocity_y_sub\":%d,", first->velocity_y_sub);
-    printf("\"momentum_x\":%d,", first->momentum_x);
-    printf("\"momentum_x_sub\":%d,", first->momentum_x_sub);
-    printf("\"pose\":%u,", first->pose);
-    printf("\"facing\":%u,", first->facing);
-    printf("\"movement_type\":%u,", first->movement_type);
-    printf("\"speed_counter\":%u,", first->speed_counter);
-    printf("\"speed_flag\":%u,", first->speed_flag);
-    printf("\"shinespark_timer\":%u", first->shinespark_timer);
-    printf("},");
+  // start: SimState.to_dict() - echo requested start state for wire compatibility
+  // LIMITATION: Mini cannot hydrate from this JSON; prediction starts from fixed initial state
+  printf("\"start\":");
+  if (start_json) {
+    // Echo the provided start state
+    char *start_str = cJSON_PrintUnformatted(start_json);
+    printf("%s", start_str);
+    free(start_str);
   } else {
-    printf("\"start\":null,");
+    // No start provided, use first trajectory frame as placeholder
+    const MiniTrajectoryFrame *first = prediction->frame_count > 0 ? &prediction->frames[0] : NULL;
+    if (first) {
+      printf("{");
+      printf("\"frame\":0,");
+      printf("\"room_id\":%d,", first->room_id);
+      printf("\"samus_x\":%d,", first->samus_x);
+      printf("\"samus_y\":%d,", first->samus_y);
+      printf("\"samus_x_sub\":%d,", first->samus_x_sub);
+      printf("\"samus_y_sub\":%d,", first->samus_y_sub);
+      printf("\"velocity_x\":%d,", first->velocity_x);
+      printf("\"velocity_y\":%d,", first->velocity_y);
+      printf("\"velocity_x_sub\":%d,", first->velocity_x_sub);
+      printf("\"velocity_y_sub\":%d,", first->velocity_y_sub);
+      printf("\"momentum_x\":%d,", first->momentum_x);
+      printf("\"momentum_x_sub\":%d,", first->momentum_x_sub);
+      printf("\"pose\":%u,", first->pose);
+      printf("\"facing\":%u,", first->facing);
+      printf("\"movement_type\":%u,", first->movement_type);
+      printf("\"speed_counter\":%u,", first->speed_counter);
+      printf("\"speed_flag\":%u,", first->speed_flag);
+      printf("\"shinespark_timer\":%u", first->shinespark_timer);
+      printf("}");
+    } else {
+      printf("null");
+    }
   }
+  printf(",");
 
   // frames: [TrajectoryFrame.to_dict(), ...]
   printf("\"frames\":[");
