@@ -12,37 +12,78 @@ module Physics.SM.FFI
   , fromFrameInput
   , toTrajectory
   , fromTrajectory
+    -- * Packed SNES adapter
+  , packedToInternal
+  , internalToPacked
   ) where
 
 import Data.Aeson (FromJSON, ToJSON)
-import Data.Word (Word16)
+import Data.Bits ((.|.), (.&.), shiftL, shiftR)
+import Data.Word (Word8, Word16)
 import GHC.Generics (Generic)
 import Physics.SM.Types
 
--- | Packed SNES controller input (one frame).
+-- | Packed 8-bit SNES controller input (standard wire format).
 --
--- Button layout matches SNES hardware:
---   Bit 15-8: B Y Select Start Up Down Left Right
---   Bit  7-0: A X L R (unused) (unused) (unused) (unused)
+-- This is the LOCKED wire format for retro_rl integration.
+-- Bit layout (single byte):
+--   Bit 7: Right = 0x80
+--   Bit 6: Left  = 0x40
+--   Bit 5: Down  = 0x20
+--   Bit 4: Up    = 0x10
+--   Bit 3: Start = 0x08
+--   Bit 2: Select= 0x04
+--   Bit 1: Y     = 0x02
+--   Bit 0: B     = 0x01
 --
--- Standard bindings:
---   Left  = 0x0200 (0x40 in high byte)
---   Right = 0x0100 (0x80 in high byte)
---   B     = 0x8000
---   A     = 0x0080
-newtype FrameInput = FrameInput { frameInputButtons :: Word16 }
+-- Second byte for A/X/L/R (if needed, extend to Word16):
+--   Bit 8: A = 0x0100, Bit 9: X = 0x0200, Bit 10: L = 0x0400, Bit 11: R = 0x0800
+--
+-- Standard SNES: Right=0x80, Left=0x40 (as documented).
+newtype FrameInput = FrameInput { frameInputPacked :: Word8 }
   deriving stock (Eq, Show, Generic)
   deriving newtype (Num, FromJSON, ToJSON)
 
--- | Convert internal ControllerInput to FFI FrameInput.
-toFrameInput :: ControllerInput -> FrameInput
-toFrameInput input = FrameInput (unButtonMask (inputButtons input))
+-- | Convert packed 8-bit SNES input to internal 16-bit ButtonMask.
+--
+-- Maps packed byte to full 16-bit mask matching C kButton_* constants.
+packedToInternal :: Word8 -> ButtonMask
+packedToInternal packed =
+  let byte0 = fromIntegral packed :: Word16
+      -- Map packed bits to 16-bit positions:
+      -- Packed bit 0 (B) -> 0x8000, bit 1 (Y) -> 0x4000, etc.
+      b     = if packed .&. 0x01 /= 0 then 0x8000 else 0
+      y     = if packed .&. 0x02 /= 0 then 0x4000 else 0
+      sel   = if packed .&. 0x04 /= 0 then 0x2000 else 0
+      start = if packed .&. 0x08 /= 0 then 0x1000 else 0
+      up    = if packed .&. 0x10 /= 0 then 0x0800 else 0
+      down  = if packed .&. 0x20 /= 0 then 0x0400 else 0
+      left  = if packed .&. 0x40 /= 0 then 0x0200 else 0
+      right = if packed .&. 0x80 /= 0 then 0x0100 else 0
+  in ButtonMask (b .|. y .|. sel .|. start .|. up .|. down .|. left .|. right)
 
--- | Convert FFI FrameInput to internal ControllerInput (with prev = current for first frame).
+-- | Convert internal 16-bit ButtonMask to packed 8-bit SNES format.
+internalToPacked :: ButtonMask -> Word8
+internalToPacked (ButtonMask mask) =
+  let b     = if mask .&. 0x8000 /= 0 then 0x01 else 0
+      y     = if mask .&. 0x4000 /= 0 then 0x02 else 0
+      sel   = if mask .&. 0x2000 /= 0 then 0x04 else 0
+      start = if mask .&. 0x1000 /= 0 then 0x08 else 0
+      up    = if mask .&. 0x0800 /= 0 then 0x10 else 0
+      down  = if mask .&. 0x0400 /= 0 then 0x20 else 0
+      left  = if mask .&. 0x0200 /= 0 then 0x40 else 0
+      right = if mask .&. 0x0100 /= 0 then 0x80 else 0
+  in b .|. y .|. sel .|. start .|. up .|. down .|. left .|. right
+
+-- | Convert internal ControllerInput to FFI FrameInput (packed).
+toFrameInput :: ControllerInput -> FrameInput
+toFrameInput input = FrameInput (internalToPacked (inputButtons input))
+
+-- | Convert FFI FrameInput (packed) to internal ControllerInput.
 fromFrameInput :: FrameInput -> ControllerInput -> ControllerInput
-fromFrameInput (FrameInput buttons) prev =
+fromFrameInput (FrameInput packed) prev =
   ControllerInput
-    { inputButtons = ButtonMask buttons
+    { inputButtons = packedToInternal packed
     , inputPrevButtons = inputButtons prev
     }
 

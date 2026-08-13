@@ -1,0 +1,6 @@
+{
+  "name": "run_jump_combined",
+  "description": "Run right then jump (combined horizontal + vertical)",
+  "inputs": [],
+  "states": []
+}

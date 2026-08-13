@@ -1,0 +1,50 @@
+{
+  "name": "ground_run_right_60frames",
+  "description": "Ground run holding B+Right for 60 frames",
+  "inputs": [
+    {"frameInputPacked": 129},
+    {"frameInputPacked": 129},
+    {"frameInputPacked": 129}
+  ],
+  "states": [
+    {
+      "stateXPos": {"posPixel": 100, "posSubpixel": 160},
+      "stateYPos": {"posPixel": 200, "posSubpixel": 0},
+      "stateXVel": {"velPixel": 0, "velSubpixel": 160},
+      "stateYVel": {"velPixel": 0, "velSubpixel": 0},
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {"posPixel": 100, "posSubpixel": 320},
+      "stateYPos": {"posPixel": 200, "posSubpixel": 0},
+      "stateXVel": {"velPixel": 0, "velSubpixel": 320},
+      "stateYVel": {"velPixel": 0, "velSubpixel": 0},
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {"posPixel": 100, "posSubpixel": 480},
+      "stateYPos": {"posPixel": 200, "posSubpixel": 0},
+      "stateXVel": {"velPixel": 0, "velSubpixel": 480},
+      "stateYVel": {"velPixel": 0, "velSubpixel": 0},
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    }
+  ]
+}
