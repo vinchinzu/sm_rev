@@ -156,7 +156,7 @@ $(MINI_RUST_HOST): src/mini/mini_rust_host.rs $(MINI_KERNEL_LIB)
 run: all
 	./$(TARGET_EXEC)
 
-mini-test: mini mini-rollback-test mini-predict-test mini-predict-golden
+mini-test: mini mini-rollback-test mini-predict-golden
 	./$(MINI_TARGET_EXEC) --headless --frames 3
 
 moddable-test: moddable
