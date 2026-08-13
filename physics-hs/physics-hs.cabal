@@ -63,6 +63,7 @@ test-suite physics-hs-test
   other-modules:
     Test.Unit
     Test.Golden
+    Test.HopRise
     Test.Properties
   build-depends:
     base,

@@ -9,7 +9,6 @@ module Main (main) where
 import Data.Aeson (eitherDecode, encode)
 import Data.ByteString.Lazy qualified as BL
 import Physics.SM
-import Physics.SM.FFI
 import System.Environment (getArgs)
 import System.Exit (die)
 import System.IO (hPutStrLn, stderr)

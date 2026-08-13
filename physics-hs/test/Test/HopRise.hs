@@ -1,44 +1,64 @@
--- | Test that hops actually rise (peak Y < groundY).
+-- | Test that Samus Y decreases after jump (rises, not falls).
 module Test.HopRise (tests) where
 
 import Physics.SM
 import Test.Tasty (TestTree, testGroup)
-import Test.Tasty.HUnit ((@?=), assertBool, testCase)
+import Test.Tasty.HUnit (testCase, assertBool, (@?=))
 
 tests :: TestTree
-tests = testGroup "Hop Rise Verification"
-  [ testCase "Jump moves upward (Y decreases)" $ do
+tests = testGroup "Hop Rise"
+  [ testCase "After jump squat, samus_y pixel < groundY" $ do
       let cfg = defaultConfig
-          state0 = initialState cfg
           groundY = unPixel (cfgGroundY cfg)
+          -- Press A to start jump squat
+          inputPress = ControllerInput btnA (ButtonMask 0)
+          inputHold = ControllerInput btnA btnA
           
-          -- Press A to start jump
-          inputA = ControllerInput (ButtonMask 0x100) (ButtonMask 0)
-          
-          -- Run for 10 frames (squat 4 + jump 6)
-          states = runTape cfg state0 (replicate 10 inputA)
-          
-          -- Find peak Y (minimum Y value, since lower Y = higher on screen)
-          yValues = map (unPixel . posPixel . stateYPos) states
-          peakY = minimum yValues
-      
-      -- Assert: peak Y < groundY (jumped up from floor)
-      assertBool
-        ("Peak Y (" ++ show peakY ++ ") should be < groundY (" ++ show groundY ++ ")")
-        (peakY < groundY)
-  
-  , testCase "Y velocity starts negative on jump" $ do
-      let cfg = defaultConfig
+          -- Start on ground
           state0 = initialState cfg
-          inputA = ControllerInput (ButtonMask 0x100) (ButtonMask 0)
           
-          -- Run until jump fires (5 frames: 4 squat + 1 jump)
-          states = runTape cfg state0 (replicate 5 inputA)
-          finalState = last states
-          yVel = velPixel (stateYVel finalState)
+          -- Jump squat (4 frames)
+          state1 = step cfg inputPress state0
+          state2 = step cfg inputHold state1
+          state3 = step cfg inputHold state2
+          state4 = step cfg inputHold state3
+          
+          -- After jump squat, should be airborne with upward velocity
+          stateAfterSquat = state4
+          
+          -- Run a few more frames to see rise
+          state5 = step cfg inputHold stateAfterSquat
+          state6 = step cfg inputHold state5
+          state7 = step cfg inputHold state6
+          
+          peakState = state7
+          peakY = unPixel (posPixel (stateYPos peakState))
       
-      -- Assert: Y velocity is negative (upward)
-      assertBool
-        ("Y velocity (" ++ show yVel ++ ") should be negative (upward)")
-        (yVel < 0)
+      -- After jump squat, Samus should have launched
+      stateOnGround stateAfterSquat @?= False
+      
+      -- Y velocity should be negative (upward)
+      assertBool "Y velocity should be negative (upward)" $
+        velPixel (stateYVel stateAfterSquat) < 0
+      
+      -- After a few frames, Y should be less than groundY (Samus rose)
+      assertBool ("Peak Y (" ++ show peakY ++ ") should be < groundY (" ++ show groundY ++ ")") $
+        peakY < groundY
+  
+  , testCase "Y velocity starts negative after jump" $ do
+      let cfg = defaultConfig
+          inputPress = ControllerInput btnA (ButtonMask 0)
+          inputHold = ControllerInput btnA btnA
+          state0 = initialState cfg
+          
+          -- Complete jump squat
+          state1 = step cfg inputPress state0
+          state2 = step cfg inputHold state1
+          state3 = step cfg inputHold state2
+          state4 = step cfg inputHold state3
+          
+          yVel = velPixel (stateYVel state4)
+      
+      assertBool ("Y velocity (" ++ show yVel ++ ") should be negative") $
+        yVel < 0
   ]

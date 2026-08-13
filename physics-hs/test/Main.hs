@@ -2,6 +2,7 @@ module Main (main) where
 
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Golden qualified
+import Test.HopRise qualified
 import Test.Properties qualified
 import Test.Unit qualified
 

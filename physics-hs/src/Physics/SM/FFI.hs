@@ -67,15 +67,20 @@ data SimState = SimState
 
 -- | TrajectoryFrame: SimState + optional enemies.
 --
--- Note: enemies field omitted from JSON if Nothing (manual ToJSON below).
+-- Manual FromJSON/ToJSON to omit enemies field when Nothing.
 data TrajectoryFrame = TrajectoryFrame
   { frameState :: !SimState
   , enemies :: !(Maybe [Enemy])
   } deriving stock (Eq, Show, Generic)
 
--- Manual ToJSON to omit enemies field when Nothing
+instance FromJSON TrajectoryFrame where
+  parseJSON = withObject "TrajectoryFrame" $ \o -> do
+    st <- parseJSON (Object o)
+    maybeEnemies <- o .:? "enemies"
+    return (TrajectoryFrame st maybeEnemies)
+
 instance ToJSON TrajectoryFrame where
-  toJSON (TrajectoryFrame st Nothing) = Data.Aeson.object
+  toJSON (TrajectoryFrame st Nothing) = object
     [ "frame" .= frame st
     , "room_id" .= room_id st
     , "samus_x" .= samus_x st
@@ -95,7 +100,7 @@ instance ToJSON TrajectoryFrame where
     , "speed_flag" .= speed_flag st
     , "shinespark_timer" .= shinespark_timer st
     ]
-  toJSON (TrajectoryFrame st (Just es)) = Data.Aeson.object
+  toJSON (TrajectoryFrame st (Just es)) = object
     [ "frame" .= frame st
     , "room_id" .= room_id st
     , "samus_x" .= samus_x st
@@ -160,8 +165,8 @@ toSimState state = SimState
   , samus_y = unPixel (posPixel (stateYPos state))
   , samus_x_sub = unSubpixel (posSubpixel (stateXPos state))
   , samus_y_sub = unSubpixel (posSubpixel (stateYPos state))
-  , velocity_x = fromIntegral (unPixel (velPixel (stateXVel state)))  -- TODO: signed
-  , velocity_y = fromIntegral (unPixel (velPixel (stateYVel state)))  -- TODO: signed
+  , velocity_x = velPixel (stateXVel state)
+  , velocity_y = velPixel (stateYVel state)
   , velocity_x_sub = unSubpixel (velSubpixel (stateXVel state))
   , velocity_y_sub = unSubpixel (velSubpixel (stateYVel state))
   , momentum_x = 0  -- TODO: momentum not yet tracked
@@ -181,8 +186,8 @@ fromSimState :: SimState -> SamusState
 fromSimState st = SamusState
   { stateXPos = Position (Pixel (samus_x st)) (Subpixel (samus_x_sub st))
   , stateYPos = Position (Pixel (samus_y st)) (Subpixel (samus_y_sub st))
-  , stateXVel = Velocity (Pixel (fromIntegral (velocity_x st))) (Subpixel (velocity_x_sub st))
-  , stateYVel = Velocity (Pixel (fromIntegral (velocity_y st))) (Subpixel (velocity_y_sub st))
+  , stateXVel = Velocity (velocity_x st) (Subpixel (velocity_x_sub st))
+  , stateYVel = Velocity (velocity_y st) (Subpixel (velocity_y_sub st))
   , statePose = SamusPose (pose st)
   , stateMovementType = MovementType (movement_type st)
   , stateVerticalDir = VDirStationary  -- TODO: derive from velocity_y

@@ -1,8 +1,8 @@
 -- | Unit tests for physics primitives (accel, friction, jump squat).
 module Test.Unit (tests) where
 
+import Data.Bits ((.|.))
 import Physics.SM
-import Physics.SM.Gravity (subVelocity)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit ((@?=), testCase)
 
@@ -21,7 +21,7 @@ testAcceleration = testGroup "Horizontal Acceleration"
           input = ControllerInput (btnB .|. btnRight) (ButtonMask 0)
           state0 = initialState cfg
           state1 = step cfg input state0
-      velPixel (stateXVel state1) @?= Pixel 0
+      velPixel (stateXVel state1) @?= 0
       unSubpixel (velSubpixel (stateXVel state1)) @?= 0x00a0  -- cfgRunAccel
       stateAccelMode state1 @?= AccelAccelerating
 
@@ -34,7 +34,7 @@ testAcceleration = testGroup "Horizontal Acceleration"
           -- For simplicity, run 200 frames
           states = take 201 $ iterate (step cfg input) state0
           finalState = last states
-      velPixel (stateXVel finalState) @?= Pixel 3  -- cfgRunMaxSpeed
+      velPixel (stateXVel finalState) @?= 3  -- cfgRunMaxSpeed
       velSubpixel (stateXVel finalState) @?= Subpixel 0x0000
 
   , testCase "Releasing B stops acceleration" $ do
@@ -86,7 +86,7 @@ testJumpSquat = testGroup "Jump Squat"
           states = take 5 $ iterate (step cfg inputHold) (step cfg inputPress state0)
           finalState = last states
       stateVerticalDir finalState @?= VDirRising
-      velPixel (stateYVel finalState) @?= Pixel 4  -- Air jump velocity
+      velPixel (stateYVel finalState) @?= (-4)  -- Air jump velocity (negative = upward)
       unSubpixel (velSubpixel (stateYVel finalState)) @?= 0xe000
   ]
 
@@ -98,11 +98,12 @@ testGravity = testGroup "Gravity"
           state0 = (initialState cfg)
                { stateOnGround = False
                , stateVerticalDir = VDirRising
-               , stateYVel = Velocity (Pixel 2) (Subpixel 0)
+               , stateYVel = Velocity (-2) (Subpixel 0)  -- Negative = upward
                }
           state1 = step cfg input state0
-          expectedVel = subVelocity (Velocity (Pixel 2) (Subpixel 0))
-                                    (Velocity (Pixel 0) (Subpixel 0x1c00))  -- Gravity
+          -- Gravity adds positive velocity to negative (upward) velocity
+          expectedVel = addVelocity (Velocity (-2) (Subpixel 0))
+                                    (Velocity 0 (Subpixel 0x1c00))  -- Gravity
       stateYVel state1 @?= expectedVel
 
   , testCase "Gravity accelerates downward velocity" $ do
@@ -111,11 +112,11 @@ testGravity = testGroup "Gravity"
           state0 = (initialState cfg)
                { stateOnGround = False
                , stateVerticalDir = VDirFalling
-               , stateYVel = Velocity (Pixel 1) (Subpixel 0)
+               , stateYVel = Velocity 1 (Subpixel 0)
                }
           state1 = step cfg input state0
-          expectedVel = addVelocity (Velocity (Pixel 1) (Subpixel 0))
-                                    (Velocity (Pixel 0) (Subpixel 0x1c00))
+          expectedVel = addVelocity (Velocity 1 (Subpixel 0))
+                                    (Velocity 0 (Subpixel 0x1c00))
       stateYVel state1 @?= expectedVel
 
   , testCase "Terminal velocity caps falling speed" $ do
@@ -124,8 +125,8 @@ testGravity = testGroup "Gravity"
           state0 = (initialState cfg)
                { stateOnGround = False
                , stateVerticalDir = VDirFalling
-               , stateYVel = Velocity (Pixel 5) (Subpixel 0)  -- At terminal
+               , stateYVel = Velocity 5 (Subpixel 0)  -- At terminal
                }
           state1 = step cfg input state0
-      stateYVel state1 @?= Velocity (Pixel 5) (Subpixel 0)  -- Unchanged
+      stateYVel state1 @?= Velocity 5 (Subpixel 0)  -- Unchanged
   ]
