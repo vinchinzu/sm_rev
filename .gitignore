@@ -11,8 +11,10 @@ sm_rev_moddable
 sm_rev_predict
 sm_rev_mini_predict_test
 sm_rev_mini_predict_golden
+sm_rev_mini_wram_peek_test
 sm_rev_mini_rollback_test
 sm_rev_mini_rust_host
+generate_mss_fixture
 libsm_rev_mini_kernel.a
 libsm_rev_mini_browser.so
 

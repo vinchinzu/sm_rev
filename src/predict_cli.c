@@ -6,6 +6,7 @@
 #include "mini/mini_game.h"
 #include "mini/mini_predict.h"
 #include "mini/mini_defs.h"
+#include "mini/mini_wram_peek.h"
 #include "third_party/cJSON.h"
 
 // retro_rl wire format: standard SNES button bit order
@@ -84,13 +85,31 @@ int main(int argc, char **argv) {
     return 0;
   }
   
-  // SmRevClient invokes as: [SM_REV_PATH, "predict"]
-  // Accept optional "predict" arg for compatibility (no-op)
-  if (argc > 1 && strcmp(argv[1], "predict") == 0) {
-    // Expected usage, continue
-  } else if (argc > 1) {
-    fprintf(stderr, "{\"error\":\"unknown command '%s' (expected 'predict', '--version', or no args)\"}\n", argv[1]);
-    return 1;
+  // Parse --load-state flag (can appear before or after optional "predict")
+  // Supported forms:
+  //   sm_rev_predict --load-state FILE
+  //   sm_rev_predict predict --load-state FILE
+  //   sm_rev_predict --load-state FILE predict
+  const char *load_state_path = NULL;
+  bool found_predict = false;
+  
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "predict") == 0) {
+      found_predict = true;
+    } else if (strcmp(argv[i], "--load-state") == 0) {
+      if (i + 1 < argc) {
+        load_state_path = argv[i + 1];
+        i++;  // Skip the path argument
+      } else {
+        fprintf(stderr, "{\"error\":\"--load-state requires a file path\"}\n");
+        return 1;
+      }
+    } else if (strncmp(argv[i], "--load-state=", 13) == 0) {
+      load_state_path = argv[i] + 13;
+    } else {
+      fprintf(stderr, "{\"error\":\"unknown argument '%s' (expected 'predict', '--version', or '--load-state')\"}\n", argv[i]);
+      return 1;
+    }
   }
 
   char *json_input = read_stdin();
@@ -153,16 +172,71 @@ int main(int argc, char **argv) {
   }
 
   // Parse optional start state (wire format: SimState.to_dict())
-  // LIMITATION: Mini can only load from binary snapshots (MiniStateSnapshot), not from
-  // arbitrary SimState JSON. The start state is echoed back for wire compatibility, but
-  // prediction currently begins from a fixed initial Mini room state.
-  // To predict from arbitrary states, caller must provide a pre-saved binary snapshot.
+  // LIMITATION: Mini can only load from binary MiniSaveState snapshots (via --load-state flag),
+  // not from arbitrary SimState JSON. The start state is echoed back for wire compatibility,
+  // but prediction without --load-state begins from a fixed initial Mini room state.
   cJSON *start_json = cJSON_GetObjectItem(root, "start");
   // Keep start_json reference valid by not deleting root yet
 
+  // Load MiniSaveState snapshot if --load-state was provided
+  void *snapshot = NULL;
+  size_t snapshot_size = 0;
+  
+  if (load_state_path) {
+    // Read MiniSaveState blob from file
+    FILE *f = fopen(load_state_path, "rb");
+    if (!f) {
+      free(mini_buttons);
+      free(wire_buttons);
+      cJSON_Delete(root);
+      fprintf(stderr, "{\"error\":\"failed to open state file '%s'\"}\n", load_state_path);
+      return 1;
+    }
+
+    fseek(f, 0, SEEK_END);
+    long file_size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    if (file_size <= 0 || (size_t)file_size < MiniSaveStateSize()) {
+      fclose(f);
+      free(mini_buttons);
+      free(wire_buttons);
+      cJSON_Delete(root);
+      fprintf(stderr, "{\"error\":\"state file too small or empty\"}\n");
+      return 1;
+    }
+
+    snapshot_size = MiniSaveStateSize();
+    snapshot = malloc(snapshot_size);
+    if (!snapshot) {
+      fclose(f);
+      free(mini_buttons);
+      free(wire_buttons);
+      cJSON_Delete(root);
+      fprintf(stderr, "{\"error\":\"allocation failed\"}\n");
+      return 1;
+    }
+
+    size_t read_size = fread(snapshot, 1, snapshot_size, f);
+    fclose(f);
+
+    if (read_size != snapshot_size) {
+      free(snapshot);
+      free(mini_buttons);
+      free(wire_buttons);
+      cJSON_Delete(root);
+      fprintf(stderr, "{\"error\":\"failed to read complete snapshot\"}\n");
+      return 1;
+    }
+  }
+
   // Run prediction
-  MiniPrediction *prediction = MiniPrediction_Create(input_count);
+  // When loading a snapshot, we need space for frame 0 (pre-step) plus all input frames
+  size_t prediction_capacity = (snapshot != NULL) ? (input_count + 1) : input_count;
+  MiniPrediction *prediction = MiniPrediction_Create(prediction_capacity);
   if (!prediction) {
+    if (snapshot)
+      free(snapshot);
     free(mini_buttons);
     free(wire_buttons);
     fprintf(stderr, "{\"error\":\"MiniPrediction_Create failed\"}\n");
@@ -171,13 +245,16 @@ int main(int argc, char **argv) {
 
   bool success = MiniPredict(
     prediction,
-    NULL,  // TODO: pass snapshot when state loading is implemented
-    0,
+    snapshot,
+    snapshot_size,
     mini_buttons,
     input_count,
     kMiniGameWidth,
     kMiniGameHeight
   );
+
+  if (snapshot)
+    free(snapshot);
 
   free(mini_buttons);
 
@@ -220,7 +297,11 @@ int main(int argc, char **argv) {
       printf("\"movement_type\":%u,", first->movement_type);
       printf("\"speed_counter\":%u,", first->speed_counter);
       printf("\"speed_flag\":%u,", first->speed_flag);
-      printf("\"shinespark_timer\":%u", first->shinespark_timer);
+      printf("\"shinespark_timer\":%u,", first->shinespark_timer);
+      printf("\"energy\":%u,", first->energy);
+      // Note: is_dead and is_game_over not yet implemented, omitted from output
+      printf("\"frame_counter_1\":%u,", first->frame_counter_1);
+      printf("\"frame_counter_2\":%u", first->frame_counter_2);
       printf("},");
     } else {
       printf("\"start\":null,");
@@ -245,12 +326,16 @@ int main(int argc, char **argv) {
     printf("\"velocity_y_sub\":%d,", frame->velocity_y_sub);
     printf("\"momentum_x\":%d,", frame->momentum_x);
     printf("\"momentum_x_sub\":%d,", frame->momentum_x_sub);
-    printf("\"pose\":%u,", frame->pose);
-    printf("\"facing\":%u,", frame->facing);
-    printf("\"movement_type\":%u,", frame->movement_type);
-    printf("\"speed_counter\":%u,", frame->speed_counter);
-    printf("\"speed_flag\":%u,", frame->speed_flag);
-    printf("\"shinespark_timer\":%u", frame->shinespark_timer);
+      printf("\"pose\":%u,", frame->pose);
+      printf("\"facing\":%u,", frame->facing);
+      printf("\"movement_type\":%u,", frame->movement_type);
+      printf("\"speed_counter\":%u,", frame->speed_counter);
+      printf("\"speed_flag\":%u,", frame->speed_flag);
+      printf("\"shinespark_timer\":%u,", frame->shinespark_timer);
+      printf("\"energy\":%u,", frame->energy);
+      // Note: is_dead and is_game_over not yet implemented, omitted from output
+      printf("\"frame_counter_1\":%u,", frame->frame_counter_1);
+      printf("\"frame_counter_2\":%u", frame->frame_counter_2);
     
     // Omit enemies when empty (per wire format spec)
     if (frame->enemy_count > 0 && frame->enemies) {

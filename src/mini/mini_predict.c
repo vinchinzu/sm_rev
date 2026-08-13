@@ -6,6 +6,7 @@
 
 #include "mini_game.h"
 #include "mini_room_adapter.h"
+#include "mini_wram_peek.h"
 #include "variables.h"
 
 MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state, int frame) {
@@ -13,11 +14,12 @@ MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state, int f
   result.frame = frame;
   result.room_id = state->room.room_id;
   
-  // Position (world coords + subpixel)
-  result.samus_x = state->samus.world_x;
-  result.samus_y = state->samus.world_y;
-  result.samus_x_sub = samus_x_subpos;
-  result.samus_y_sub = samus_y_subpos;
+  // Position: read from g_ram to ensure we get the authoritative post-MiniLoadState values
+  // These include subpixels that public Mini fields don't expose
+  result.samus_x = samus_x_pos;           // g_ram $0AF6
+  result.samus_y = samus_y_pos;           // g_ram $0AFA
+  result.samus_x_sub = samus_x_subpos;    // g_ram $0AF8
+  result.samus_y_sub = samus_y_subpos;    // g_ram $0AFC
   
   // Velocity (mini tracks pixel velocity, subpixel always zero for authored movement)
   result.velocity_x = state->samus.x_velocity;
@@ -29,9 +31,8 @@ MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state, int f
   result.momentum_x = 0;
   result.momentum_x_sub = 0;
   
-  // Pose and movement
-  result.pose = state->samus.pose;
-  // Facing: infer from pose or movement (0x04=left, 0x08=right)
+  // Pose and movement: read from g_ram for post-MiniLoadState correctness
+  result.pose = samus_pose;                    // g_ram $0A1C
   result.facing = (state->samus.x_velocity < 0) ? 0x04 : 0x08;
   result.movement_type = state->samus.movement_type;
   
@@ -39,6 +40,18 @@ MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state, int f
   result.speed_counter = 0;
   result.speed_flag = 0;
   result.shinespark_timer = 0;
+  
+  // Energy: read from g_ram $09C2
+  result.energy = samus_health;                // g_ram $09C2
+  
+  // Death and game over state: not yet implemented in Mini
+  // These fields are NOT emitted in JSON output (see predict_cli.c)
+  result.is_dead = false;
+  result.is_game_over = false;
+  
+  // Frame counters: read from g_ram (both uint16 per locked M-E map)
+  result.frame_counter_1 = *(uint16*)(g_ram + kWramAddr_FrameCounter1);
+  result.frame_counter_2 = *(uint16*)(g_ram + kWramAddr_FrameCounter2);
   
   // Enemy tracking: capture active enemies from MiniSim (pixel x/y only)
   result.enemy_count = 0;
@@ -105,11 +118,16 @@ bool MiniPredict(MiniPrediction *prediction,
   if (!prediction || !input_buttons || input_count == 0)
     return false;
 
-  if (input_count > prediction->capacity)
+  // When loading a snapshot, we capture frame 0 BEFORE stepping (pre-step state),
+  // then frames 1..N after each input. Without a snapshot, we only capture post-step frames.
+  size_t required_capacity = (state_snapshot != NULL) ? (input_count + 1) : input_count;
+  if (required_capacity > prediction->capacity)
     return false;
 
   MiniGameState *state = NULL;
   bool created_state = false;
+
+  prediction->frame_count = 0;
 
   if (state_snapshot != NULL && snapshot_size > 0) {
     state = MiniCreate(viewport_width, viewport_height);
@@ -120,6 +138,10 @@ bool MiniPredict(MiniPrediction *prediction,
       MiniDestroy(state);
       return false;
     }
+    
+    // REQUIRED A: Capture frame 0 BEFORE any MiniStepButtons.
+    // This is the loaded state from g_ram, before any simulation steps.
+    prediction->frames[prediction->frame_count++] = MiniCaptureTrajectoryFrame(state, 0);
   } else {
     state = MiniCreate(viewport_width, viewport_height);
     if (!state)
@@ -127,10 +149,13 @@ bool MiniPredict(MiniPrediction *prediction,
     created_state = true;
   }
 
-  prediction->frame_count = 0;
+  // Step through inputs and capture post-step frames.
+  // For snapshot loads: frames[1..N] are post-step for inputs[0..N-1]
+  // Without snapshot: frames[0..N-1] are post-step for inputs[0..N-1]
   for (size_t i = 0; i < input_count; i++) {
     MiniStepButtons(state, input_buttons[i], false);
-    prediction->frames[prediction->frame_count++] = MiniCaptureTrajectoryFrame(state, (int)i);
+    int frame_num = (state_snapshot != NULL) ? (int)(i + 1) : (int)i;
+    prediction->frames[prediction->frame_count++] = MiniCaptureTrajectoryFrame(state, frame_num);
   }
 
   if (created_state)
