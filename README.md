@@ -85,6 +85,7 @@ Use the smallest test that matches the change:
 - full runtime smoke: `python3 tests/run_tests.py -v`
 - mini smoke: `make mini-test`
 - browser multiplayer MVP: `python3 -m pytest tests/test_mini_browser_server.py -q`
+- mss converter: `python3 -m pytest tests/test_mss_converter.py -q`
 
 ## Docs
 
