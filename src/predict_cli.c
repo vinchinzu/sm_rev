@@ -158,8 +158,7 @@ int main(int argc, char **argv) {
   // prediction currently begins from a fixed initial Mini room state.
   // To predict from arbitrary states, caller must provide a pre-saved binary snapshot.
   cJSON *start_json = cJSON_GetObjectItem(root, "start");
-  
-  cJSON_Delete(root);
+  // Keep start_json reference valid by not deleting root yet
 
   // Run prediction
   MiniPrediction *prediction = MiniPrediction_Create(input_count);
@@ -194,17 +193,16 @@ int main(int argc, char **argv) {
   
   // start: SimState.to_dict() - echo requested start state for wire compatibility
   // LIMITATION: Mini cannot hydrate from this JSON; prediction starts from fixed initial state
-  printf("\"start\":");
   if (start_json) {
     // Echo the provided start state
     char *start_str = cJSON_PrintUnformatted(start_json);
-    printf("%s", start_str);
+    printf("\"start\":%s,", start_str);
     free(start_str);
   } else {
     // No start provided, use first trajectory frame as placeholder
     const MiniTrajectoryFrame *first = prediction->frame_count > 0 ? &prediction->frames[0] : NULL;
     if (first) {
-      printf("{");
+      printf("\"start\":{");
       printf("\"frame\":0,");
       printf("\"room_id\":%d,", first->room_id);
       printf("\"samus_x\":%d,", first->samus_x);
@@ -223,12 +221,11 @@ int main(int argc, char **argv) {
       printf("\"speed_counter\":%u,", first->speed_counter);
       printf("\"speed_flag\":%u,", first->speed_flag);
       printf("\"shinespark_timer\":%u", first->shinespark_timer);
-      printf("}");
+      printf("},");
     } else {
-      printf("null");
+      printf("\"start\":null,");
     }
   }
-  printf(",");
 
   // frames: [TrajectoryFrame.to_dict(), ...]
   printf("\"frames\":[");
@@ -274,5 +271,6 @@ int main(int argc, char **argv) {
   printf("}\n");
 
   MiniPrediction_Destroy(prediction);
+  cJSON_Delete(root);  // Now safe to delete after using start_json
   return 0;
 }
