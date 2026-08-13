@@ -1,122 +1,118 @@
--- | FFI wire format types matching retro_rl main (66836f5).
+-- | FFI wire format matching vinchinzu/retro_rl@66836f5 exactly.
 --
--- SOURCE OF TRUTH: vinchinzu/retro_rl main, PR #1, commit 66836f5
--- Trajectory.to_dict() format from that commit is canonical.
---
--- These types match:
--- - retro_rl Trajectory.to_dict() (JSON serialization)
--- - MiniStep baseline (snake_case fields)
--- - SMEDIT bridge telemetry
+-- SOURCE: snes/super_metroid/physics_sim.py Trajectory.to_dict()
+-- CLI: stdin {"start": <SimState>, "inputs": [{"buttons": int}, ...]}
+-- CLI: stdout Trajectory.to_dict() keys: start, frames, predictor, inputs
 module Physics.SM.FFI
-  ( -- * Frame-level wire types
+  ( -- * Frame-level wire types (retro_rl format)
     FrameInput (..)
+  , SimState (..)
+  , TrajectoryFrame (..)
   , Trajectory (..)
-  , EnemyState (..)
     -- * Conversion to/from internal types
   , toFrameInput
   , fromFrameInput
-  , toTrajectory
-  , fromTrajectory
-    -- * Packed SNES adapter (retro_rl wire format)
-  , packedToInternal
-  , internalToPacked
+  , toSimState
+  , fromSimState
   ) where
 
-import Data.Aeson (FromJSON, ToJSON)
-import Data.Bits ((.|.), (.&.), shiftL, shiftR)
-import Data.Word (Word8, Word16)
+import Data.Aeson (FromJSON, ToJSON, object, (.=))
+import Data.Bits ((.|.), (.&.))
+import Data.Int (Int16)
+import Data.Word (Word16)
 import GHC.Generics (Generic)
 import Physics.SM.Types
 
--- | Packed 8-bit SNES controller input (retro_rl wire format).
+-- | FrameInput from retro_rl: {"buttons": int} with 12-bit mask.
 --
--- LOCKED: This is the public boundary format from retro_rl main 66836f5.
--- Do NOT fork this encoding.
+-- LOCKED: Do not fork this encoding.
+-- B=0x001 Y=0x002 Select=0x004 Start=0x008
+-- Up=0x010 Down=0x020 Left=0x040 Right=0x080
+-- A=0x100 X=0x200 L=0x400 R=0x800
 --
--- Bit layout (D-pad byte):
---   Bit 7: Right = 0x80
---   Bit 6: Left  = 0x40
---   Bit 5: Down  = 0x20
---   Bit 4: Up    = 0x10
---   Bit 3: Start = 0x08
---   Bit 2: Select= 0x04
---   Bit 1: Y     = 0x02
---   Bit 0: B     = 0x01
---
--- Extended buttons (A/X/L/R) not in this byte - future extension.
-newtype FrameInput = FrameInput { frameInputPacked :: Word8 }
+-- Golden: 128=Right (0x080), 129=B+Right (0x081)
+newtype FrameInput = FrameInput { buttons :: Word16 }
   deriving stock (Eq, Show, Generic)
-  deriving newtype (Num, FromJSON, ToJSON)
+  deriving anyclass (FromJSON, ToJSON)
 
--- | Convert packed 8-bit SNES input to internal 16-bit ButtonMask.
+-- | SimState from retro_rl physics_sim.py (18 required keys).
 --
--- Maps packed byte to full 16-bit mask matching C kButton_* constants.
-packedToInternal :: Word8 -> ButtonMask
-packedToInternal packed =
-  let byte0 = fromIntegral packed :: Word16
-      -- Map packed bits to 16-bit positions:
-      -- Packed bit 0 (B) -> 0x8000, bit 1 (Y) -> 0x4000, etc.
-      b     = if packed .&. 0x01 /= 0 then 0x8000 else 0
-      y     = if packed .&. 0x02 /= 0 then 0x4000 else 0
-      sel   = if packed .&. 0x04 /= 0 then 0x2000 else 0
-      start = if packed .&. 0x08 /= 0 then 0x1000 else 0
-      up    = if packed .&. 0x10 /= 0 then 0x0800 else 0
-      down  = if packed .&. 0x20 /= 0 then 0x0400 else 0
-      left  = if packed .&. 0x40 /= 0 then 0x0200 else 0
-      right = if packed .&. 0x80 /= 0 then 0x0100 else 0
-  in ButtonMask (b .|. y .|. sel .|. start .|. up .|. down .|. left .|. right)
-
--- | Convert internal 16-bit ButtonMask to packed 8-bit SNES format.
-internalToPacked :: ButtonMask -> Word8
-internalToPacked (ButtonMask mask) =
-  let b     = if mask .&. 0x8000 /= 0 then 0x01 else 0
-      y     = if mask .&. 0x4000 /= 0 then 0x02 else 0
-      sel   = if mask .&. 0x2000 /= 0 then 0x04 else 0
-      start = if mask .&. 0x1000 /= 0 then 0x08 else 0
-      up    = if mask .&. 0x0800 /= 0 then 0x10 else 0
-      down  = if mask .&. 0x0400 /= 0 then 0x20 else 0
-      left  = if mask .&. 0x0200 /= 0 then 0x40 else 0
-      right = if mask .&. 0x0100 /= 0 then 0x80 else 0
-  in b .|. y .|. sel .|. start .|. up .|. down .|. left .|. right
-
--- | Convert internal ControllerInput to FFI FrameInput (packed).
-toFrameInput :: ControllerInput -> FrameInput
-toFrameInput input = FrameInput (internalToPacked (inputButtons input))
-
--- | Convert FFI FrameInput (packed) to internal ControllerInput.
-fromFrameInput :: FrameInput -> ControllerInput -> ControllerInput
-fromFrameInput (FrameInput packed) prev =
-  ControllerInput
-    { inputButtons = packedToInternal packed
-    , inputPrevButtons = inputButtons prev
-    }
-
--- | Trajectory state for one frame (retro_rl Trajectory.to_dict() format).
---
--- LOCKED: Matches vinchinzu/retro_rl main 66836f5 Trajectory.to_dict() exactly.
--- Do NOT fork this encoding - copy retro_rl main, don't invent.
---
--- Fields match C MiniSamusCoreState: $0AF6/$0AF8 (x), $0AFA/$0AFC (y).
--- Snake_case for Python/JSON compatibility.
-data Trajectory = Trajectory
-  { samus_x :: !Word16        -- Pixel component of X position
-  , samus_x_sub :: !Word16    -- Subpixel component of X
-  , samus_y :: !Word16        -- Pixel component of Y position
-  , samus_y_sub :: !Word16    -- Subpixel component of Y
-  , velocity_x :: !Word16     -- X velocity (pixels/frame)
-  , velocity_x_sub :: !Word16 -- X velocity subpixel
-  , velocity_y :: !Word16     -- Y velocity (pixels/frame)
-  , velocity_y_sub :: !Word16 -- Y velocity subpixel
-  , pose :: !Word16           -- Samus pose index (kPose_*)
-  , facing :: !Word16         -- 0 = right, 1 = left (from pose_x_dir)
-  , movement_type :: !Word16  -- Movement type index (kMovementType_*)
-  , on_ground :: !Bool        -- Ground contact flag
-  , enemies :: ![EnemyState]  -- Optional enemy list (empty for pure Samus)
+-- LOCKED: All fields required. Match retro_rl exactly.
+-- velocity_x/y and momentum_x are SIGNED i16 JSON.
+-- facing: LEFT=0x04 RIGHT=0x08 (not 0/1)
+-- room_id: $079B room header ptr (Landing Site = 0x91F8)
+data SimState = SimState
+  { frame :: !Word16
+  , room_id :: !Word16            -- $079B room header ptr
+  , samus_x :: !Word16
+  , samus_y :: !Word16
+  , samus_x_sub :: !Word16
+  , samus_y_sub :: !Word16
+  , velocity_x :: !Int16          -- SIGNED
+  , velocity_y :: !Int16          -- SIGNED
+  , velocity_x_sub :: !Word16
+  , velocity_y_sub :: !Word16
+  , momentum_x :: !Int16          -- SIGNED
+  , momentum_x_sub :: !Word16
+  , pose :: !Word16
+  , facing :: !Word16             -- LEFT=0x04 RIGHT=0x08
+  , movement_type :: !Word16
+  , speed_counter :: !Word16
+  , speed_flag :: !Word16
+  , shinespark_timer :: !Word16
   } deriving stock (Eq, Show, Generic)
     deriving anyclass (FromJSON, ToJSON)
 
--- | Enemy state placeholder (for future collision integration).
-data EnemyState = EnemyState
+-- | TrajectoryFrame: SimState + optional enemies (deleted if empty).
+data TrajectoryFrame = TrajectoryFrame
+  { frameState :: !SimState
+  , enemies :: !(Maybe [Enemy])  -- Omitted if empty/Nothing
+  } deriving stock (Eq, Show, Generic)
+
+instance ToJSON TrajectoryFrame where
+  toJSON (TrajectoryFrame st Nothing) = object
+    [ "frame" .= frame st
+    , "room_id" .= room_id st
+    , "samus_x" .= samus_x st
+    , "samus_y" .= samus_y st
+    , "samus_x_sub" .= samus_x_sub st
+    , "samus_y_sub" .= samus_y_sub st
+    , "velocity_x" .= velocity_x st
+    , "velocity_y" .= velocity_y st
+    , "velocity_x_sub" .= velocity_x_sub st
+    , "velocity_y_sub" .= velocity_y_sub st
+    , "momentum_x" .= momentum_x st
+    , "momentum_x_sub" .= momentum_x_sub st
+    , "pose" .= pose st
+    , "facing" .= facing st
+    , "movement_type" .= movement_type st
+    , "speed_counter" .= speed_counter st
+    , "speed_flag" .= speed_flag st
+    , "shinespark_timer" .= shinespark_timer st
+    ]
+  toJSON (TrajectoryFrame st (Just es)) = object
+    [ "frame" .= frame st
+    , "room_id" .= room_id st
+    , "samus_x" .= samus_x st
+    , "samus_y" .= samus_y st
+    , "samus_x_sub" .= samus_x_sub st
+    , "samus_y_sub" .= samus_y_sub st
+    , "velocity_x" .= velocity_x st
+    , "velocity_y" .= velocity_y st
+    , "velocity_x_sub" .= velocity_x_sub st
+    , "velocity_y_sub" .= velocity_y_sub st
+    , "momentum_x" .= momentum_x st
+    , "momentum_x_sub" .= momentum_x_sub st
+    , "pose" .= pose st
+    , "facing" .= facing st
+    , "movement_type" .= movement_type st
+    , "speed_counter" .= speed_counter st
+    , "speed_flag" .= speed_flag st
+    , "shinespark_timer" .= shinespark_timer st
+    , "enemies" .= es
+    ]
+
+data Enemy = Enemy
   { enemy_x :: !Word16
   , enemy_y :: !Word16
   , enemy_type :: !Word16
@@ -124,39 +120,69 @@ data EnemyState = EnemyState
   } deriving stock (Eq, Show, Generic)
     deriving anyclass (FromJSON, ToJSON)
 
--- | Convert internal SamusState to FFI Trajectory.
-toTrajectory :: SamusState -> Trajectory
-toTrajectory state = Trajectory
-  { samus_x = unPixel (posPixel (stateXPos state))
-  , samus_x_sub = unSubpixel (posSubpixel (stateXPos state))
-  , samus_y = unPixel (posPixel (stateYPos state))
-  , samus_y_sub = unSubpixel (posSubpixel (stateYPos state))
-  , velocity_x = unPixel (velPixel (stateXVel state))
-  , velocity_x_sub = unSubpixel (velSubpixel (stateXVel state))
-  , velocity_y = unPixel (velPixel (stateYVel state))
-  , velocity_y_sub = unSubpixel (velSubpixel (stateYVel state))
-  , pose = unPose (statePose state)
-  , facing = if stateFacingRight state then 0 else 1
-  , movement_type = unMovementType (stateMovementType state)
-  , on_ground = stateOnGround state
-  , enemies = []  -- Pure Samus physics (no enemies yet)
-  }
-  where
-    -- Extract facing from pose (even = right, odd = left for most poses)
-    stateFacingRight st = even (unPose (statePose st))
+-- | Trajectory.to_dict() from retro_rl physics_sim.py.
+--
+-- Key order: start, frames, predictor, inputs
+data Trajectory = Trajectory
+  { start :: !SimState
+  , frames :: ![TrajectoryFrame]
+  , predictor :: !String          -- "haskell" or "mini"
+  , inputs :: ![FrameInput]
+  } deriving stock (Eq, Show, Generic)
+    deriving anyclass (FromJSON, ToJSON)
 
--- | Convert FFI Trajectory to internal SamusState.
-fromTrajectory :: Trajectory -> SamusState
-fromTrajectory traj = SamusState
-  { stateXPos = Position (Pixel (samus_x traj)) (Subpixel (samus_x_sub traj))
-  , stateYPos = Position (Pixel (samus_y traj)) (Subpixel (samus_y_sub traj))
-  , stateXVel = Velocity (Pixel (velocity_x traj)) (Subpixel (velocity_x_sub traj))
-  , stateYVel = Velocity (Pixel (velocity_y traj)) (Subpixel (velocity_y_sub traj))
-  , statePose = SamusPose (pose traj)
-  , stateMovementType = MovementType (movement_type traj)
-  , stateVerticalDir = VDirStationary  -- Derived from velocity_y in step
-  , stateAccelMode = AccelNone         -- Derived from input in step
-  , stateOnGround = on_ground traj
-  , stateJumpHeld = False              -- Derived from input in step
-  , stateJumpSquatFrames = 0           -- Internal state not in trajectory
+-- | Convert internal ControllerInput to retro_rl FrameInput.
+toFrameInput :: ControllerInput -> FrameInput
+toFrameInput input = FrameInput (unButtonMask (inputButtons input))
+
+-- | Convert retro_rl FrameInput to internal ControllerInput.
+fromFrameInput :: FrameInput -> ControllerInput -> ControllerInput
+fromFrameInput (FrameInput btns) prev =
+  ControllerInput
+    { inputButtons = ButtonMask btns
+    , inputPrevButtons = inputButtons prev
+    }
+
+-- | Convert internal SamusState to retro_rl SimState.
+--
+-- NOTE: Many fields not yet in SamusState (momentum, speed_counter, etc.)
+-- This is a PARTIAL conversion until full state is implemented.
+toSimState :: SamusState -> SimState
+toSimState state = SimState
+  { frame = 0  -- TODO: add frame counter to SamusState
+  , room_id = 0x91F8  -- TODO: Landing Site default
+  , samus_x = unPixel (posPixel (stateXPos state))
+  , samus_y = unPixel (posPixel (stateYPos state))
+  , samus_x_sub = unSubpixel (posSubpixel (stateXPos state))
+  , samus_y_sub = unSubpixel (posSubpixel (stateYPos state))
+  , velocity_x = fromIntegral (unPixel (velPixel (stateXVel state)))  -- TODO: signed
+  , velocity_y = fromIntegral (unPixel (velPixel (stateYVel state)))  -- TODO: signed
+  , velocity_x_sub = unSubpixel (velSubpixel (stateXVel state))
+  , velocity_y_sub = unSubpixel (velSubpixel (stateYVel state))
+  , momentum_x = 0  -- TODO: momentum not yet tracked
+  , momentum_x_sub = 0
+  , pose = unPose (statePose state)
+  , facing = 0x08  -- TODO: derive from pose (RIGHT default)
+  , movement_type = unMovementType (stateMovementType state)
+  , speed_counter = 0  -- TODO: not yet tracked
+  , speed_flag = 0     -- TODO: not yet tracked
+  , shinespark_timer = 0  -- TODO: not yet tracked
+  }
+
+-- | Convert retro_rl SimState to internal SamusState.
+--
+-- PARTIAL: Only uses subset of SimState fields.
+fromSimState :: SimState -> SamusState
+fromSimState st = SamusState
+  { stateXPos = Position (Pixel (samus_x st)) (Subpixel (samus_x_sub st))
+  , stateYPos = Position (Pixel (samus_y st)) (Subpixel (samus_y_sub st))
+  , stateXVel = Velocity (Pixel (fromIntegral (velocity_x st))) (Subpixel (velocity_x_sub st))
+  , stateYVel = Velocity (Pixel (fromIntegral (velocity_y st))) (Subpixel (velocity_y_sub st))
+  , statePose = SamusPose (pose st)
+  , stateMovementType = MovementType (movement_type st)
+  , stateVerticalDir = VDirStationary  -- TODO: derive from velocity_y
+  , stateAccelMode = AccelNone
+  , stateOnGround = False  -- TODO: derive from movement_type
+  , stateJumpHeld = False
+  , stateJumpSquatFrames = 0
   }

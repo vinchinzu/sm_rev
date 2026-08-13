@@ -11,7 +11,7 @@ import Data.Word (Word32)
 import Physics.SM.Constants
 import Physics.SM.Types
 
--- | Update vertical position and velocity (gravity, jump release, terminal velocity).
+-- | Update vertical position and velocity (gravity, jump release, terminal velocity, landing).
 --
 -- Corresponds to Samus_MoveY_WithSpeedCalc and Samus_CheckStartFalling.
 updateVerticalMovement :: PhysicsConfig -> ControllerInput -> SamusState -> SamusState
@@ -22,7 +22,22 @@ updateVerticalMovement cfg input state
           -- Environment detection requires liquid level tracking (fx_y_pos, lava_acid_y_pos)
           state'' = applyGravity cfg EnvAir state'
           newPos = applyVelocity (stateYPos state'') (stateYVel state'')
-      in state'' { stateYPos = newPos }
+          -- Check landing (v1: flat floor collision)
+          state''' = state'' { stateYPos = newPos }
+      in checkLanding cfg state'''
+
+-- | Check if Samus has landed on ground (v1: flat floor at cfgGroundY).
+checkLanding :: PhysicsConfig -> SamusState -> SamusState
+checkLanding cfg state
+  | stateOnGround state = state  -- Already on ground
+  | posPixel (stateYPos state) >= cfgGroundY cfg =
+      -- Landed: snap to ground, zero Y velocity, set on_ground
+      state { stateYPos = Position (cfgGroundY cfg) (Subpixel 0)
+            , stateYVel = zeroVelocity
+            , stateOnGround = True
+            , stateVerticalDir = VDirStationary
+            }
+  | otherwise = state
 
 -- | Check if jump button released early (cut jump short).
 --

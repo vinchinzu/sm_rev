@@ -33,6 +33,7 @@ module Physics.SM.Types
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Bits (Bits, (.&.), shiftR)
+import Data.Int (Int16)
 import Data.Word (Word16, Word32)
 import GHC.Generics (Generic)
 
@@ -186,6 +187,8 @@ data PhysicsConfig = PhysicsConfig
   , cfgTerminalSpeed :: !Pixel
     -- Jump squat duration (frames)
   , cfgJumpSquatDuration :: !Word16
+    -- Collision (v1: flat infinite floor)
+  , cfgGroundY :: !Pixel  -- Y coordinate of ground (flat floor for v1)
   } deriving stock (Eq, Show, Generic)
     deriving anyclass (FromJSON, ToJSON)
 
