@@ -190,14 +190,13 @@ The ROM-free authored movement system provides **simplified physics** compared t
 - ✅ Sub-pixel position tracking
 
 **Known Limitations:**
-- ⚠️ **Fixed jump height**: No variable-height jumps based on button hold duration
 - ⚠️ **Enemies stubbed**: No enemy spawn/movement in authored movement rooms (see Enemy Data below)
-- ⚠️ Some advanced movement tech may differ from ROM physics
+- ⚠️ Some advanced movement tech may differ from ROM physics (no spin jump, speed booster, grapple)
 
 **Golden Test Status:**
 1. ✅ **Ground run** (hold RIGHT): **PASSING** with sub-pixel accuracy
-2. ⚠️ **Jump height** (short vs full hop): **Fails** due to fixed jump height limitation
-3. ⚠️ **Combined platforming**: Not yet debugged
+2. ✅ **Jump height** (short vs full hop): **PASSING** - 63 pixel difference verified
+3. ✅ **Combined platforming** (run + jump): **PASSING** - 102 pixels horizontal, reaches y=80 peak
 
 For **full physics validation**, use ROM-based tests with `uses_original_gameplay_runtime=true`.
 
