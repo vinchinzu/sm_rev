@@ -1,9 +1,12 @@
--- | FFI wire format types for C interop.
+-- | FFI wire format types matching retro_rl main (66836f5).
 --
--- These types match the snake_case layout for:
--- - MiniStep baseline (fast iteration, not acceptance)
--- - retro_rl stable-retro (emulator integration, acceptance layer)
--- - SMEDIT bridge (emulator WRAM telemetry)
+-- SOURCE OF TRUTH: vinchinzu/retro_rl main, PR #1, commit 66836f5
+-- Trajectory.to_dict() format from that commit is canonical.
+--
+-- These types match:
+-- - retro_rl Trajectory.to_dict() (JSON serialization)
+-- - MiniStep baseline (snake_case fields)
+-- - SMEDIT bridge telemetry
 module Physics.SM.FFI
   ( -- * Frame-level wire types
     FrameInput (..)
@@ -14,7 +17,7 @@ module Physics.SM.FFI
   , fromFrameInput
   , toTrajectory
   , fromTrajectory
-    -- * Packed SNES adapter
+    -- * Packed SNES adapter (retro_rl wire format)
   , packedToInternal
   , internalToPacked
   ) where
@@ -25,9 +28,12 @@ import Data.Word (Word8, Word16)
 import GHC.Generics (Generic)
 import Physics.SM.Types
 
--- | Packed 8-bit SNES controller input (LOCKED wire format).
+-- | Packed 8-bit SNES controller input (retro_rl wire format).
 --
--- This is the standard SNES D-pad byte used by retro_rl:
+-- LOCKED: This is the public boundary format from retro_rl main 66836f5.
+-- Do NOT fork this encoding.
+--
+-- Bit layout (D-pad byte):
 --   Bit 7: Right = 0x80
 --   Bit 6: Left  = 0x40
 --   Bit 5: Down  = 0x20
@@ -37,10 +43,7 @@ import Physics.SM.Types
 --   Bit 1: Y     = 0x02
 --   Bit 0: B     = 0x01
 --
--- Wire protocol: Left=0x40, Right=0x80 (packed byte 0)
--- Internal: converted to 16-bit ButtonMask via packedToInternal
---
--- Extended buttons (A/X/L/R) in byte 1 not yet implemented.
+-- Extended buttons (A/X/L/R) not in this byte - future extension.
 newtype FrameInput = FrameInput { frameInputPacked :: Word8 }
   deriving stock (Eq, Show, Generic)
   deriving newtype (Num, FromJSON, ToJSON)
@@ -88,9 +91,13 @@ fromFrameInput (FrameInput packed) prev =
     , inputPrevButtons = inputButtons prev
     }
 
--- | Trajectory state for one frame (snake_case for C FFI).
+-- | Trajectory state for one frame (retro_rl Trajectory.to_dict() format).
 --
--- Matches C MiniSamusCoreState layout: $0AF6/$0AF8 (x), $0AFA/$0AFC (y).
+-- LOCKED: Matches vinchinzu/retro_rl main 66836f5 Trajectory.to_dict() exactly.
+-- Do NOT fork this encoding - copy retro_rl main, don't invent.
+--
+-- Fields match C MiniSamusCoreState: $0AF6/$0AF8 (x), $0AFA/$0AFC (y).
+-- Snake_case for Python/JSON compatibility.
 data Trajectory = Trajectory
   { samus_x :: !Word16        -- Pixel component of X position
   , samus_x_sub :: !Word16    -- Subpixel component of X
@@ -104,7 +111,7 @@ data Trajectory = Trajectory
   , facing :: !Word16         -- 0 = right, 1 = left (from pose_x_dir)
   , movement_type :: !Word16  -- Movement type index (kMovementType_*)
   , on_ground :: !Bool        -- Ground contact flag
-  , enemies :: ![EnemyState]  -- Optional enemy list (empty for pure Samus physics)
+  , enemies :: ![EnemyState]  -- Optional enemy list (empty for pure Samus)
   } deriving stock (Eq, Show, Generic)
     deriving anyclass (FromJSON, ToJSON)
 
