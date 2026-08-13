@@ -36,7 +36,7 @@ static bool test_ground_run_golden(void) {
     inputs[i] = kButton_Right;
   }
 
-  // Create test room and save initial state
+  // Create test room and save initial state ONCE
   MiniGameState *test_state = MiniTestRoom_CreateWithFloor(kMiniGameWidth, kMiniGameHeight);
   if (!test_state) {
     fprintf(stderr, "FAIL: MiniTestRoom_CreateWithFloor failed\n");
@@ -52,7 +52,7 @@ static bool test_ground_run_golden(void) {
   }
   MiniDestroy(test_state);
 
-  // Run prediction from test room snapshot
+  // Run prediction from snapshot
   MiniPrediction *prediction = MiniPrediction_Create(kFrameCount);
   if (!prediction) {
     free(snapshot);
@@ -66,15 +66,24 @@ static bool test_ground_run_golden(void) {
     fprintf(stderr, "FAIL: MiniPredict failed\n");
     return false;
   }
-  free(snapshot);
 
-  // Run oracle (MiniStep) with test room (authored movement)
-  MiniGameState *oracle_state = MiniTestRoom_CreateWithFloor(kMiniGameWidth, kMiniGameHeight);
+  // Run oracle (MiniStep) from the SAME snapshot
+  MiniGameState *oracle_state = MiniCreate(kMiniGameWidth, kMiniGameHeight);
   if (!oracle_state) {
     MiniPrediction_Destroy(prediction);
-    fprintf(stderr, "FAIL: MiniTestRoom_CreateWithFloor failed for oracle\n");
+    free(snapshot);
+    fprintf(stderr, "FAIL: MiniCreate failed for oracle\n");
     return false;
   }
+  
+  if (!MiniLoadState(oracle_state, snapshot, snapshot_size)) {
+    MiniDestroy(oracle_state);
+    MiniPrediction_Destroy(prediction);
+    free(snapshot);
+    fprintf(stderr, "FAIL: MiniLoadState failed for oracle\n");
+    return false;
+  }
+  free(snapshot);
 
   // Debug: Print initial position
   printf("  Initial: x=%d, y=%d, on_ground=%d, movement_type=%d\n",

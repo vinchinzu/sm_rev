@@ -63,15 +63,9 @@ MiniGameState *MiniTestRoom_CreateWithFloor(int viewport_width, int viewport_hei
   room_width_in_blocks = kTestRoomWidthBlocks;
   room_height_in_blocks = kTestRoomHeightBlocks;
   
-  // Debug: check if level_data is valid
-  printf("[TestRoom] level_data ptr=%p, g_ram ptr=%p\n", (void*)level_data, (void*)g_ram);
-  printf("[TestRoom] Before clear, level_data[0]=0x%04x\n", level_data[0]);
-  
   // Clear level data
   memset(level_data, 0, sizeof(uint16) * kMiniLevelDataCapacity);
   memset(BTS, 0, kMiniLevelDataCapacity);
-  
-  printf("[TestRoom] After clear, level_data[0]=0x%04x\n", level_data[0]);
   
   // Create a solid floor at the bottom (use BlockTileWithType directly, not index)
   for (int x = 0; x < kTestRoomWidthBlocks; x++) {
@@ -81,8 +75,6 @@ MiniGameState *MiniTestRoom_CreateWithFloor(int viewport_width, int viewport_hei
       BTS[index] = 0;
     }
   }
-  printf("[TestRoom] After floor setup, level_data[11*%d+7]=0x%04x (should be 0x8000)\n",
-         kTestRoomWidthBlocks, level_data[11 * kTestRoomWidthBlocks + 7]);
 
   // Create a 1-tile platform for jump test (at mid-height)
   int platform_y = kFloorBlockY - 4;
@@ -120,7 +112,7 @@ MiniGameState *MiniTestRoom_CreateWithFloor(int viewport_width, int viewport_hei
     .camera_x = 0,
     .camera_y = 0,
     .spawn_x = viewport_width / 2,
-    .spawn_y = kFloorBlockY * kMiniBlockSize - 15,  // Spawn on floor (radius=16, -15 puts feet on surface)
+    .spawn_y = kFloorBlockY * kMiniBlockSize - 17,  // Spawn on floor (radius=16, -17 puts feet 1px above floor top)
     .camera_target_x_percent = 50,
     .camera_target_y_percent = 50,
   };
@@ -198,17 +190,6 @@ MiniGameState *MiniTestRoom_CreateWithFloor(int viewport_width, int viewport_hei
   // Also sync global samus position from state (in case sync grounded modified it)
   samus_x_pos = state->samus.world_x;
   samus_y_pos = state->samus.world_y;
-  
-  // Debug: print collision map around spawn
-  printf("[TestRoom] Collision map around spawn (x=%d, y=%d):\n", samus_x_pos, samus_y_pos);
-  for (int by = 8; by < 14; by++) {
-    printf("  y=%2d: ", by);
-    for (int bx = 5; bx < 13; bx++) {
-      BlockType mat = MiniStubs_GetCollisionMaterial(bx, by);
-      printf("%d", mat);
-    }
-    printf("\n");
-  }
   
   // Initialize player state
   state->players[0].samus = state->samus;

@@ -75,9 +75,6 @@ bool MiniPredict(MiniPrediction *prediction,
       MiniDestroy(state);
       return false;
     }
-    // Debug: check collision map after load
-    printf("[MiniPredict] After load, collision at (7,11)=%d (8,11)=%d\n",
-           MiniStubs_GetCollisionMaterial(7, 11), MiniStubs_GetCollisionMaterial(8, 11));
   } else {
     state = MiniCreate(viewport_width, viewport_height);
     if (!state)
