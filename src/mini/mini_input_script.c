@@ -31,6 +31,8 @@ static bool MiniParseButtonToken(const char *token, uint16 *buttons, bool *quit_
     *buttons |= kButton_X;
   } else if (!strcmp(token, "ITEM") || !strcmp(token, "Y")) {
     *buttons |= kButton_Y;
+  } else if (!strcmp(token, "SELECT") || !strcmp(token, "WEAPON")) {
+    *buttons |= kButton_Select;
   } else if (!strcmp(token, "AIMUP") || !strcmp(token, "RU") || !strcmp(token, "RSHOULDER")) {
     *buttons |= kButton_R;
   } else if (!strcmp(token, "AIMDOWN") || !strcmp(token, "LU") || !strcmp(token, "LSHOULDER")) {

@@ -1,8 +1,9 @@
 #include "mini_multiplayer_combat.h"
 
-#include <stdlib.h>
+#include <string.h>
 
 #include "funcs.h"
+#include "multi_samus.h"
 #include "samus_projectile.h"
 #include "samus_projectile_view.h"
 #include "variables.h"
@@ -27,53 +28,26 @@ static void MiniPruneInactiveProjectileOwners(MiniGameState *state) {
   }
 }
 
-static int MiniProjectileOwnerScore(const SamusProjectileView *projectile,
-                                    const MiniSamusCoreState *samus) {
-  int projectile_x = projectile->x_pos;
-  int projectile_y = projectile->y_pos;
-  int score = abs(projectile_x - samus->world_x) + 2 * abs(projectile_y - samus->world_y);
-  int direction = projectile->direction & 0xF;
-  bool moving_right = direction == 1 || direction == 2 || direction == 3;
-  bool moving_left = direction == 6 || direction == 7 || direction == 8;
-  if (moving_right && samus->world_x > projectile_x)
-    score += 10000;
-  if (moving_left && samus->world_x < projectile_x)
-    score += 10000;
-  return score;
-}
-
-static void MiniAssignUnownedProjectiles(MiniGameState *state) {
-  for (int i = 0; i < state->projectile_state.count; i++) {
-    const SamusProjectileView *projectile = &state->projectile_state.views[i];
-    if (projectile->slot_index >= kSamusProjectileSlotCount)
-      continue;
-    if (state->projectile_state.owner_by_slot[projectile->slot_index] != 0)
-      continue;
-
-    int best_player = -1;
-    int best_score = 0;
-    for (int player = 0; player < state->player_count; player++) {
-      int score = MiniProjectileOwnerScore(projectile, &state->players[player].samus);
-      if (best_player < 0 || score < best_score) {
-        best_player = player;
-        best_score = score;
-      }
-    }
-    if (best_player >= 0)
-      state->projectile_state.owner_by_slot[projectile->slot_index] = (uint8)(best_player + 1);
-  }
-}
-
 static bool MiniRectsOverlap(int ax, int ay, int arx, int ary,
                              int bx, int by, int brx, int bry) {
-  return abs(ax - bx) <= arx + brx && abs(ay - by) <= ary + bry;
+  int dx = ax >= bx ? ax - bx : bx - ax;
+  int dy = ay >= by ? ay - by : by - ay;
+  return dx <= arx + brx && dy <= ary + bry;
 }
 
-static void MiniClearProjectileSlot(MiniGameState *state, uint16 slot_index) {
+static void MiniResolveProjectileHit(MiniGameState *state,
+                                     const SamusProjectileView *projectile) {
+  uint16 slot_index = projectile->slot_index;
   if (slot_index >= kSamusProjectileSlotCount)
     return;
-  ClearProjectile((uint16)(slot_index * 2));
-  state->projectile_state.owner_by_slot[slot_index] = 0;
+  uint16 projectile_kind = projectile->type & kProjectileType_TypeMask;
+  if (projectile_kind == kProjectileType_Missile ||
+      projectile_kind == kProjectileType_SuperMissile) {
+    KillProjectile((uint16)(slot_index * 2));
+  } else {
+    ClearProjectile((uint16)(slot_index * 2));
+    state->projectile_state.owner_by_slot[slot_index] = 0;
+  }
 }
 
 static void MiniTickCombatTimers(MiniGameState *state) {
@@ -86,11 +60,41 @@ static void MiniTickCombatTimers(MiniGameState *state) {
   }
 }
 
+static void MiniAppendHitEvent(MiniGameState *state, uint8 attacker_player,
+                               uint8 defender_player, uint16 projectile_slot,
+                               uint16 damage) {
+  if (state->melee_hit_event_count >= kMiniMeleeHitEventCapacity) {
+    state->melee_hit_event_dropped_count++;
+    return;
+  }
+  state->melee_hit_events[state->melee_hit_event_count++] = (MiniMeleeHitEvent){
+    .attacker_player = attacker_player,
+    .defender_player = defender_player,
+    .projectile_slot = projectile_slot,
+    .damage = damage,
+  };
+}
+
 static void MiniHandleProjectileHits(MiniGameState *state) {
-  for (int i = 0; i < state->projectile_state.count; i++) {
-    const SamusProjectileView *projectile = &state->projectile_state.views[i];
-    if (projectile->slot_index >= kSamusProjectileSlotCount)
+  int projectile_count = state->projectile_state.count;
+  if (projectile_count > kMiniProjectileViewCapacity)
+    projectile_count = kMiniProjectileViewCapacity;
+  for (int slot = 0; slot < kSamusProjectileSlotCount; slot++) {
+    const SamusProjectileView *projectile = NULL;
+    for (int i = 0; i < projectile_count; i++) {
+      if (state->projectile_state.views[i].slot_index == slot) {
+        projectile = &state->projectile_state.views[i];
+        break;
+      }
+    }
+    if (projectile == NULL)
       continue;
+    uint16 projectile_kind = projectile->type & kProjectileType_TypeMask;
+    if (projectile_kind != 0 &&
+        projectile_kind != kProjectileType_Missile &&
+        projectile_kind != kProjectileType_SuperMissile) {
+      continue;
+    }
     uint8 owner_plus_one = state->projectile_state.owner_by_slot[projectile->slot_index];
     if (owner_plus_one == 0)
       continue;
@@ -119,17 +123,42 @@ static void MiniHandleProjectileHits(MiniGameState *state) {
       combat->hitstun_frames = 6;
       combat->invulnerable_frames = 10;
       combat->last_hit_by_player = owner_plus_one;
-      MiniClearProjectileSlot(state, projectile->slot_index);
+      MiniAppendHitEvent(state, owner_plus_one, (uint8)(player + 1),
+                         projectile->slot_index, combat->pending_damage);
+      MiniResolveProjectileHit(state, projectile);
       break;
     }
   }
 }
 
+static void MiniCaptureProjectileSpawn(int player_index, uint16 projectile_slot,
+                                       void *context) {
+  MiniGameState *state = (MiniGameState *)context;
+  int slot_index = projectile_slot >> 1;
+  if (state == NULL || player_index < 0 || player_index >= state->player_count ||
+      slot_index < 0 || slot_index >= kSamusProjectileSlotCount)
+    return;
+  uint8 *owner = &state->projectile_state.owner_by_slot[slot_index];
+  if (*owner == 0)
+    *owner = (uint8)(player_index + 1);
+}
+
+void MiniMultiplayerCombat_BeginFrame(MiniGameState *state) {
+  if (state == NULL || state->player_count < 2) {
+    MultiSamus_SetProjectileSpawnHook(NULL, NULL);
+    return;
+  }
+  MiniPruneInactiveProjectileOwners(state);
+  MultiSamus_SetProjectileSpawnHook(MiniCaptureProjectileSpawn, state);
+}
+
 void MiniMultiplayerCombat_Update(MiniGameState *state) {
+  MultiSamus_SetProjectileSpawnHook(NULL, NULL);
+  state->melee_hit_event_count = 0;
+  memset(state->melee_hit_events, 0, sizeof(state->melee_hit_events));
   if (state->player_count < 2)
     return;
   MiniPruneInactiveProjectileOwners(state);
-  MiniAssignUnownedProjectiles(state);
   MiniTickCombatTimers(state);
   MiniHandleProjectileHits(state);
   MiniRefreshProjectileState(state);

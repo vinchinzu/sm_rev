@@ -51,6 +51,7 @@ The mini target is now split into clearer responsibilities under [`src/mini/`](.
 - [mini_audio_host.c](../src/mini/mini_audio_host.c): SDL audio device and mutex; installs lock hooks into the kernel bridge and stays out of `libsm_rev_mini_kernel.a`
 - [mini_ppu_stub.c](../src/mini/mini_ppu_stub.c): mini-owned VRAM/CGRAM/DMA register emulation for rendering and asset uploads
 - [mini_game.c](../src/mini/mini_game.c): gameplay-state setup and per-frame update
+- [mini_frame_step.c](../src/mini/mini_frame_step.c): original-gameplay frame wrapper and shared multiplayer Samus stepping
 - [mini_multiplayer_players.c](../src/mini/mini_multiplayer_players.c): multiplayer player runtime save/load, spawn, facing, and post-movement checks
 - [mini_multiplayer_combat.c](../src/mini/mini_multiplayer_combat.c): two-player projectile ownership and hit reception
 - [mini_net_bridge.c](../src/mini/mini_net_bridge.c): narrow C ABI for local browser multiplayer host snapshots, inputs, and per-player cameras
@@ -136,11 +137,29 @@ Browser multiplayer MVP:
   not redraw rooms, Samus, or projectiles with approximate JavaScript shapes.
 - Use the same default mini keyboard layout in either browser window: arrows
   move, `X` jumps, `Z` runs, `S` shoots, `A` item-cancels, `C`/`V` aim.
+- Input requests are sequence-ordered and held buttons expire without the
+  browser heartbeat, preventing delayed HTTP requests or disconnected tabs
+  from leaving controls stuck.
+- The compact browser strip reports the latest deterministic melee hit event;
+  the full fixed-capacity per-frame queue and cumulative dropped-event counter
+  are available through browser JSON and the `MiniNetSnapshot` ABI.
 - Override the bind address with `python3 tools/mini_browser_server.py --host 0.0.0.0 --port 8765`
   when another device on the LAN should connect.
 
 Browser multiplayer tests:
 - `python3 -m pytest tests/test_mini_browser_server.py -q`
+- See [mini_multiplayer_architecture.md](mini_multiplayer_architecture.md) for
+  the current review findings and staged match/rollback/release plan.
+
+Deterministic multiplayer demo recording:
+- `python3 tools/record_mini_multiplayer_demo.py` drives both player seats
+  through the shared C kernel and writes `out/mini_multiplayer_demo.mp4`.
+- The 60 fps recording includes beam volleys, independently selected vanilla
+  missiles, missile trails/impact animations, deterministic collision sparks,
+  player markers, ammo, and hit/damage counters.
+- It exits nonzero unless the bout records hits in both directions, sees both
+  missile flight and explosion states, and drops no hit events; gameplay state,
+  ammo, ownership, and collision remain authoritative in the kernel.
 
 macOS:
 - `make mini-mac`

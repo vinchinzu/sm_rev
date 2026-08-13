@@ -9,6 +9,7 @@ sm_rev_moddable
 
 # Build artifacts
 *.o
+*.d
 *.a
 *.so
 *.dylib

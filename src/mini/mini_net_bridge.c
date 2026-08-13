@@ -136,6 +136,17 @@ uint8_t MiniNetReadSnapshot(const MiniGameState *state, int32_t focus_player,
   snapshot->room_height = MiniNetRoomHeight(state);
   snapshot->projectile_count = state->projectile_state.count;
   snapshot->state_hash = MiniStateHash(state);
+  snapshot->hit_event_count = state->melee_hit_event_count;
+  snapshot->hit_event_dropped_count = state->melee_hit_event_dropped_count;
+  for (int i = 0; i < state->melee_hit_event_count; i++) {
+    const MiniMeleeHitEvent *event = &state->melee_hit_events[i];
+    snapshot->hit_events[i] = (MiniNetMeleeHitEventSnapshot){
+      .attacker = event->attacker_player,
+      .defender = event->defender_player,
+      .projectile_slot = event->projectile_slot,
+      .damage = event->damage,
+    };
+  }
 
   for (int i = 0; i < kMiniMaxPlayers; i++) {
     const MiniPlayerState *player = &state->players[i];
@@ -155,6 +166,9 @@ uint8_t MiniNetReadSnapshot(const MiniGameState *state, int32_t focus_player,
     dst->pending_damage = player->combat.pending_damage;
     dst->hitstun_frames = player->combat.hitstun_frames;
     dst->invulnerable_frames = player->combat.invulnerable_frames;
+    dst->missiles = player->weapon.missiles;
+    dst->missile_capacity = player->weapon.missile_capacity;
+    dst->selected_weapon = (uint8_t)player->weapon.selected;
     dst->suit = (uint8_t)player->samus.suit;
     dst->on_ground = player->samus.on_ground ? 1 : 0;
     dst->last_hit_by_player = player->combat.last_hit_by_player;

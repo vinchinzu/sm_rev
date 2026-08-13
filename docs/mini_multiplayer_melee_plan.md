@@ -24,6 +24,19 @@ Status after the current repair pass:
 - ROM-backed rendering draws both actors through the original Samus OAM path.
 - Projectile visuals come from the original projectile runtime; the mini-only
   rectangle projectile substitute is not used for multiplayer.
+- Projectile ownership is assigned at the shared projectile initialization
+  boundary while the firing player context is known; simultaneous shots no
+  longer depend on a distance/direction ownership heuristic.
+- Hit reception appends deterministic `MiniMeleeHitEvent` values to a
+  fixed-capacity per-frame queue exposed through headless and browser snapshots
+  in addition to updating per-player combat counters.
+- Multiplayer weapon input now runs once per player while the shared projectile
+  world advances once per frame; repeated P1-only and P2-only fire produces
+  symmetric hit counts.
+- Both players can independently select three normal missiles. Launch, trail,
+  collision, damage, audio, and retained impact animation use the vanilla
+  projectile path, while mini state owns ammo, selection, and attribution.
+- Queued hits render deterministic camera-correct collision sparks.
 
 Covered checks:
 

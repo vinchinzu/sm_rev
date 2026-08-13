@@ -73,6 +73,10 @@ enough to catch deterministic regressions.
 - [mini_build.md](mini_build.md): current mini target behavior and commands.
 - [mini_multiplayer_roadmap.md](mini_multiplayer_roadmap.md): detailed rollback
   and multiplayer path.
+- [mini_multiplayer_architecture.md](mini_multiplayer_architecture.md): current
+  multiplayer architecture review and demo-to-release plan.
+- [mini_multiplayer_next_plan.md](mini_multiplayer_next_plan.md): ordered next
+  implementation slices, acceptance checks, and release gates.
 - [mini_modability_plan.md](mini_modability_plan.md): deeper Samus/physics mod
   plan.
 - [bank_origin_map.md](bank_origin_map.md): original-bank lookup for regressions.

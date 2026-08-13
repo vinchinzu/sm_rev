@@ -7,6 +7,7 @@
 #include "variables_extra.h"
 #include "sm_rtl.h"
 #include "funcs.h"
+#include "multi_samus.h"
 #include "samus_projectile.h"
 
 #define off_90B5BB ((uint16*)RomFixedPtr(0x90b5bb))
@@ -1972,15 +1973,38 @@ static Func_V *kHandleHudSpecificBehaviorAndProjs[28] = {  // 0x90DCDD
   HudSelectionHandler_JumpEtc,
 };
 
-void Samus_HandleHudSpecificBehaviorAndProjs(void) {
-  if (samus_pose == kPose_00_FaceF_Powersuit
-      || samus_pose == kPose_9B_FaceF_VariaGravitySuit
-      || (Samus_HandleCooldown(),
-          HandleSwitchingHudSelection(),
-          kHandleHudSpecificBehaviorAndProjs[samus_movement_type](),
-          !time_is_frozen_flag)) {
+static bool g_defer_shared_projectile_update;
+static bool g_shared_projectile_update_requested;
+
+void SamusProjectile_BeginSharedInputPass(void) {
+  g_defer_shared_projectile_update = true;
+  g_shared_projectile_update_requested = false;
+}
+
+void SamusProjectile_EndSharedInputPass(void) {
+  g_defer_shared_projectile_update = false;
+  if (g_shared_projectile_update_requested)
     HandleProjectile();
+  g_shared_projectile_update_requested = false;
+}
+
+void Samus_HandleHudSpecificBehaviorAndProjs(void) {
+  bool update_projectiles =
+      samus_pose == kPose_00_FaceF_Powersuit ||
+      samus_pose == kPose_9B_FaceF_VariaGravitySuit;
+  if (!update_projectiles) {
+    Samus_HandleCooldown();
+    HandleSwitchingHudSelection();
+    kHandleHudSpecificBehaviorAndProjs[samus_movement_type]();
+    update_projectiles = !time_is_frozen_flag;
   }
+  if (!update_projectiles)
+    return;
+  if (g_defer_shared_projectile_update) {
+    g_shared_projectile_update_requested = true;
+    return;
+  }
+  HandleProjectile();
 }
 
 void HudSelectionHandler_Normal(void) {  // 0x90DD3D
@@ -2080,6 +2104,7 @@ void InitializeProjectile(uint16 k) {  // 0x938000
   projectile_x_radius[v1] = v8[4];
   projectile_y_radius[v1] = v8[5];
   projectile_bomb_instruction_timers[v1] = 1;
+  MultiSamus_NotifyProjectileSpawn(k);
 }
 
 void InitializeInstrForSuperMissile(uint16 v0) {  // 0x938071

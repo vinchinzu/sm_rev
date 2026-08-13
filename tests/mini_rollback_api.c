@@ -9,6 +9,8 @@
 #include "mini/mini_defs.h"
 #include "mini/mini_enemy_runtime.h"
 #include "mini/mini_game.h"
+#include "mini/mini_multiplayer_combat.h"
+#include "mini/mini_net_bridge.h"
 #include "mini/mini_ppu_stub.h"
 #include "mini/mini_room_adapter.h"
 #include "mini/mini_run_mode.h"
@@ -85,6 +87,7 @@ static void Require(bool condition, const char *message) {
 }
 
 static void ResetSfxQueuesForContracts(void);
+static void RequireFallbackRoom(const MiniGameState *state);
 
 static uint8 *AllocSnapshot(size_t *snapshot_size) {
   *snapshot_size = MiniSaveStateSize();
@@ -114,6 +117,127 @@ static uint64_t StepShortSequenceAndHash(MiniGameState *state) {
   for (size_t i = 0; i < sizeof(kInputs) / sizeof(kInputs[0]); i++)
     MiniStepButtons(state, kInputs[i], false);
   return MiniStateHash(state);
+}
+
+static void SetupSimultaneousProjectileTrade(MiniGameState *state) {
+  MiniSetPlayerCount(state, 2);
+  state->players[0].samus.world_x = 100;
+  state->players[0].samus.world_y = 100;
+  state->players[0].samus.x_radius = 8;
+  state->players[0].samus.y_radius = 16;
+  state->players[1].samus.world_x = 200;
+  state->players[1].samus.world_y = 100;
+  state->players[1].samus.x_radius = 8;
+  state->players[1].samus.y_radius = 16;
+  state->players[0].combat.invulnerable_frames = 0;
+  state->players[1].combat.invulnerable_frames = 0;
+
+  projectile_type[0] = 1;
+  projectile_damage[0] = 20;
+  projectile_type[1] = 1;
+  projectile_damage[1] = 30;
+  state->projectile_state.owner_by_slot[0] = 1;
+  state->projectile_state.owner_by_slot[1] = 2;
+  state->projectile_state.count = 2;
+
+  // Deliberately reverse the cached views. Combat must still emit slot order.
+  state->projectile_state.views[0] = (SamusProjectileView){
+    .active = true,
+    .slot_index = 1,
+    .x_pos = 100,
+    .y_pos = 100,
+    .x_radius = 4,
+    .y_radius = 4,
+    .damage = 30,
+  };
+  state->projectile_state.views[1] = (SamusProjectileView){
+    .active = true,
+    .slot_index = 0,
+    .x_pos = 200,
+    .y_pos = 100,
+    .x_radius = 4,
+    .y_radius = 4,
+    .damage = 20,
+  };
+}
+
+static void RequireSimultaneousTradeQueue(const MiniGameState *state) {
+  Require(state->melee_hit_event_count == 2,
+          "simultaneous projectile trade did not retain both hit events");
+  const MiniMeleeHitEvent *first = &state->melee_hit_events[0];
+  const MiniMeleeHitEvent *second = &state->melee_hit_events[1];
+  Require(first->projectile_slot == 0 && first->attacker_player == 1 &&
+              first->defender_player == 2 && first->damage == 20,
+          "first simultaneous hit event was not the lower projectile slot");
+  Require(second->projectile_slot == 1 && second->attacker_player == 2 &&
+              second->defender_player == 1 && second->damage == 30,
+          "second simultaneous hit event was not the higher projectile slot");
+}
+
+static void TestMultiplayerHitEventQueueContracts(void) {
+  MiniGameState *state = MiniCreate(kMiniGameWidth, kMiniGameHeight);
+  Require(state != NULL, "MiniCreate failed for hit-event queue test");
+  RequireFallbackRoom(state);
+
+  SetupSimultaneousProjectileTrade(state);
+  MiniMultiplayerCombat_Update(state);
+  RequireSimultaneousTradeQueue(state);
+  Require(state->players[0].combat.hit_count == 1 &&
+              state->players[1].combat.hit_count == 1,
+          "simultaneous projectile trade did not damage both players");
+  MiniNetSnapshot net_snapshot;
+  Require(MiniNetReadSnapshot(state, 1, &net_snapshot),
+          "network snapshot rejected the simultaneous trade state");
+  Require(net_snapshot.hit_event_count == 2 &&
+              net_snapshot.hit_events[0].attacker == 1 &&
+              net_snapshot.hit_events[0].defender == 2 &&
+              net_snapshot.hit_events[1].attacker == 2 &&
+              net_snapshot.hit_events[1].defender == 1,
+          "network snapshot did not expose both simultaneous hit events");
+  Require(net_snapshot.players[0].missiles == 3 &&
+              net_snapshot.players[1].missiles == 3,
+          "network snapshot did not expose independent missile ammo");
+
+  MiniMeleeHitEvent expected[kMiniMeleeHitEventCapacity];
+  memcpy(expected, state->melee_hit_events, sizeof(expected));
+  SetupSimultaneousProjectileTrade(state);
+  MiniMultiplayerCombat_Update(state);
+  RequireSimultaneousTradeQueue(state);
+  Require(memcmp(expected, state->melee_hit_events, sizeof(expected)) == 0,
+          "hit-event order changed across identical repeated trades");
+
+  uint64_t original_hash = MiniStateHash(state);
+  state->melee_hit_events[0].damage++;
+  Require(MiniStateHash(state) != original_hash,
+          "state hash did not include hit-event contents");
+  state->melee_hit_events[0].damage--;
+  state->melee_hit_event_dropped_count = 3;
+  state->players[0].weapon.selected = kMiniWeapon_Missile;
+  state->players[0].weapon.missiles = 2;
+  uint64_t saved_hash = MiniStateHash(state);
+
+  size_t snapshot_size;
+  uint8 *snapshot = AllocSnapshot(&snapshot_size);
+  SaveSnapshot(state, snapshot, snapshot_size);
+  Require(((const uint32 *)snapshot)[1] == 13,
+          "weapon state did not increment the mini snapshot version");
+  state->melee_hit_event_count = 0;
+  state->melee_hit_event_dropped_count = 0;
+  memset(state->melee_hit_events, 0, sizeof(state->melee_hit_events));
+  state->players[0].weapon.selected = kMiniWeapon_PowerBeam;
+  state->players[0].weapon.missiles = 0;
+  LoadSnapshot(state, snapshot, snapshot_size);
+  RequireSimultaneousTradeQueue(state);
+  Require(state->melee_hit_event_dropped_count == 3,
+          "snapshot did not restore the dropped hit-event counter");
+  Require(state->players[0].weapon.selected == kMiniWeapon_Missile &&
+              state->players[0].weapon.missiles == 2,
+          "snapshot did not restore the per-player weapon state");
+  Require(MiniStateHash(state) == saved_hash,
+          "snapshot did not restore the hit-event queue hash");
+
+  free(snapshot);
+  MiniDestroy(state);
 }
 
 static uint16 StressInputForFrame(int frame) {
@@ -2395,6 +2519,7 @@ static void RunFallbackTestsInIsolatedCwd(void) {
   TestUnsupportedAdvancedSpinPoseContracts();
   TestLongScriptDeterminism();
   TestRepeatedSaveLoadCycles();
+  TestMultiplayerHitEventQueueContracts();
   MiniStubs_SetRoomExportPath(NULL);
 
   Require(chdir(original_cwd) == 0, "failed to restore original cwd");

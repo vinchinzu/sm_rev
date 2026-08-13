@@ -31,6 +31,29 @@ static const char *MiniRuntime_BuildName(void) {
   return BUILD_IS_MODDABLE ? "moddable" : "mini";
 }
 
+static void MiniRuntime_FormatHitEvents(const MiniGameState *state, char *buffer,
+                                        size_t buffer_size) {
+  size_t offset = 0;
+  int written = snprintf(buffer, buffer_size, "[");
+  if (written < 0 || (size_t)written >= buffer_size)
+    return;
+  offset = (size_t)written;
+
+  for (int i = 0; i < state->melee_hit_event_count; i++) {
+    const MiniMeleeHitEvent *event = &state->melee_hit_events[i];
+    written = snprintf(buffer + offset, buffer_size - offset,
+                       "%s{\"attacker\":%u,\"defender\":%u,"
+                       "\"projectile_slot\":%u,\"damage\":%u}",
+                       i == 0 ? "" : ",", event->attacker_player,
+                       event->defender_player, event->projectile_slot,
+                       event->damage);
+    if (written < 0 || (size_t)written >= buffer_size - offset)
+      return;
+    offset += (size_t)written;
+  }
+  (void)snprintf(buffer + offset, buffer_size - offset, "]");
+}
+
 static void PrintResult(const MiniOptions *options, const MiniGameState *state,
                         const char *record_path, bool replay_verified) {
   uint64_t state_hash = MiniStateHash(state);
@@ -50,6 +73,8 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
   int clock_centiseconds = (state->frame * 100) / 60;
   int climb_score = MiniClimbEndless_AscentPixels(state);
   bool has_any_enemies = state->room.has_original_enemies || enemy_telemetry.count > 0;
+  char hit_events_json[512];
+  MiniRuntime_FormatHitEvents(state, hit_events_json, sizeof(hit_events_json));
   printf("{\"build\":\"%s\",\"headless\":%s,\"frames\":%d,"
          "\"no_rom\":%s,"
          "\"player_count\":%d,"
@@ -86,11 +111,15 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          "\"player1_world_x\":%d,\"player1_world_y\":%d,"
          "\"player1_screen_x\":%d,\"player1_screen_y\":%d,"
          "\"player1_buttons\":%u,\"player1_hit_count\":%u,"
+         "\"player1_weapon\":%u,\"player1_missiles\":%u,"
          "\"player1_pending_damage\":%u,\"player1_last_hit_by_player\":%u,"
          "\"player2_world_x\":%d,\"player2_world_y\":%d,"
          "\"player2_screen_x\":%d,\"player2_screen_y\":%d,"
          "\"player2_buttons\":%u,\"player2_hit_count\":%u,"
+         "\"player2_weapon\":%u,\"player2_missiles\":%u,"
          "\"player2_pending_damage\":%u,\"player2_last_hit_by_player\":%u,"
+         "\"hit_event_count\":%u,\"hit_event_dropped_count\":%u,"
+         "\"hit_events\":%s,"
          "\"samus_pose\":%u,\"samus_movement_type\":%u,"
          "\"projectile_count\":%d,\"first_projectile_type\":%u,"
          "\"first_projectile_x\":%u,\"first_projectile_y\":%u,"
@@ -167,11 +196,16 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          p1->samus.world_x, p1->samus.world_y,
          p1->samus.screen_x, p1->samus.screen_y,
          state->player_inputs[0].buttons, p1->combat.hit_count,
+         (uint8)p1->weapon.selected, p1->weapon.missiles,
          p1->combat.pending_damage, p1->combat.last_hit_by_player,
          p2->samus.world_x, p2->samus.world_y,
          p2->samus.screen_x, p2->samus.screen_y,
          state->player_inputs[1].buttons, p2->combat.hit_count,
+         (uint8)p2->weapon.selected, p2->weapon.missiles,
          p2->combat.pending_damage, p2->combat.last_hit_by_player,
+         state->melee_hit_event_count,
+         state->melee_hit_event_dropped_count,
+         hit_events_json,
          state->samus.pose, state->samus.movement_type,
          state->projectile_state.count,
          first_projectile != NULL ? first_projectile->type : 0,

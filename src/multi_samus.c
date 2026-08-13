@@ -3,52 +3,69 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define MAX_SAMUS 2
-#define PLAYER_TWO_SPAWN_OFFSET_X 48
-#define SAMUS_STATE_START 0x9A2
-#define SAMUS_PROJECTILE_STATE_START 0xB64
-#define SAMUS_PROJECTILE_STATE_END 0xCCC
-#define SAMUS_STATE_END 0xDC2
-#define SAMUS_PRE_PROJECTILE_SIZE (SAMUS_PROJECTILE_STATE_START - SAMUS_STATE_START)
-#define SAMUS_POST_PROJECTILE_SIZE (SAMUS_STATE_END - SAMUS_PROJECTILE_STATE_END)
+enum {
+  kMultiSamusMaxPlayers = 2,
+  kMultiSamusPlayerTwoSpawnOffsetX = 48,
+  kMultiSamusJoypadStateOffset = 0x87,
+  kMultiSamusJoypadStateSize = 0x20,
+  kMultiSamusStateStart = 0x9A2,
+  kMultiSamusProjectileStateStart = 0xB64,
+  kMultiSamusProjectileStateEnd = 0xCCC,
+  kMultiSamusStateEnd = 0xDC2,
+  kMultiSamusXPositionOffset = 0xAF6,
+  kMultiSamusPreProjectileSize =
+      kMultiSamusProjectileStateStart - kMultiSamusStateStart,
+  kMultiSamusPostProjectileSize =
+      kMultiSamusStateEnd - kMultiSamusProjectileStateEnd,
+};
 
 typedef struct SamusState {
-  uint8 joypad_block[0x20]; // 0x87 to 0xA7
-  uint8 samus_pre_projectile_block[SAMUS_PRE_PROJECTILE_SIZE];
-  uint8 samus_post_projectile_block[SAMUS_POST_PROJECTILE_SIZE];
+  uint8 joypad_block[kMultiSamusJoypadStateSize];
+  uint8 samus_pre_projectile_block[kMultiSamusPreProjectileSize];
+  uint8 samus_post_projectile_block[kMultiSamusPostProjectileSize];
 } SamusState;
 
-SamusState g_samus_states[MAX_SAMUS];
-int g_active_samus = 0;
-int g_num_samus = 1;
-bool g_initialized = false;
+static SamusState g_samus_states[kMultiSamusMaxPlayers];
+static int g_active_samus;
+static int g_num_samus = 1;
+static bool g_initialized;
+static MultiSamusProjectileSpawnHook g_projectile_spawn_hook;
+static void *g_projectile_spawn_context;
+static MultiSamusPlayerInputHook g_player_input_hook;
+static void *g_player_input_context;
+static MultiSamusPlayerInputHook g_player_input_end_hook;
+static void *g_player_input_end_context;
+static int g_projectile_spawn_player = -1;
 
 static void MultiSamus_InitWithCount(int num_samus) {
   if (num_samus < 1)
     num_samus = 1;
-  if (num_samus > MAX_SAMUS)
-    num_samus = MAX_SAMUS;
+  if (num_samus > kMultiSamusMaxPlayers)
+    num_samus = kMultiSamusMaxPlayers;
   g_num_samus = num_samus;
   g_active_samus = 0;
+  g_projectile_spawn_player = -1;
   g_initialized = true;
   
   // Clear states
   memset(g_samus_states, 0, sizeof(g_samus_states));
   
   // Capture current state into Samus 0
-  memcpy(g_samus_states[0].joypad_block, g_ram + 0x87, 0x20);
-  memcpy(g_samus_states[0].samus_pre_projectile_block, g_ram + SAMUS_STATE_START,
-         SAMUS_PRE_PROJECTILE_SIZE);
-  memcpy(g_samus_states[0].samus_post_projectile_block, g_ram + SAMUS_PROJECTILE_STATE_END,
-         SAMUS_POST_PROJECTILE_SIZE);
+  memcpy(g_samus_states[0].joypad_block, g_ram + kMultiSamusJoypadStateOffset,
+         kMultiSamusJoypadStateSize);
+  memcpy(g_samus_states[0].samus_pre_projectile_block,
+         g_ram + kMultiSamusStateStart, kMultiSamusPreProjectileSize);
+  memcpy(g_samus_states[0].samus_post_projectile_block,
+         g_ram + kMultiSamusProjectileStateEnd, kMultiSamusPostProjectileSize);
   
   if (g_num_samus > 1) {
     // Clone Samus 0 to Samus 1 initially.
     memcpy(&g_samus_states[1], &g_samus_states[0], sizeof(SamusState));
 
     // Offset Samus 2 so both full sprites are visible at startup.
-    uint16 *s2_x = (uint16 *)&g_samus_states[1].samus_pre_projectile_block[0xAF6 - SAMUS_STATE_START];
-    *s2_x += PLAYER_TWO_SPAWN_OFFSET_X;
+    uint16 *s2_x = (uint16 *)&g_samus_states[1].samus_pre_projectile_block[
+        kMultiSamusXPositionOffset - kMultiSamusStateStart];
+    *s2_x += kMultiSamusPlayerTwoSpawnOffsetX;
   }
 }
 
@@ -64,7 +81,7 @@ void MultiSamus_SetNumSamus(int num_samus) {
 
 void MultiSamus_Switch(int index) {
   if (!g_initialized) MultiSamus_Init();
-  if (index < 0 || index >= MAX_SAMUS) return;
+  if (index < 0 || index >= kMultiSamusMaxPlayers) return;
   if (g_active_samus == index) return;
 
   uint16 current_joypad2_last = joypad2_last;
@@ -73,21 +90,24 @@ void MultiSamus_Switch(int index) {
   uint16 current_joypad2_prev = joypad2_prev;
 
   // Save current
-  memcpy(g_samus_states[g_active_samus].joypad_block, g_ram + 0x87, 0x20);
-  memcpy(g_samus_states[g_active_samus].samus_pre_projectile_block, g_ram + SAMUS_STATE_START,
-         SAMUS_PRE_PROJECTILE_SIZE);
-  memcpy(g_samus_states[g_active_samus].samus_post_projectile_block, g_ram + SAMUS_PROJECTILE_STATE_END,
-         SAMUS_POST_PROJECTILE_SIZE);
+  memcpy(g_samus_states[g_active_samus].joypad_block,
+         g_ram + kMultiSamusJoypadStateOffset, kMultiSamusJoypadStateSize);
+  memcpy(g_samus_states[g_active_samus].samus_pre_projectile_block,
+         g_ram + kMultiSamusStateStart, kMultiSamusPreProjectileSize);
+  memcpy(g_samus_states[g_active_samus].samus_post_projectile_block,
+         g_ram + kMultiSamusProjectileStateEnd, kMultiSamusPostProjectileSize);
   
   g_active_samus = index;
   
   // Load new
-  memcpy(g_ram + 0x87, g_samus_states[g_active_samus].joypad_block, 0x20);
-  memcpy(g_ram + SAMUS_STATE_START, g_samus_states[g_active_samus].samus_pre_projectile_block,
-         SAMUS_PRE_PROJECTILE_SIZE);
-  memcpy(g_ram + SAMUS_PROJECTILE_STATE_END,
+  memcpy(g_ram + kMultiSamusJoypadStateOffset,
+         g_samus_states[g_active_samus].joypad_block, kMultiSamusJoypadStateSize);
+  memcpy(g_ram + kMultiSamusStateStart,
+         g_samus_states[g_active_samus].samus_pre_projectile_block,
+         kMultiSamusPreProjectileSize);
+  memcpy(g_ram + kMultiSamusProjectileStateEnd,
          g_samus_states[g_active_samus].samus_post_projectile_block,
-         SAMUS_POST_PROJECTILE_SIZE);
+         kMultiSamusPostProjectileSize);
   joypad2_last = current_joypad2_last;
   joypad2_new_keys = current_joypad2_new_keys;
   joypad2_newkeys2 = current_joypad2_newkeys2;
@@ -105,4 +125,45 @@ void MultiSamus_Switch(int index) {
 
 int MultiSamus_GetNumSamus(void) {
   return g_num_samus;
+}
+
+void MultiSamus_SetProjectileSpawnHook(MultiSamusProjectileSpawnHook hook,
+                                       void *context) {
+  g_projectile_spawn_hook = hook;
+  g_projectile_spawn_context = context;
+}
+
+void MultiSamus_SetPlayerInputHook(MultiSamusPlayerInputHook hook,
+                                   void *context) {
+  g_player_input_hook = hook;
+  g_player_input_context = context;
+}
+
+void MultiSamus_NotifyPlayerInput(int player_index) {
+  if (g_player_input_hook != NULL)
+    g_player_input_hook(player_index, g_player_input_context);
+}
+
+void MultiSamus_SetPlayerInputEndHook(MultiSamusPlayerInputHook hook,
+                                      void *context) {
+  g_player_input_end_hook = hook;
+  g_player_input_end_context = context;
+}
+
+void MultiSamus_NotifyPlayerInputEnd(int player_index) {
+  if (g_player_input_end_hook != NULL)
+    g_player_input_end_hook(player_index, g_player_input_end_context);
+}
+
+void MultiSamus_SetProjectileSpawnPlayer(int player_index) {
+  g_projectile_spawn_player = player_index;
+}
+
+void MultiSamus_NotifyProjectileSpawn(uint16 projectile_slot) {
+  if (g_projectile_spawn_hook != NULL)
+    g_projectile_spawn_hook(g_projectile_spawn_player >= 0
+                                ? g_projectile_spawn_player
+                                : g_active_samus,
+                            projectile_slot,
+                            g_projectile_spawn_context);
 }

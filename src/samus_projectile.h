@@ -24,6 +24,8 @@ void ClearFlareAnimationState(void);
 void FireHyperBeam(void);
 void ProjectileReflection(uint16 r20);
 void Samus_HandleHudSpecificBehaviorAndProjs(void);
+void SamusProjectile_BeginSharedInputPass(void);
+void SamusProjectile_EndSharedInputPass(void);
 void InitializeProjectile(uint16 k);
 void InitializeInstrForSuperMissile(uint16 k);
 void InitializeInstrForMissile(uint16 k);

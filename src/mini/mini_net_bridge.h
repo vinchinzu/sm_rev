@@ -15,6 +15,7 @@
 enum {
   kMiniNetMaxPlayers = kMiniMaxPlayers,
   kMiniNetMaxProjectiles = kMiniProjectileViewCapacity,
+  kMiniNetMeleeHitEventCapacity = kMiniMeleeHitEventCapacity,
 };
 
 typedef struct MiniNetPlayerSnapshot {
@@ -33,6 +34,9 @@ typedef struct MiniNetPlayerSnapshot {
   uint16_t pending_damage;
   uint16_t hitstun_frames;
   uint16_t invulnerable_frames;
+  uint16_t missiles;
+  uint16_t missile_capacity;
+  uint8_t selected_weapon;
   uint8_t suit;
   uint8_t on_ground;
   uint8_t last_hit_by_player;
@@ -54,6 +58,13 @@ typedef struct MiniNetProjectileSnapshot {
   uint8_t owner;
 } MiniNetProjectileSnapshot;
 
+typedef struct MiniNetMeleeHitEventSnapshot {
+  uint8_t attacker;
+  uint8_t defender;
+  uint16_t projectile_slot;
+  uint16_t damage;
+} MiniNetMeleeHitEventSnapshot;
+
 typedef struct MiniNetSnapshot {
   uint32_t frame;
   int32_t player_count;
@@ -70,6 +81,10 @@ typedef struct MiniNetSnapshot {
   int32_t room_height;
   int32_t projectile_count;
   uint64_t state_hash;
+  uint8_t hit_event_count;
+  uint8_t hit_event_reserved[3];
+  uint32_t hit_event_dropped_count;
+  MiniNetMeleeHitEventSnapshot hit_events[kMiniNetMeleeHitEventCapacity];
   MiniNetPlayerSnapshot players[kMiniNetMaxPlayers];
   MiniNetProjectileSnapshot projectiles[kMiniNetMaxProjectiles];
 } MiniNetSnapshot;

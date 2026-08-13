@@ -14,6 +14,7 @@ enum {
   kMiniSamusHeight = 40,
   kMiniGroundSpeed = 3,
   kMiniProjectileViewCapacity = kSamusBeamProjectileSlotCount,
+  kMiniMeleeHitEventCapacity = 4,
   kMiniPlayerRuntimePreProjectileSize = 0xB64 - 0xA94,
   kMiniPlayerRuntimePostProjectileSize = 0xDC4 - 0xCCC,
 };
@@ -68,10 +69,29 @@ typedef struct MiniPlayerCombatState {
   uint8 last_hit_by_player;
 } MiniPlayerCombatState;
 
+typedef enum MiniWeaponKind {
+  kMiniWeapon_PowerBeam = 0,
+  kMiniWeapon_Missile = 1,
+} MiniWeaponKind;
+
+typedef struct MiniPlayerWeaponState {
+  MiniWeaponKind selected;
+  uint16 missiles;
+  uint16 missile_capacity;
+} MiniPlayerWeaponState;
+
 typedef struct MiniPlayerState {
   MiniSamusCoreState samus;
   MiniPlayerCombatState combat;
+  MiniPlayerWeaponState weapon;
 } MiniPlayerState;
+
+typedef struct MiniMeleeHitEvent {
+  uint8 attacker_player;
+  uint8 defender_player;
+  uint16 projectile_slot;
+  uint16 damage;
+} MiniMeleeHitEvent;
 
 typedef struct MiniRoomState {
   bool has_room;
@@ -174,6 +194,9 @@ typedef struct MiniGameState {
   MiniRoomSource room_source;
   char room_handle[32];
   char room_name[64];
+  uint8 melee_hit_event_count;
+  uint32 melee_hit_event_dropped_count;
+  MiniMeleeHitEvent melee_hit_events[kMiniMeleeHitEventCapacity];
 } MiniGameState;
 
 void MiniGameState_Init(MiniGameState *state, int viewport_width, int viewport_height);

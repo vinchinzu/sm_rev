@@ -23,6 +23,8 @@ GAME_WIDTH = 256
 GAME_HEIGHT = 224
 MAX_PLAYERS = 2
 MAX_PROJECTILES = 5
+MAX_HIT_EVENTS = 4
+INPUT_TIMEOUT_SECONDS = 0.25
 
 BUTTON_R = 0x10
 BUTTON_L = 0x20
@@ -55,6 +57,9 @@ class MiniNetPlayerSnapshot(ctypes.Structure):
         ("pending_damage", ctypes.c_uint16),
         ("hitstun_frames", ctypes.c_uint16),
         ("invulnerable_frames", ctypes.c_uint16),
+        ("missiles", ctypes.c_uint16),
+        ("missile_capacity", ctypes.c_uint16),
+        ("selected_weapon", ctypes.c_uint8),
         ("suit", ctypes.c_uint8),
         ("on_ground", ctypes.c_uint8),
         ("last_hit_by_player", ctypes.c_uint8),
@@ -79,6 +84,15 @@ class MiniNetProjectileSnapshot(ctypes.Structure):
     ]
 
 
+class MiniNetMeleeHitEventSnapshot(ctypes.Structure):
+    _fields_ = [
+        ("attacker", ctypes.c_uint8),
+        ("defender", ctypes.c_uint8),
+        ("projectile_slot", ctypes.c_uint16),
+        ("damage", ctypes.c_uint16),
+    ]
+
+
 class MiniNetSnapshot(ctypes.Structure):
     _fields_ = [
         ("frame", ctypes.c_uint32),
@@ -96,6 +110,10 @@ class MiniNetSnapshot(ctypes.Structure):
         ("room_height", ctypes.c_int32),
         ("projectile_count", ctypes.c_int32),
         ("state_hash", ctypes.c_uint64),
+        ("hit_event_count", ctypes.c_uint8),
+        ("hit_event_reserved", ctypes.c_uint8 * 3),
+        ("hit_event_dropped_count", ctypes.c_uint32),
+        ("hit_events", MiniNetMeleeHitEventSnapshot * MAX_HIT_EVENTS),
         ("players", MiniNetPlayerSnapshot * MAX_PLAYERS),
         ("projectiles", MiniNetProjectileSnapshot * MAX_PROJECTILES),
     ]
@@ -209,8 +227,15 @@ class MiniKernel:
 
 
 class MiniBrowserSession:
-    def __init__(self, kernel: MiniKernel):
+    def __init__(
+        self,
+        kernel: MiniKernel,
+        clock: Any = time.monotonic,
+        input_timeout_seconds: float = INPUT_TIMEOUT_SECONDS,
+    ):
         self._kernel = kernel
+        self._clock = clock
+        self._input_timeout_seconds = max(0.01, input_timeout_seconds)
         self._lock = threading.RLock()
         self._buttons = [0, 0]
         self._tokens: dict[str, dict[str, Any]] = {}
@@ -227,23 +252,46 @@ class MiniBrowserSession:
             self._tokens[token] = {
                 "player": player,
                 "name": name[:32],
-                "last_seen": time.time(),
+                "last_seen": self._clock(),
+                "last_input_at": None,
+                "last_sequence": -1,
             }
             self._join_counts[player] += 1
             return {"ok": True, "token": token, "player": player}
 
-    def set_buttons(self, token: str, buttons: int) -> dict[str, Any]:
+    def set_buttons(
+        self, token: str, buttons: int, sequence: int | None = None
+    ) -> dict[str, Any]:
         with self._lock:
             session = self._tokens.get(token)
             if session is None:
                 return {"ok": False, "error": "unknown token"}
             player = int(session["player"])
-            session["last_seen"] = time.time()
+            if sequence is not None and sequence <= int(session["last_sequence"]):
+                return {
+                    "ok": True,
+                    "accepted": False,
+                    "player": player,
+                    "buttons": self._buttons[player - 1],
+                    "sequence": int(session["last_sequence"]),
+                }
+            now = self._clock()
+            session["last_seen"] = now
+            session["last_input_at"] = now
+            if sequence is not None:
+                session["last_sequence"] = sequence
             self._buttons[player - 1] = buttons & 0xFFFF
-            return {"ok": True, "player": player, "buttons": self._buttons[player - 1]}
+            return {
+                "ok": True,
+                "accepted": True,
+                "player": player,
+                "buttons": self._buttons[player - 1],
+                "sequence": int(session["last_sequence"]),
+            }
 
     def step_once(self) -> None:
         with self._lock:
+            self._release_stale_inputs()
             self._kernel.step2(self._buttons[0], self._buttons[1])
 
     def state_for_token(self, token: str | None, player_hint: int | None = None) -> tuple[int, dict[str, Any]]:
@@ -283,6 +331,9 @@ class MiniBrowserSession:
                     "pending_damage": int(player.pending_damage),
                     "hitstun_frames": int(player.hitstun_frames),
                     "invulnerable_frames": int(player.invulnerable_frames),
+                    "selected_weapon": int(player.selected_weapon),
+                    "missiles": int(player.missiles),
+                    "missile_capacity": int(player.missile_capacity),
                     "last_hit_by_player": int(player.last_hit_by_player),
                     "on_ground": bool(player.on_ground),
                     "suit": int(player.suit),
@@ -309,12 +360,27 @@ class MiniBrowserSession:
                 }
             )
 
+        hit_events = []
+        for index in range(int(snapshot.hit_event_count)):
+            event = snapshot.hit_events[index]
+            hit_events.append(
+                {
+                    "attacker": int(event.attacker),
+                    "defender": int(event.defender),
+                    "projectile_slot": int(event.projectile_slot),
+                    "damage": int(event.damage),
+                }
+            )
+
         return {
             "ok": True,
             "frame": int(snapshot.frame),
             "player": int(snapshot.focus_player),
             "player_count": int(snapshot.player_count),
             "state_hash": f"0x{int(snapshot.state_hash):016x}",
+            "hit_event_count": int(snapshot.hit_event_count),
+            "hit_event_dropped_count": int(snapshot.hit_event_dropped_count),
+            "hit_events": hit_events,
             "view": {
                 "width": int(snapshot.viewport_width),
                 "height": int(snapshot.viewport_height),
@@ -336,10 +402,27 @@ class MiniBrowserSession:
     def _least_joined_player(self) -> int:
         return 1 if self._join_counts[1] <= self._join_counts[2] else 2
 
+    def _release_stale_inputs(self) -> None:
+        now = self._clock()
+        for player in range(1, MAX_PLAYERS + 1):
+            player_sessions = [
+                session for session in self._tokens.values() if int(session["player"]) == player
+            ]
+            input_times = [
+                float(session["last_input_at"])
+                for session in player_sessions
+                if session["last_input_at"] is not None
+            ]
+            if not input_times or now - max(input_times) <= self._input_timeout_seconds:
+                continue
+            self._buttons[player - 1] = 0
+            for session in player_sessions:
+                session["last_input_at"] = None
+
     def _player_for_request(self, token: str | None, player_hint: int | None) -> int | None:
         if token and token in self._tokens:
             session = self._tokens[token]
-            session["last_seen"] = time.time()
+            session["last_seen"] = self._clock()
             return int(session["player"])
         if player_hint is not None:
             return self._normalize_player(player_hint)
@@ -482,7 +565,9 @@ canvas {{
       <div class="row"><span class="label">Camera</span><span id="camera">0,0</span></div>
       <div class="row"><span class="label">P1</span><span id="p1">0,0</span></div>
       <div class="row"><span class="label">P2</span><span id="p2">0,0</span></div>
+      <div class="row"><span class="label">Last hit</span><span id="hit">—</span></div>
       <div class="row"><span class="label">Hash</span><span id="hash">...</span></div>
+      <div class="row"><span class="label">Controls</span><span>Arrows move · X jump · S shoot · Z run</span></div>
     </aside>
   </div>
 </main>
@@ -512,6 +597,8 @@ let token = null;
 let assignedPlayer = playerHint || 0;
 let latestState = null;
 let lastSentButtons = -1;
+let lastInputSentAt = 0;
+let inputSequence = Date.now() * 1000;
 const frameImage = ctx.createImageData({GAME_WIDTH}, {GAME_HEIGHT});
 
 function resizeCanvasForIntegerScale() {{
@@ -552,12 +639,14 @@ async function join() {{
 async function sendInput(force = false) {{
   if (!token) return;
   const buttons = currentButtons();
-  if (!force && buttons === lastSentButtons) return;
+  const now = performance.now();
+  if (!force && buttons === lastSentButtons && now - lastInputSentAt < 100) return;
   lastSentButtons = buttons;
+  lastInputSentAt = now;
   await fetch("/input", {{
     method: "POST",
     headers: {{ "Content-Type": "application/json" }},
-    body: JSON.stringify({{ token, buttons }})
+    body: JSON.stringify({{ token, buttons, sequence: ++inputSequence }})
   }});
 }}
 
@@ -586,6 +675,12 @@ function updateHud(state) {{
   document.getElementById("camera").textContent = `${{state.view.camera_x}},${{state.view.camera_y}}`;
   document.getElementById("p1").textContent = `${{state.players[0].world_x}},${{state.players[0].world_y}}`;
   document.getElementById("p2").textContent = `${{state.players[1].world_x}},${{state.players[1].world_y}}`;
+  const latestHit = state.hit_events.length
+    ? state.hit_events[state.hit_events.length - 1]
+    : null;
+  document.getElementById("hit").textContent = latestHit
+    ? `P${{latestHit.attacker}} → P${{latestHit.defender}} · ${{latestHit.damage}}`
+    : "—";
   document.getElementById("hash").textContent = state.state_hash.slice(0, 10);
 }}
 
@@ -684,7 +779,11 @@ def make_handler(session: MiniBrowserSession) -> type[BaseHTTPRequestHandler]:
                     buttons = int(payload.get("buttons", 0))
                 except (TypeError, ValueError):
                     buttons = 0
-                result = session.set_buttons(token, buttons)
+                try:
+                    sequence = int(payload["sequence"]) if "sequence" in payload else None
+                except (TypeError, ValueError):
+                    sequence = None
+                result = session.set_buttons(token, buttons, sequence)
                 self._send_json(HTTPStatus.OK if result.get("ok") else HTTPStatus.FORBIDDEN, result)
                 return
             self._send_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "not found"})

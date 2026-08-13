@@ -32,8 +32,6 @@ enum {
   kMiniRenderSamusTilesVramSize = 0x400,
   kMiniLandingSiteSkyBg1TileRowLimit = 128,
   kMiniLandingSiteUpperSkyFillY = 48,
-  kMiniLandingSiteUpperSkyRepairY = 64,
-  kMiniLandingSiteUpperSkyCameraY = 1000,
 };
 
 static MiniBackdropMode g_backdrop_mode = kMiniBackdropMode_Game;
@@ -79,8 +77,7 @@ static uint32_t MiniBlendColor(uint32_t a, uint32_t b, int numer, int denom) {
 
 static bool MiniLandingUpperSkyRepairActive(const MiniGameState *state) {
   return state != NULL &&
-         state->room.room_id == kMiniEditorBridgeRoomId_LandingSite &&
-         state->viewport.camera_y < kMiniLandingSiteUpperSkyCameraY;
+         state->room.room_id == kMiniEditorBridgeRoomId_LandingSite;
 }
 
 static bool MiniLandingUpperSkyGarbageColor(uint32_t color) {
@@ -90,12 +87,26 @@ static bool MiniLandingUpperSkyGarbageColor(uint32_t color) {
 static void MiniRepairLandingUpperSky(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
   if (!MiniLandingUpperSkyRepairActive(state))
     return;
+
+  // BG1 rows above the authored Landing Site foreground contain placeholder
+  // tiles. Repair that world-space region rather than a fixed number of
+  // screen rows: vertical camera follow otherwise reveals purple bands when
+  // Samus jumps.
+  int repair_bottom = kMiniLandingSiteSkyBg1TileRowLimit * 8 - state->viewport.camera_y;
+  if (repair_bottom <= 0)
+    return;
+  if (repair_bottom > kMiniGameHeight)
+    repair_bottom = kMiniGameHeight;
+
   uint32_t sky = MiniRenderer_ConvertBgr555(0x1CE8);
-  for (int y = 0; y < kMiniLandingSiteUpperSkyFillY; y++) {
+  int fill_bottom = repair_bottom < kMiniLandingSiteUpperSkyFillY
+                        ? repair_bottom
+                        : kMiniLandingSiteUpperSkyFillY;
+  for (int y = 0; y < fill_bottom; y++) {
     for (int x = 0; x < kMiniGameWidth; x++)
       pixels[y * pitch_pixels + x] = sky;
   }
-  for (int y = 0; y < kMiniLandingSiteUpperSkyRepairY; y++) {
+  for (int y = 0; y < repair_bottom; y++) {
     for (int x = 0; x < kMiniGameWidth; x++) {
       uint32_t *pixel = &pixels[y * pitch_pixels + x];
       if (MiniLandingUpperSkyGarbageColor(*pixel))
@@ -954,9 +965,61 @@ static void MiniRenderDecomposedProjectiles(uint32_t *pixels, int pitch_pixels,
   MiniSaveSamusRenderScratch(&saved);
   memset(oam_ext, 0, sizeof(oam_ext));
   oam_next_ptr = 0;
+  DrawBombAndProjectileExplosions();
   Samus_DrawActiveProjectiles();
   MiniRenderCurrentOam(pixels, pitch_pixels, oam_next_ptr);
   MiniRestoreSamusRenderScratch(&saved);
+}
+
+static void MiniRenderHitSpark(uint32_t *pixels, int pitch_pixels, int x, int y) {
+  // A compact three-color impact star. Keep this primitive-based until the
+  // vanilla projectile impact animation is cleanly separated from the full
+  // enemy/projectile runtime.
+  const uint32_t outer = 0xFFFF5A18u;
+  const uint32_t inner = 0xFFFFD83Du;
+  const uint32_t core = 0xFFFFFFFFu;
+
+  MiniRenderer_FillRect(pixels, pitch_pixels, x - 11, y - 1, 6, 3, outer);
+  MiniRenderer_FillRect(pixels, pitch_pixels, x + 6, y - 1, 6, 3, outer);
+  MiniRenderer_FillRect(pixels, pitch_pixels, x - 1, y - 11, 3, 6, outer);
+  MiniRenderer_FillRect(pixels, pitch_pixels, x - 1, y + 6, 3, 6, outer);
+  MiniRenderer_FillRect(pixels, pitch_pixels, x - 7, y - 7, 3, 3, outer);
+  MiniRenderer_FillRect(pixels, pitch_pixels, x + 5, y - 7, 3, 3, outer);
+  MiniRenderer_FillRect(pixels, pitch_pixels, x - 7, y + 5, 3, 3, outer);
+  MiniRenderer_FillRect(pixels, pitch_pixels, x + 5, y + 5, 3, 3, outer);
+
+  MiniRenderer_FillRect(pixels, pitch_pixels, x - 5, y - 2, 11, 5, inner);
+  MiniRenderer_FillRect(pixels, pitch_pixels, x - 2, y - 5, 5, 11, inner);
+  MiniRenderer_FillRect(pixels, pitch_pixels, x - 2, y - 2, 5, 5, core);
+}
+
+static void MiniRenderMeleeHitSparks(uint32_t *pixels, int pitch_pixels,
+                                     const MiniGameState *state) {
+  int event_count = state->melee_hit_event_count;
+  if (event_count > kMiniMeleeHitEventCapacity)
+    event_count = kMiniMeleeHitEventCapacity;
+
+  for (int i = 0; i < event_count; i++) {
+    const MiniMeleeHitEvent *event = &state->melee_hit_events[i];
+    int attacker = (int)event->attacker_player - 1;
+    int defender = (int)event->defender_player - 1;
+    if ((unsigned)attacker >= (unsigned)state->player_count ||
+        (unsigned)defender >= (unsigned)state->player_count || attacker == defender) {
+      continue;
+    }
+
+    const MiniSamusCoreState *attacker_samus = &state->players[attacker].samus;
+    const MiniSamusCoreState *defender_samus = &state->players[defender].samus;
+    int impact_side = attacker_samus->world_x < defender_samus->world_x ? -1 : 1;
+    if (attacker_samus->world_x == defender_samus->world_x)
+      impact_side = attacker < defender ? -1 : 1;
+    int impact_x = defender_samus->world_x +
+                   impact_side * ((int)defender_samus->x_radius + 2);
+    int impact_y = defender_samus->world_y - (int)defender_samus->y_radius / 4;
+    MiniRenderHitSpark(pixels, pitch_pixels,
+                       impact_x - state->viewport.camera_x,
+                       impact_y - state->viewport.camera_y);
+  }
 }
 
 static void MiniRenderModeOverlay(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
@@ -980,10 +1043,12 @@ void MiniRenderFrameToPixels(uint32_t *pixels, int pitch_pixels, const MiniGameS
     else if (state->player_count > 1)
       MiniRenderSamusPlayers(pixels, pitch_pixels, state, 1, true);
     MiniRepairLandingUpperSky(pixels, pitch_pixels, state);
+    MiniRenderMeleeHitSparks(pixels, pitch_pixels, state);
     MiniRenderModeOverlay(pixels, pitch_pixels, state);
     return;
   }
   MiniRenderMiniActors(pixels, pitch_pixels, state);
+  MiniRenderMeleeHitSparks(pixels, pitch_pixels, state);
   MiniRenderModeOverlay(pixels, pitch_pixels, state);
 }
 
@@ -1048,6 +1113,7 @@ void MiniRenderFrameToPixelsWithCamera(uint32_t *pixels, int pitch_pixels,
   } else if (!render_state.uses_rom_room) {
     MiniRenderMiniActors(pixels, pitch_pixels, &render_state);
   }
+  MiniRenderMeleeHitSparks(pixels, pitch_pixels, &render_state);
   MiniRenderModeOverlay(pixels, pitch_pixels, &render_state);
 
   layer1_x_pos = saved_layer1_x;

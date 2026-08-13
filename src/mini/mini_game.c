@@ -13,8 +13,10 @@
 #include "mini_climb_mode.h"
 #include "mini_editor_camera.h"
 #include "mini_enemy_runtime.h"
+#include "mini_frame_step.h"
 #include "mini_multiplayer_combat.h"
 #include "mini_multiplayer_players.h"
+#include "mini_multiplayer_weapons.h"
 #include "mini_ppu_stub.h"
 #include "mini_run_mode.h"
 #include "mini_system.h"
@@ -29,7 +31,7 @@ enum {
   kMiniItem_VariaSuit = 1,
   kMiniItem_GravitySuit = 0x20,
   kMiniSnapshotMagic = 0x4D53534D,
-  kMiniSnapshotVersion = 10,
+  kMiniSnapshotVersion = 13,
   kMiniRamSnapshotSize = 0x20000,
   kMiniSramSnapshotSize = 0x2000,
 };
@@ -278,6 +280,7 @@ void MiniGameState_Init(MiniGameState *state, int viewport_width, int viewport_h
   button_config_run_b = kButton_B;
   button_config_shoot_x = kButton_X;
   button_config_itemcancel_y = kButton_Y;
+  button_config_itemswitch = kButton_Select;
   button_config_aim_down_L = kButton_L;
   button_config_aim_up_R = kButton_R;
 
@@ -301,56 +304,14 @@ void MiniGameState_Init(MiniGameState *state, int viewport_width, int viewport_h
   }
   MiniMultiplayerPlayers_InitializePlayerOne(state);
   MiniMultiplayerPlayers_InitializePlayerTwo(state);
+  MiniMultiplayerWeapons_Initialize(state);
   MiniEnemyRuntime_Initialize(state);
   MultiSamus_SetNumSamus(1);
   MiniSyncLegacyPublicFields(state);
 }
 
-static uint16 MiniStepOriginalGameplayFrame(void) {
-  coroutine_state_1 = 0;
-  coroutine_state_2 = 0;
-  coroutine_state_3 = 0;
-  coroutine_state_4 = 0;
-
-  HdmaObjectHandler();
-  NextRandom();
-  ClearOamExt();
-  oam_next_ptr = 0;
-  nmi_copy_samus_halves = 0;
-  nmi_copy_samus_top_half_src = 0;
-  nmi_copy_samus_bottom_half_src = 0;
-
-  (void)GameState_8_MainGameplay();
-  HandleSoundEffects();
-  uint16 original_oam_next_ptr = oam_next_ptr;
-  ClearUnusedOam();
-
-  waiting_for_nmi = 1;
-  Vector_NMI();
-  return original_oam_next_ptr;
-}
-
-static MiniControlState MiniControlStateForPlayer(const MiniGameState *state, int player_index) {
-  return (MiniControlState){
-    .buttons = state->player_inputs[player_index].buttons,
-    .previous_buttons = state->player_inputs[player_index].previous_buttons,
-    .new_buttons = state->player_inputs[player_index].new_buttons,
-    .quit_requested = state->controls.quit_requested,
-  };
-}
-
 static void MiniStepSharedSamusMultiplayerFrame(MiniGameState *state) {
-  for (int i = 0; i < state->player_count; i++) {
-    state->samus = state->players[i].samus;
-    state->controls = MiniControlStateForPlayer(state, i);
-    MiniMultiplayerPlayers_LoadRuntime(state, i);
-    MiniMultiplayerPlayers_ApplyJoypad(state, i);
-    HandleControllerInputForGamePhysics();
-    HandleSamusMovementAndPause();
-    state->players[i].samus = MiniMultiplayerPlayers_CoreFromGlobals(state);
-    MiniMultiplayerPlayers_SaveRuntime(state, i);
-  }
-
+  MiniFrameStep_RunSharedMultiplayerSamus(state);
   MiniMultiplayerPlayers_LoadRuntime(state, 0);
   state->samus = state->players[0].samus;
   MiniMultiplayerPlayers_ApplyJoypad(state, 0);
@@ -377,8 +338,10 @@ void MiniUpdate(MiniGameState *state, const MiniInputState *input) {
   }
 
   MiniUpdateButtons(state, input);
+  MiniMultiplayerCombat_BeginFrame(state);
+  MiniMultiplayerWeapons_BeginFrame(state);
   if (state->room.uses_original_gameplay_runtime) {
-    state->original_oam_next_ptr = MiniStepOriginalGameplayFrame();
+    state->original_oam_next_ptr = MiniFrameStep_RunOriginalGameplay();
   } else if (state->player_count > 1) {
     state->original_oam_next_ptr = 0;
     nmi_frame_counter_word++;
@@ -386,7 +349,6 @@ void MiniUpdate(MiniGameState *state, const MiniInputState *input) {
     music_already_ticked = true;
     PaletteFxHandler();
     MiniStepSharedSamusMultiplayerFrame(state);
-    MiniMultiplayerPlayers_RunPostMovementChecksForStored(state);
   } else if (MiniAuthoredMovement_ShouldUseState(state)) {
     state->original_oam_next_ptr = 0;
     nmi_frame_counter_word++;
@@ -424,6 +386,7 @@ void MiniUpdate(MiniGameState *state, const MiniInputState *input) {
   }
   if (!state->room.uses_original_gameplay_runtime)
     MiniAudio_TickQueues(music_already_ticked);
+  MiniMultiplayerWeapons_EndFrame();
   MiniClimbMode_Tick(state);
   MiniSyncRenderState(state);
   MiniMultiplayerCombat_Update(state);
@@ -478,6 +441,9 @@ uint64_t MiniGameState_ComputeHash(const MiniGameState *state) {
     hash = MiniHashUInt16(hash, player->combat.hitstun_frames);
     hash = MiniHashUInt16(hash, player->combat.invulnerable_frames);
     hash = MiniHashByte(hash, player->combat.last_hit_by_player);
+    hash = MiniHashByte(hash, (uint8)player->weapon.selected);
+    hash = MiniHashUInt16(hash, player->weapon.missiles);
+    hash = MiniHashUInt16(hash, player->weapon.missile_capacity);
     hash = MiniHashBytes(hash, state->player_runtime_pre_projectile[i],
                          sizeof(state->player_runtime_pre_projectile[i]));
     hash = MiniHashBytes(hash, state->player_runtime_post_projectile[i],
@@ -500,6 +466,16 @@ uint64_t MiniGameState_ComputeHash(const MiniGameState *state) {
   }
   for (int i = 0; i < kSamusProjectileSlotCount; i++)
     hash = MiniHashByte(hash, state->projectile_state.owner_by_slot[i]);
+  hash = MiniHashByte(hash, state->melee_hit_event_count);
+  hash = MiniHashBytes(hash, &state->melee_hit_event_dropped_count,
+                       sizeof(state->melee_hit_event_dropped_count));
+  for (int i = 0; i < kMiniMeleeHitEventCapacity; i++) {
+    const MiniMeleeHitEvent *event = &state->melee_hit_events[i];
+    hash = MiniHashByte(hash, event->attacker_player);
+    hash = MiniHashByte(hash, event->defender_player);
+    hash = MiniHashUInt16(hash, event->projectile_slot);
+    hash = MiniHashUInt16(hash, event->damage);
+  }
   if (!state->room.uses_original_gameplay_runtime) {
     hash = MiniHashInt(hash, state->enemy_state.count);
     hash = MiniHashInt(hash, state->enemy_state.active_count);

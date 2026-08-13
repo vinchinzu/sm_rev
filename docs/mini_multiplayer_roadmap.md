@@ -157,8 +157,8 @@ Current browser/netplay visual boundary:
 - the browser canvas is integer-scaled and the debug HUD lives in a compact
   bottom strip to avoid fractional row clipping
 - ROM-backed rendering masks BG1 air metatiles and repairs the Landing Site
-  upper-sky leak where stale room/OAM tile rows can show through during vertical
-  follow-camera motion
+  upper-sky leak in world space, so stale placeholder tile rows do not become
+  horizontal purple bands during vertical follow-camera motion
 - independent P2 rendering now streams BG1 for the focused camera; arbitrary
   per-client BG2 and enemy/OAM camera generation remains the next deeper PPU
   renderer pass before widening the room scope
@@ -581,10 +581,9 @@ Completed extraction:
 
 Remaining cleanup candidates:
 
-- Keep thinning `mini_game.c` by extracting named mini seams. The multiplayer
-  player-runtime cluster now lives in `mini_multiplayer_players.c`; next
-  candidates are the shared multiplayer frame stepper and original-gameplay
-  frame wrapper still inlined in `mini_game.c`.
+- Keep thinning `mini_game.c` only at proven seams. The player-runtime cluster
+  lives in `mini_multiplayer_players.c`, while the shared multiplayer Samus
+  stepper and original-gameplay frame wrapper now live in `mini_frame_step.c`.
 - Continue naming proven collision-direction and solid-enemy contact values
   through `samus_env.h` when touching adjacent Samus movement/collision paths.
 

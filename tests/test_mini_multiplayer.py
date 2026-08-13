@@ -170,6 +170,8 @@ def test_two_player_multiplayer_demo_uses_rom_runtime():
     assert payload["player2_pending_damage"] > 0
     assert payload["player1_last_hit_by_player"] == 2
     assert payload["player2_last_hit_by_player"] == 1
+    assert payload["hit_event_count"] == len(payload["hit_events"])
+    assert payload["hit_event_dropped_count"] == 0
 
 
 def test_two_player_replay_roundtrip_preserves_player_inputs(tmp_path: Path):

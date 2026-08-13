@@ -1,6 +1,7 @@
 TARGET_EXEC := sm_rev
 MINI_TARGET_EXEC := sm_rev_mini
 MODDABLE_TARGET_EXEC := sm_rev_moddable
+.DEFAULT_GOAL := all
 
 PYTHON := /usr/bin/env python3
 CFLAGS := $(if $(CFLAGS),$(CFLAGS),-O2 -fno-strict-aliasing -Werror)
@@ -44,6 +45,7 @@ FULL_SRCS := $(CORE_SRCS) \
              $(FULL_THIRD_PARTY_SRCS) \
              $(EMBEDDED_SRCS)
 OBJS := $(FULL_SRCS:%.c=%.o)
+DEPS := $(OBJS:%.o=%.d)
 
 MINI_RUNTIME_SRCS := $(wildcard src/mini/*.c)
 # Mini now links the shared gameplay engine and constrains content at runtime to
@@ -54,6 +56,7 @@ MINI_SRCS := $(MINI_RUNTIME_SRCS) $(MINI_SHARED_ENGINE_SRCS) $(MINI_EXTRA_SRCS)
 MINI_KERNEL_RUNTIME_SRCS := $(filter-out src/mini/mini_main.c src/mini/mini_runtime.c src/mini/mini_renderer.c src/mini/mini_record.c src/mini/mini_input_script.c src/mini/mini_backdrop.c src/mini/mini_audio_host.c,$(MINI_RUNTIME_SRCS))
 MINI_KERNEL_SRCS := $(MINI_KERNEL_RUNTIME_SRCS) $(MINI_SHARED_ENGINE_SRCS) $(MINI_EXTRA_SRCS)
 MINI_KERNEL_OBJS := $(MINI_KERNEL_SRCS:%.c=%.mini.o)
+MINI_KERNEL_DEPS := $(MINI_KERNEL_OBJS:%.mini.o=%.mini.d)
 MINI_KERNEL_LIB := libsm_rev_mini_kernel.a
 MINI_BROWSER_SRCS := $(MINI_KERNEL_SRCS) src/mini/mini_renderer.c
 MINI_BROWSER_LIB := libsm_rev_mini_net.so
@@ -65,6 +68,9 @@ MINI_LDFLAGS = $(LDFLAGS) $(SDLFLAGS) -Wl,--gc-sections
 MODDABLE_SRCS := $(MINI_SRCS)
 MODDABLE_CFLAGS = $(CFLAGS) -DCURRENT_BUILD=BUILD_MODDABLE -ffunction-sections -fdata-sections
 MODDABLE_LDFLAGS = $(MINI_LDFLAGS)
+MINI_HEADER_DEPS := $(wildcard src/*.h src/mini/*.h src/snes/*.h)
+
+-include $(DEPS) $(MINI_KERNEL_DEPS)
 
 ifeq ($(BUNDLE_ASSETS),1)
   # Regenerate embedded files if sources are newer
@@ -95,27 +101,27 @@ $(TARGET_EXEC): $(OBJS)
 	$(CC) $^ -o $@ $(LDFLAGS) $(SDLFLAGS)
 
 %.o: %.c
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) -MMD -MP $< -o $@
 
 mini: $(MINI_TARGET_EXEC)
 
-$(MINI_TARGET_EXEC): $(MINI_SRCS) $(MINI_ASSET_DEPS)
+$(MINI_TARGET_EXEC): $(MINI_SRCS) $(MINI_ASSET_DEPS) $(MINI_HEADER_DEPS)
 	$(CC) $(MINI_CFLAGS) $(MINI_SRCS) -o $@ $(MINI_LDFLAGS)
 
 moddable: $(MODDABLE_TARGET_EXEC)
 
-$(MODDABLE_TARGET_EXEC): $(MODDABLE_SRCS) $(MINI_ASSET_DEPS)
+$(MODDABLE_TARGET_EXEC): $(MODDABLE_SRCS) $(MINI_ASSET_DEPS) $(MINI_HEADER_DEPS)
 	$(CC) $(MODDABLE_CFLAGS) $(MODDABLE_SRCS) -o $@ $(MODDABLE_LDFLAGS)
 
 %.mini.o: %.c
-	$(CC) -c $(MINI_CFLAGS) $< -o $@
+	$(CC) -c $(MINI_CFLAGS) -MMD -MP $< -o $@
 
 $(MINI_KERNEL_LIB): $(MINI_KERNEL_OBJS) $(MINI_ASSET_DEPS)
 	$(AR) rcs $@ $(MINI_KERNEL_OBJS)
 
 mini-browser-lib: $(MINI_BROWSER_LIB)
 
-$(MINI_BROWSER_LIB): $(MINI_BROWSER_SRCS) src/mini/mini_net_bridge.h src/mini/mini_renderer.h $(MINI_ASSET_DEPS)
+$(MINI_BROWSER_LIB): $(MINI_BROWSER_SRCS) $(MINI_HEADER_DEPS) $(MINI_ASSET_DEPS)
 	$(CC) $(MINI_CFLAGS) -fPIC -fvisibility=hidden -shared $(MINI_BROWSER_SRCS) -o $@ $(MINI_LDFLAGS)
 
 mini-browser-server: mini-browser-lib
@@ -146,7 +152,7 @@ mini-mac: mini
 
 clean: clean_obj
 clean_obj:
-	@$(RM) $(OBJS) $(TARGET_EXEC) $(MINI_TARGET_EXEC) $(MODDABLE_TARGET_EXEC) $(MINI_KERNEL_OBJS) $(MINI_KERNEL_LIB) $(MINI_BROWSER_LIB) $(MINI_ROLLBACK_TEST) $(MINI_RUST_HOST) src/embedded/*.o src/embedded/*.c
+	@$(RM) $(OBJS) $(DEPS) $(TARGET_EXEC) $(MINI_TARGET_EXEC) $(MODDABLE_TARGET_EXEC) $(MINI_KERNEL_OBJS) $(MINI_KERNEL_DEPS) $(MINI_KERNEL_LIB) $(MINI_BROWSER_LIB) $(MINI_ROLLBACK_TEST) $(MINI_RUST_HOST) src/embedded/*.o src/embedded/*.c
 
 test: all
 	$(PYTHON) tests/run_tests.py -v
