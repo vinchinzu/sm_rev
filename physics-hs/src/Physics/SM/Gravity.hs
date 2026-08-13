@@ -22,7 +22,10 @@ updateVerticalMovement cfg input state
       let state' = checkJumpRelease input state
           state'' = applyGravity cfg EnvAir state'
           state''' = clampTerminalVelocity cfg state''
-          landed = checkLanding cfg state'''
+          -- Apply Y velocity to Y position
+          newYPos = applyVelocity (stateYPos state''') (stateYVel state''')
+          state'''' = state''' { stateYPos = newYPos }
+          landed = checkLanding cfg state''''
       in landed
 
 -- | Check for landing on flat floor at cfgGroundY.

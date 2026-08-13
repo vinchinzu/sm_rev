@@ -12,19 +12,22 @@ import Physics.SM.Types
 
 -- | Handle jump input: squat detection and jump initialization.
 --
--- Matches HandleJumpTransition_NormalJump logic.
+-- Matches HandleJumpTransition_NormalJump logic: jump fires when squat REACHES duration.
 handleJumpInput :: PhysicsConfig -> ControllerInput -> SamusState -> SamusState
 handleJumpInput cfg input state
   | not (stateOnGround state) = state  -- Can't jump in air
   | justPressed btnA input && stateJumpSquatFrames state == 0 =
       -- Start jump squat
-      state { stateJumpSquatFrames = 1 }
-  | stateJumpSquatFrames state > 0 && stateJumpSquatFrames state < cfgJumpSquatDuration cfg =
-      -- Continue squat
-      state { stateJumpSquatFrames = stateJumpSquatFrames state + 1 }
-  | stateJumpSquatFrames state >= cfgJumpSquatDuration cfg =
-      -- Fire the jump (env detection requires liquid tracking, hi-jump needs equipment state)
-      initJump cfg EnvAir False state
+      state { stateJumpSquatFrames = 1, stateJumpHeld = True }
+  | stateJumpSquatFrames state > 0 =
+      -- Continue squat and check if duration reached
+      let aHeld = (inputButtons input .&. btnA) /= ButtonMask 0
+          newSquat = stateJumpSquatFrames state + 1
+      in if not aHeld
+         then state { stateJumpSquatFrames = 0, stateJumpHeld = False }  -- Cancel squat
+         else if newSquat >= cfgJumpSquatDuration cfg
+              then initJump cfg EnvAir False state  -- Fire jump when duration reached
+              else state { stateJumpSquatFrames = newSquat }  -- Continue squat
   | otherwise = state
 
 -- | Initialize jump: set upward velocity, change pose, leave ground.
