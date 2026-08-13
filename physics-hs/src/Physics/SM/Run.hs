@@ -7,6 +7,7 @@ module Physics.SM.Run
   ) where
 
 import Data.Bits ((.&.))
+import Data.Int (Int16)
 import Data.Word (Word32)
 import Physics.SM.Constants
 import Physics.SM.Types
@@ -57,19 +58,19 @@ applyDeceleration cfg currentVel =
      then (zeroVelocity, AccelNone)  -- Stop if decel would overshoot
      else (subVelocitySafe currentVel decel, AccelDecelerating)
 
--- | Subtract velocity safely (clamp to zero if negative).
+-- | Subtract velocity safely for deceleration (magnitude-based).
 subVelocitySafe :: Velocity -> Velocity -> Velocity
 subVelocitySafe (Velocity p1 s1) (Velocity p2 s2) =
-  let total1 = fromIntegral (unPixel p1) * 65536 + fromIntegral (unSubpixel s1) :: Word32
-      total2 = fromIntegral (unPixel p2) * 65536 + fromIntegral (unSubpixel s2) :: Word32
+  let total1 = abs (fromIntegral p1) * 65536 + fromIntegral (unSubpixel s1) :: Word32
+      total2 = abs (fromIntegral p2) * 65536 + fromIntegral (unSubpixel s2) :: Word32
       result = if total1 >= total2 then total1 - total2 else 0
-      newPix = Pixel (fromIntegral (result `div` 65536))
+      newPix = fromIntegral (result `div` 65536) :: Int16
       newSub = Subpixel (fromIntegral (result `mod` 65536))
   in Velocity newPix newSub
 
 velToWord32 :: Velocity -> Word32
-velToWord32 (Velocity (Pixel p) (Subpixel s)) =
-  fromIntegral p * 65536 + fromIntegral s
+velToWord32 (Velocity p s) =
+  abs (fromIntegral p) * 65536 + fromIntegral (unSubpixel s)
 
 -- | Accelerate rightward (positive X).
 accelerateRight :: PhysicsConfig -> Velocity -> (Velocity, AccelMode)

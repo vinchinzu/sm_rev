@@ -67,9 +67,10 @@ data TrajectoryFrame = TrajectoryFrame
   { frameState :: !SimState
   , enemies :: !(Maybe [Enemy])  -- Omitted if empty/Nothing
   } deriving stock (Eq, Show, Generic)
+    deriving anyclass (ToJSON)
 
 instance ToJSON TrajectoryFrame where
-  toJSON (TrajectoryFrame st Nothing) = object
+  toJSON (TrajectoryFrame st Nothing) = Data.Aeson.object
     [ "frame" .= frame st
     , "room_id" .= room_id st
     , "samus_x" .= samus_x st
@@ -89,7 +90,7 @@ instance ToJSON TrajectoryFrame where
     , "speed_flag" .= speed_flag st
     , "shinespark_timer" .= shinespark_timer st
     ]
-  toJSON (TrajectoryFrame st (Just es)) = object
+  toJSON (TrajectoryFrame st (Just es)) = Data.Aeson.object
     [ "frame" .= frame st
     , "room_id" .= room_id st
     , "samus_x" .= samus_x st

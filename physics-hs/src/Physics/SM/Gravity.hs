@@ -9,6 +9,7 @@ module Physics.SM.Gravity
   ) where
 
 import Data.Bits ((.&.))
+import Data.Int (Int16)
 import Data.Word (Word32)
 import Physics.SM.Constants
 import Physics.SM.Types
@@ -22,8 +23,8 @@ updateVerticalMovement cfg input state
   | otherwise =
       let state' = checkJumpRelease input state
           state'' = applyGravity cfg EnvAir state'
-          -- Apply Y velocity with direction awareness (rising=subtract, falling=add)
-          newPos = applyVelocityY (stateYPos state'') (stateYVel state'') (stateVerticalDir state'')
+          -- Apply signed Y velocity (negative=up, positive=down)
+          newPos = applyVelocity (stateYPos state'') (stateYVel state'')
           state''' = state'' { stateYPos = newPos }
       in checkLanding cfg state'''
 
@@ -56,25 +57,26 @@ checkJumpRelease input state
 
 -- | Apply gravity acceleration to vertical velocity.
 --
--- Corresponds to Samus_DetermineAccel_Y and the terminal velocity check.
+-- Signed velocity: negative=upward, positive=downward.
+-- Gravity always adds (positive, pulls down).
 applyGravity :: PhysicsConfig -> Environment -> SamusState -> SamusState
 applyGravity cfg env state
   | stateVerticalDir state == VDirRising =
-      -- Rising: subtract gravity (decelerate upward velocity)
+      -- Rising: add positive gravity (reduces negative velocity toward zero)
       let gravAccel = selectGravity cfg env
-          newVel = subVelocity (stateYVel state) gravAccel
-          -- Transition to falling when velocity reaches zero
-      in if velPixel newVel == Pixel 0 && velSubpixel newVel <= Subpixel 0x1000
+          newVel = addVelocity (stateYVel state) gravAccel
+          -- Transition to falling when velocity becomes non-negative
+      in if velPixel newVel >= 0
          then state { stateYVel = zeroVelocity, stateVerticalDir = VDirFalling }
          else state { stateYVel = newVel }
   | stateVerticalDir state == VDirFalling =
-      -- Falling: add gravity (increase downward velocity)
+      -- Falling: add positive gravity (increases positive velocity)
       let gravAccel = selectGravity cfg env
-          currentVel = stateYVel state
-          terminalSpeed = cfgTerminalSpeed cfg
-      in if velPixel currentVel >= terminalSpeed
+          newVel = addVelocity (stateYVel state) gravAccel
+          terminalSpeed = fromIntegral (unPixel (cfgTerminalSpeed cfg)) :: Int16
+      in if velPixel newVel >= terminalSpeed
          then state  -- Capped at terminal velocity
-         else state { stateYVel = addVelocity currentVel gravAccel }
+         else state { stateYVel = newVel }
   | otherwise = state
 
 -- | Select gravity based on environment.

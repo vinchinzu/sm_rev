@@ -15,7 +15,6 @@ module Physics.SM.Types
   , subPosition
   , addVelocity
   , applyVelocity
-  , applyVelocityY
   , zeroPosition
   , zeroVelocity
     -- * Core state
@@ -33,7 +32,7 @@ module Physics.SM.Types
   ) where
 
 import Data.Aeson (FromJSON, ToJSON)
-import Data.Bits (shiftR)
+import Data.Bits (Bits, shiftR)
 import Data.Int (Int16)
 import Data.Word (Word16, Word32)
 import GHC.Generics (Generic)
@@ -60,10 +59,13 @@ data Position = Position
   } deriving stock (Eq, Show, Generic)
     deriving anyclass (FromJSON, ToJSON)
 
--- | Full 16.16 fixed-point velocity (pixels per frame).
+-- | Signed 16.16 fixed-point velocity (pixels per frame).
+--
+-- Matches C kernel: negative = upward/leftward, positive = downward/rightward.
+-- Y: negative velocity moves up (Y decreases), positive moves down (Y increases).
 data Velocity = Velocity
-  { velPixel :: !Pixel
-  , velSubpixel :: !Subpixel
+  { velPixel :: !Int16      -- SIGNED pixel component
+  , velSubpixel :: !Subpixel -- Unsigned subpixel (0x0000-0xFFFF)
   } deriving stock (Eq, Show, Generic)
     deriving anyclass (FromJSON, ToJSON)
 
@@ -87,34 +89,37 @@ subPosition (Position p1 s1) (Position p2 s2) =
       newPix = p1 - p2 - borrow
   in Position newPix newSub
 
--- | Add two velocities with carry.
+-- | Add two velocities with signed pixel carry.
 addVelocity :: Velocity -> Velocity -> Velocity
 addVelocity (Velocity p1 s1) (Velocity p2 s2) =
   let subSum = fromIntegral (unSubpixel s1) + fromIntegral (unSubpixel s2) :: Word32
-      carry = Pixel (fromIntegral (subSum `div` 65536))
+      carry = fromIntegral (subSum `div` 65536) :: Int16
       newSub = Subpixel (fromIntegral subSum)
       newPix = p1 + p2 + carry
   in Velocity newPix newSub
 
--- | Apply velocity to position with direction awareness.
+-- | Apply velocity to position (signed velocity, unsigned position).
 --
--- For Y: Rising means subtract (move to lower Y), Falling means add (move to higher Y).
--- For X: Always add (unsigned magnitude, pose determines visual direction).
-applyVelocityY :: Position -> Velocity -> VerticalDirection -> Position
-applyVelocityY pos vel dir = case dir of
-  VDirRising -> subPosition pos (Position (velPixel vel) (velSubpixel vel))
-  VDirFalling -> addPosition pos (Position (velPixel vel) (velSubpixel vel))
-  VDirStationary -> pos
-
+-- Y: negative velocity = upward (Y decreases), positive = downward (Y increases).
+-- X: negative velocity = leftward (X decreases), positive = rightward (X increases).
 applyVelocity :: Position -> Velocity -> Position
-applyVelocity (Position pp ps) (Velocity vp vs) =
-  addPosition (Position pp ps) (Position vp vs)
+applyVelocity (Position pp ps) (Velocity vp vs)
+  | vp < 0 = 
+      -- Negative velocity: subtract magnitude
+      let absP = fromIntegral (abs vp) :: Word16
+          absPos = Position (Pixel absP) vs
+      in subPosition (Position pp ps) absPos
+  | otherwise =
+      -- Positive velocity: add
+      let posP = fromIntegral vp :: Word16
+          posPos = Position (Pixel posP) vs
+      in addPosition (Position pp ps) posPos
 
 zeroPosition :: Position
 zeroPosition = Position (Pixel 0) (Subpixel 0)
 
 zeroVelocity :: Velocity
-zeroVelocity = Velocity (Pixel 0) (Subpixel 0)
+zeroVelocity = Velocity 0 (Subpixel 0)
 
 -- | Button bitmask matching C enum kButton_*.
 newtype ButtonMask = ButtonMask { unButtonMask :: Word16 }
@@ -206,24 +211,24 @@ data PhysicsConfig = PhysicsConfig
 defaultConfig :: PhysicsConfig
 defaultConfig = PhysicsConfig
   { cfgJumpInitialSpeed =
-      [ Velocity (Pixel 4) (Subpixel 0xe000)  -- air
-      , Velocity (Pixel 1) (Subpixel 0xc000)  -- water
-      , Velocity (Pixel 2) (Subpixel 0xc000)  -- lava
+      [ Velocity (-5) (Subpixel 0x8000)  -- air: -4.5 pixels/frame (upward)
+      , Velocity (-2) (Subpixel 0x4000)  -- water
+      , Velocity (-3) (Subpixel 0x0000)  -- lava
       ]
   , cfgJumpHiInitialSpeed =
-      [ Velocity (Pixel 6) (Subpixel 0x0000)  -- air
-      , Velocity (Pixel 2) (Subpixel 0x8000)  -- water
-      , Velocity (Pixel 3) (Subpixel 0x8000)  -- lava
+      [ Velocity (-6) (Subpixel 0x0000)  -- air: -6.0 pixels/frame (upward)
+      , Velocity (-3) (Subpixel 0x0000)  -- water
+      , Velocity (-4) (Subpixel 0x0000)  -- lava
       ]
   , cfgGravityAccel =
-      [ Velocity (Pixel 0) (Subpixel 0x1c00)  -- air
-      , Velocity (Pixel 0) (Subpixel 0x0800)  -- water
-      , Velocity (Pixel 0) (Subpixel 0x0900)  -- lava
+      [ Velocity 0 (Subpixel 0x1c00)  -- air: +0.109 pixels/frame (downward)
+      , Velocity 0 (Subpixel 0x0800)  -- water
+      , Velocity 0 (Subpixel 0x0900)  -- lava
       ]
-  , cfgRunAccel = Velocity (Pixel 0) (Subpixel 0x00a0)
-  , cfgRunDecel = Velocity (Pixel 0) (Subpixel 0x0000)
-  , cfgRunMaxSpeed = Velocity (Pixel 3) (Subpixel 0x0000)
-  , cfgTerminalSpeed = Pixel 5
-  , cfgJumpSquatDuration = 4  -- Frames before jump fires
-  , cfgGroundY = Pixel 200  -- Flat infinite floor at Y=200 (v1 collision)
+  , cfgRunAccel = Velocity 0 (Subpixel 0x00a0)  -- +0.0098 pixels/frame
+  , cfgRunDecel = Velocity 0 (Subpixel 0x0000)
+  , cfgRunMaxSpeed = Velocity 3 (Subpixel 0x0000)  -- +3.0 pixels/frame
+  , cfgTerminalSpeed = Pixel 5  -- Terminal Y velocity magnitude
+  , cfgJumpSquatDuration = 4
+  , cfgGroundY = Pixel 200
   }

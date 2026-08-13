@@ -13,4 +13,5 @@ tests = testGroup "Physics.SM"
   [ Test.Unit.tests
   , Test.Properties.tests
   , Test.Golden.tests
+  , Test.HopRise.tests
   ]
