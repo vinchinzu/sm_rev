@@ -56,7 +56,7 @@ static void TestLoadMiniSaveState(void) {
 }
 
 static void TestPredictFromLoadedState(void) {
-  printf("TestPredictFromLoadedState: ");
+  printf("TestPredictFromLoadedState (frame-0 hydrate only): ");
   
   // Load MiniSaveState blob
   FILE *f = fopen("tests/fixtures/landing_site_spawn.mss", "rb");
@@ -70,8 +70,6 @@ static void TestPredictFromLoadedState(void) {
   assert(read_size == MiniSaveStateSize());
   
   // Get initial position from snapshot's g_ram
-  // The snapshot contains the full g_ram, so we can read directly from it
-  // But we need to load it first to access g_ram
   MiniGameState *temp_state = MiniCreate(320, 240);
   assert(temp_state != NULL);
   assert(MiniLoadState(temp_state, snapshot, MiniSaveStateSize()));
@@ -106,7 +104,11 @@ static void TestPredictFromLoadedState(void) {
   
   free(snapshot);
   
-  // Verify frame 0 matches loaded state
+  // TEST SCOPE: Frame-0 hydrate only
+  // This test verifies that --load-state correctly hydrates g_ram at frame 0.
+  // It does NOT test grounded-walk residuals vs SuperMetroidEnv (that's later work).
+  // Mini authored movement may not produce position changes without proper room setup.
+  
   assert(prediction->frame_count > 0);
   const MiniTrajectoryFrame *frame0 = &prediction->frames[0];
   
@@ -116,18 +118,13 @@ static void TestPredictFromLoadedState(void) {
   printf("  Expected: x=%d.%d, y=%d.%d\n",
          initial_x, initial_x_sub, initial_y, initial_y_sub);
   
+  // Assert frame 0 matches the blob's g_ram values
   assert(frame0->samus_x == initial_x);
   assert(frame0->samus_x_sub == initial_x_sub);
   assert(frame0->samus_y == initial_y);
   assert(frame0->samus_y_sub == initial_y_sub);
   
-  // Check final frame - position should be different after 60 frames of Right
-  const MiniTrajectoryFrame *last_frame = &prediction->frames[frame_count - 1];
-  printf("  Final frame: x=%d, y=%d\n", last_frame->samus_x, last_frame->samus_y);
-  
-  // The position may not change if authored movement needs room setup,
-  // but the important test is that frame 0 matches the loaded state
-  printf("PASSED (frame 0 matches blob's $0AF6/$0AF8/$0AFA/$0AFC)\n");
+  printf("PASSED (frame-0 hydrate verified, grounded-walk R(τ) vs SuperMetroidEnv is later work)\n");
   
   MiniPrediction_Destroy(prediction);
 }

@@ -15,7 +15,7 @@ enum {
   kWramAddr_SamusYSub = 0x0AFC,         // uint16: Samus Y subpixel (16-bit)
   kWramAddr_SamusPose = 0x0A1C,         // uint16: Samus pose
   kWramAddr_Health = 0x09C2,            // uint16: current health (energy)
-  kWramAddr_FrameCounter1 = 0x1842,     // uint32: first frame counter
+  kWramAddr_FrameCounter1 = 0x1842,     // uint16: first frame counter
   kWramAddr_FrameCounter2 = 0x09DA,     // uint16: second frame counter
 };
 

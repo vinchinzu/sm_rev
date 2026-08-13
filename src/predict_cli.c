@@ -85,25 +85,31 @@ int main(int argc, char **argv) {
     return 0;
   }
   
-  // Parse --load-state flag
+  // Parse --load-state flag (can appear before or after optional "predict")
+  // Supported forms:
+  //   sm_rev_predict --load-state FILE
+  //   sm_rev_predict predict --load-state FILE
+  //   sm_rev_predict --load-state FILE predict
   const char *load_state_path = NULL;
-  int arg_offset = 1;
+  bool found_predict = false;
   
-  if (argc > 2 && strcmp(argv[1], "--load-state") == 0) {
-    load_state_path = argv[2];
-    arg_offset = 3;
-  } else if (argc > 1 && strncmp(argv[1], "--load-state=", 13) == 0) {
-    load_state_path = argv[1] + 13;
-    arg_offset = 2;
-  }
-  
-  // SmRevClient invokes as: [SM_REV_PATH, "predict"]
-  // Accept optional "predict" arg for compatibility (no-op)
-  if (arg_offset < argc && strcmp(argv[arg_offset], "predict") == 0) {
-    // Expected usage, continue
-  } else if (arg_offset < argc) {
-    fprintf(stderr, "{\"error\":\"unknown command '%s' (expected 'predict', '--version', '--load-state', or no args)\"}\n", argv[arg_offset]);
-    return 1;
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "predict") == 0) {
+      found_predict = true;
+    } else if (strcmp(argv[i], "--load-state") == 0) {
+      if (i + 1 < argc) {
+        load_state_path = argv[i + 1];
+        i++;  // Skip the path argument
+      } else {
+        fprintf(stderr, "{\"error\":\"--load-state requires a file path\"}\n");
+        return 1;
+      }
+    } else if (strncmp(argv[i], "--load-state=", 13) == 0) {
+      load_state_path = argv[i] + 13;
+    } else {
+      fprintf(stderr, "{\"error\":\"unknown argument '%s' (expected 'predict', '--version', or '--load-state')\"}\n", argv[i]);
+      return 1;
+    }
   }
 
   char *json_input = read_stdin();
@@ -291,8 +297,7 @@ int main(int argc, char **argv) {
       printf("\"speed_flag\":%u,", first->speed_flag);
       printf("\"shinespark_timer\":%u,", first->shinespark_timer);
       printf("\"energy\":%u,", first->energy);
-      printf("\"is_dead\":%s,", first->is_dead ? "true" : "false");
-      printf("\"is_game_over\":%s,", first->is_game_over ? "true" : "false");
+      // Note: is_dead and is_game_over not yet implemented, omitted from output
       printf("\"frame_counter_1\":%u,", first->frame_counter_1);
       printf("\"frame_counter_2\":%u", first->frame_counter_2);
       printf("},");
@@ -326,8 +331,7 @@ int main(int argc, char **argv) {
       printf("\"speed_flag\":%u,", frame->speed_flag);
       printf("\"shinespark_timer\":%u,", frame->shinespark_timer);
       printf("\"energy\":%u,", frame->energy);
-      printf("\"is_dead\":%s,", frame->is_dead ? "true" : "false");
-      printf("\"is_game_over\":%s,", frame->is_game_over ? "true" : "false");
+      // Note: is_dead and is_game_over not yet implemented, omitted from output
       printf("\"frame_counter_1\":%u,", frame->frame_counter_1);
       printf("\"frame_counter_2\":%u", frame->frame_counter_2);
     

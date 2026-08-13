@@ -49,9 +49,9 @@ typedef struct MiniTrajectoryFrame {
   uint16 energy;          // $09C2: current health
   bool is_dead;           // Samus death state
   bool is_game_over;      // Game over state
-  // Frame counters (from g_ram $1842/$09DA)
-  uint32 frame_counter_1;    // $1842: first frame counter (uint32)
-  uint16 frame_counter_2;    // $09DA: second frame counter (uint16)
+  // Frame counters (from g_ram $1842/$09DA - both uint16)
+  uint16 frame_counter_1;    // $1842: first frame counter
+  uint16 frame_counter_2;    // $09DA: second frame counter
   
   // Enemy tracking (wire format compatibility - currently always empty)
   MiniEnemySnapshot *enemies;

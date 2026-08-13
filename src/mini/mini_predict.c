@@ -44,13 +44,13 @@ MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state, int f
   // Energy: read from g_ram $09C2
   result.energy = samus_health;                // g_ram $09C2
   
-  // Death and game over state (mini doesn't track death state yet, future work)
+  // Death and game over state: not yet implemented in Mini
+  // These fields are NOT emitted in JSON output (see predict_cli.c)
   result.is_dead = false;
   result.is_game_over = false;
   
-  // Frame counters: read from g_ram for observation tuple
-  // Avoid naming conflicts with variables.h macros by using generic names
-  result.frame_counter_1 = *(uint32*)(g_ram + kWramAddr_FrameCounter1);
+  // Frame counters: read from g_ram (both uint16 per locked M-E map)
+  result.frame_counter_1 = *(uint16*)(g_ram + kWramAddr_FrameCounter1);
   result.frame_counter_2 = *(uint16*)(g_ram + kWramAddr_FrameCounter2);
   
   // Enemy tracking: capture active enemies from MiniSim (pixel x/y only)

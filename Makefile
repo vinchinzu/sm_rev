@@ -179,6 +179,7 @@ run: all
 
 mini-test: mini mini-rollback-test mini-predict-golden mini-wram-peek-test
 	./$(MINI_TARGET_EXEC) --headless --frames 3
+	python3 tests/test_load_state_cli.py
 
 moddable-test: moddable
 	./$(MODDABLE_TARGET_EXEC) --headless --frames 3
