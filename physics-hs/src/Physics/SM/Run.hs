@@ -83,10 +83,17 @@ accelerateRight cfg currentVel =
 
 -- | Accelerate leftward (negative X).
 --
--- C uses separate left/right tables but same accel values. We mirror the right logic.
--- Note: In C, leftward velocity is stored as magnitude in the same unsigned fields,
--- with direction tracked by pose_x_dir. For this pure model, we use the same accel
--- but would need pose tracking to determine actual screen direction.
+-- NOTE: C implementation uses UNSIGNED velocity magnitude with separate
+-- pose_x_dir flag for direction. Both accelerateLeft and accelerateRight
+-- increase the magnitude; actual screen direction is determined by pose.
+--
+-- This pure model currently lacks pose-based direction tracking, so both
+-- functions use identical magnitude logic. Full leftward movement requires:
+--   1. Pose/facing field to track direction
+--   2. Position update to apply signed velocity
+--   3. Collision to prevent moving through walls
+--
+-- For now, this matches C's magnitude-based acceleration.
 accelerateLeft :: PhysicsConfig -> Velocity -> (Velocity, AccelMode)
 accelerateLeft cfg currentVel =
   let maxSpeed = cfgRunMaxSpeed cfg
