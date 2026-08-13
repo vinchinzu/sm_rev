@@ -34,6 +34,8 @@ ifeq ($(BUNDLE_ASSETS),1)
 endif
 
 CORE_SRCS := $(wildcard src/*.c)
+# Exclude predict_cli.c which has its own main() and is built separately
+CORE_SRCS := $(filter-out src/predict_cli.c,$(CORE_SRCS))
 HOST_SRCS := $(wildcard src/host/*.c)
 SNES_SRCS := $(wildcard src/snes/*.c)
 FULL_THIRD_PARTY_SRCS := third_party/gl_core/gl_core_3_1.c third_party/cJSON.c
