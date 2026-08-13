@@ -84,24 +84,18 @@ accelerateRight cfg currentVel =
 
 -- | Accelerate leftward (negative X).
 --
--- NOTE: C implementation uses UNSIGNED velocity magnitude with separate
--- pose_x_dir flag for direction. Both accelerateLeft and accelerateRight
--- increase the magnitude; actual screen direction is determined by pose.
---
--- This pure model currently lacks pose-based direction tracking, so both
--- functions use identical magnitude logic. Full leftward movement requires:
---   1. Pose/facing field to track direction
---   2. Position update to apply signed velocity
---   3. Collision to prevent moving through walls
---
--- For now, this matches C's magnitude-based acceleration.
+-- Applies negative acceleration for leftward movement.
 accelerateLeft :: PhysicsConfig -> Velocity -> (Velocity, AccelMode)
 accelerateLeft cfg currentVel =
   let maxSpeed = cfgRunMaxSpeed cfg
       accel = cfgRunAccel cfg
-      newVel = addVelocity currentVel accel
-  in if velExceeds newVel maxSpeed
-     then (maxSpeed, AccelNone)
+      -- Negate acceleration for leftward motion
+      negAccel = Velocity (negate (velPixel accel)) (velSubpixel accel)
+      newVel = addVelocity currentVel negAccel
+      -- Check if velocity is more negative than -maxSpeed
+      maxNegSpeed = Velocity (negate (velPixel maxSpeed)) (velSubpixel maxSpeed)
+  in if velPixel newVel < velPixel maxNegSpeed
+     then (maxNegSpeed, AccelNone)  -- Capped at max leftward speed
      else (newVel, AccelAccelerating)
 
 -- | Check if velocity exceeds maximum (unsigned comparison).

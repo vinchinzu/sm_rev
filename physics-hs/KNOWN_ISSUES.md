@@ -16,18 +16,13 @@
 
 ## Horizontal Movement
 
-**Status**: Run acceleration works for rightward motion.
+**Status**: Run acceleration works for rightward and leftward motion.
 
-**Gap**: `accelerateLeft` currently adds positive X velocity (same as `accelerateLeft`).
+**Current**: `accelerateRight` adds positive X velocity, `accelerateLeft` adds negative X velocity.
 
-**Root cause**: C implementation uses unsigned velocity magnitude with separate `pose_x_dir` flag. Full leftward movement requires:
-1. Pose/facing field to track direction
-2. Position update to apply signed velocity
-3. Collision to prevent moving through walls
+**Gap**: No leftward motion tests yet (only rightward motion tested in Test.Properties).
 
-**Workaround**: Both `accelerateLeft` and `accelerateRight` use identical magnitude logic. This matches C's magnitude-based acceleration but doesn't produce screen-left motion yet.
-
-**Impact**: B+Left input accelerates but doesn't move Samus leftward on screen. Rightward motion (B+Right) works correctly.
+**Impact**: Both directions accelerate correctly in code, but only rightward motion has property test coverage.
 
 ## Air Control
 
