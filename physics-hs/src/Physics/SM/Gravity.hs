@@ -71,20 +71,13 @@ selectGravity cfg env =
   in (cfgGravityAccel cfg) !! envIdx
 
 -- | Subtract two velocities (v1 - v2) with borrow.
+--
+-- Returns zero (not negative wrap) if result would be negative.
 subVelocity :: Velocity -> Velocity -> Velocity
 subVelocity (Velocity p1 s1) (Velocity p2 s2) =
-  let s1' = fromIntegral (unSubpixel s1) :: Word32
-      s2' = fromIntegral (unSubpixel s2) :: Word32
-      (borrow, newSub) = if s1' < s2'
-                         then (Pixel 1, Subpixel (fromIntegral (65536 + s1' - s2')))
-                         else (Pixel 0, Subpixel (fromIntegral (s1' - s2')))
-      newPix = if p1 < p2 + borrow
-               then Pixel 0  -- Clamp to zero (negative)
-               else p1 - p2 - borrow
+  let total1 = fromIntegral (unPixel p1) * 65536 + fromIntegral (unSubpixel s1) :: Word32
+      total2 = fromIntegral (unPixel p2) * 65536 + fromIntegral (unSubpixel s2) :: Word32
+      result = if total1 >= total2 then total1 - total2 else 0
+      newPix = Pixel (fromIntegral (result `div` 65536))
+      newSub = Subpixel (fromIntegral (result `mod` 65536))
   in Velocity newPix newSub
-
--- | Check if velocity is effectively negative (would be < 0 if signed).
---
--- In unsigned representation, "negative" means the subtraction wrapped.
-velIsNegative :: Velocity -> Bool
-velIsNegative (Velocity (Pixel p) _) = p > 32768  -- High bit set = wrapped
