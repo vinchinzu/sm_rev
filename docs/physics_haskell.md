@@ -4,45 +4,47 @@
 
 This Haskell package implements a pure, predictive physics model for Super Metroid suitable for:
 
-- **Fast iteration**: Bisimulate MiniStep baseline (simplified model, not TAS-correct)
+- **Fast iteration**: Deterministic physics exploration (no C oracle yet)
 - **Predictive rollouts** for ML/RL agents (`retro_rl`, `smedit`)
 - **Deterministic replay** of input tapes
 - **Property-based testing** of physics invariants
-- **Acceptance**: Verify against real emulator (snes9x/libretro) via SMEDIT/retro_rl
+- **Future acceptance**: Verify against real emulator (snes9x/libretro) via SMEDIT/retro_rl
 
 ## Architecture (Do Not Invert)
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  Layer 1: MiniStep Baseline (Fast Iteration)   │
+│  Layer 1: MiniStep Baseline (Future)            │
 │  ├─ MiniInit / MiniStep / MiniSaveState         │
-│  ├─ Simplified model (not TAS-correct)          │
-│  └─ Golden tapes for CI (no ROM/binary)         │
+│  ├─ Simplified model (NOT TAS-correct)          │
+│  ├─ Golden tapes for fast iteration             │
+│  └─ NOT INTEGRATED YET                          │
 └─────────────────────────────────────────────────┘
                      │
-                     │ Bisimulation for speed
+                     │ Bisimulation for speed (future)
                      ▼
 ┌─────────────────────────────────────────────────┐
 │  Haskell Physics Kernel (Pure Model)            │
 │  step :: Input -> State -> State                │
 │  ├─ Newtypes enforce pixel/subpixel separation  │
 │  ├─ No IO inside step (pure function)           │
-│  └─ Subpixel-precise match to baseline          │
+│  ├─ Unit tests prove rise/fall/accel            │
+│  └─ Signed 16.16 velocity (Int16 + Word16)      │
 └─────────────────────────────────────────────────┘
                      │
-                     │ Acceptance layer
+                     │ Acceptance layer (future)
                      ▼
 ┌─────────────────────────────────────────────────┐
 │  Layer 2: Real Emulator (Ground Truth)          │
 │  ├─ snes9x / libretro core                      │
 │  ├─ SMEDIT bridge + retro_rl telemetry          │
 │  ├─ WRAM $0AF6/$0AFA + $0AF8/$0AFC              │
-│  └─ If Mini ≠ emu, emu wins (file Mini delta)   │
+│  ├─ If Mini ≠ emu, emu wins (file Mini delta)   │
+│  └─ NOT IMPLEMENTED YET                         │
 └─────────────────────────────────────────────────┘
 ```
 
-**Critical**: MiniStep is NOT ground truth. It's a fast baseline. Emulator is acceptance.
-```
+**Critical**: MiniStep is NOT ground truth. It's a fast baseline. Emulator is acceptance. **Neither layer integrated yet.**
 
 ## How the Pure Model Maps to C Functions
 
@@ -61,11 +63,11 @@ This Haskell package implements a pure, predictive physics model for Super Metro
 The Haskell kernel uses distinct newtypes to prevent mixing incompatible units:
 
 ```haskell
-newtype Pixel = Pixel Word16       -- Whole pixels (16.0 fixed-point)
+newtype Pixel = Pixel Word16       -- Whole pixels (unsigned position)
 newtype Subpixel = Subpixel Word16 -- Fractional pixels (0.16 fixed-point)
 
-data Position = Position Pixel Subpixel  -- 16.16 position
-data Velocity = Velocity Pixel Subpixel  -- 16.16 velocity (pixels/frame)
+data Position = Position Pixel Subpixel    -- 16.16 unsigned position
+data Velocity = Velocity Int16 Subpixel    -- Signed 16.16 velocity (pixels/frame)
 ```
 
 This prevents bugs like:
@@ -83,7 +85,7 @@ All physics constants are ported with named identifiers:
 
 | Constant | Value (Hex) | Value (Decimal) | Source |
 |----------|-------------|-----------------|--------|
-| `cfgJumpInitialSpeed` (air) | `(4, 0xe000)` | 4.875 pixels/frame | `physics_config.c:36` |
+| `cfgJumpInitialSpeed` (air) | `(-5, 0x8000)` | -4.5 pixels/frame | `physics_config.c:36` |
 | `cfgGravityAccel` (air) | `(0, 0x1c00)` | 0.109375 pixels/frame² | `physics_config.c:51` |
 | `cfgRunAccel` | `(0, 0x00a0)` | 0.00244 pixels/frame² | `physics_config.c:48` |
 | `cfgRunMaxSpeed` | `(3, 0x0000)` | 3.0 pixels/frame | `physics_config.c:50` |
@@ -91,122 +93,45 @@ All physics constants are ported with named identifiers:
 
 See `Physics.SM.Constants` for button masks and pose constants.
 
-## Proving a Change Against MiniStep
-
-To verify a Haskell change matches the C oracle:
-
-### 1. Generate golden tapes from C
-
-Run the C mini kernel with test inputs and record states:
-
-```bash
-# Option A: Use existing mini-test
-make mini-test
-
-# Option B: Write a custom dump helper in tests/dump_golden.c
-gcc -o dump_golden tests/dump_golden.c src/mini/*.c -I src -lm
-./dump_golden > physics-hs/test/golden/custom.json
-```
-
-Example golden tape format:
-
-```json
-{
-  "inputs": [
-    {"inputButtons": 128, "inputPrevButtons": 0},
-    {"inputButtons": 128, "inputPrevButtons": 128}
-  ],
-  "states": [
-    {
-      "stateXPos": {"posPixel": 100, "posSubpixel": 160},
-      "stateYPos": {"posPixel": 200, "posSubpixel": 0},
-      "stateOnGround": true
-    },
-    ...
-  ]
-}
-```
-
-### 2. Run Haskell golden tests
-
-```bash
-cd physics-hs
-cabal test
-```
-
-Golden tests replay the input tape through the Haskell kernel and assert that positions/velocities match the C oracle at every frame.
-
-### 3. Debug mismatches
-
-If a test fails:
-
-```bash
-cabal test --test-show-details=streaming
-```
-
-Compare expected (C) vs actual (Haskell) states frame-by-frame. Common issues:
-
-- **Carry/borrow errors** in 16.16 fixed-point addition
-- **Unsigned wraparound** for negative velocities (use `velIsNegative` helper)
-- **Off-by-one** in loop iterations or squat frame counts
-
-## How SMEDIT/retro_rl Will Call This
-
-Future integration paths:
-
-### Option 1: FFI from C
-
-Call Haskell from C via GHC FFI:
-
-```c
-// C wrapper
-#include <HsFFI.h>
-extern HsStablePtr hs_step(HsStablePtr state_ptr, uint16_t buttons);
-
-void predict_n_frames(MiniGameState *c_state, uint16_t *inputs, int n) {
-  HsStablePtr hs_state = marshal_to_haskell(c_state);
-  for (int i = 0; i < n; i++)
-    hs_state = hs_step(hs_state, inputs[i]);
-  marshal_from_haskell(hs_state, c_state);
-}
-```
-
-### Option 2: CLI subprocess
-
-Use `sm-predict` executable:
-
-```bash
-echo '{"state": {...}, "inputs": [...]}' | sm-predict > predictions.json
-```
-
-### Option 3: `--engine haskell` flag
-
-Extend `sm_rev` CLI:
-
-```bash
-sm_rev predict --engine haskell --tape inputs.json --output states.json
-```
-
-Internally calls `Physics.SM.runTape` and serializes results.
-
 ## Current Coverage
 
-### ✅ Proven vs C Oracle (via golden tapes)
-- Ground run (right)
-- Jump (short hop + full jump)
-- Gravity + fall
+### ✅ Proven (Unit Tests)
 
-### 🚧 Stubbed (returns current state)
-- Leftward movement
-- Air control during jump/fall
-- Morph ball
-- Collision detection (ground/walls/ceiling)
-- Enemies, projectiles, doors
+- **Ground run**: B+Right accelerates to 3.0 pixels/frame max
+- **Leftward run**: B+Left produces negative X velocity
+- **Jump squat**: 4-frame timing
+- **Jump initiation**: Y velocity starts negative (-4.5 pixels/frame)
+- **Rise**: Y decreases after jump (HopRise test)
+- **Gravity**: Decelerates upward, accelerates downward
+- **Terminal velocity**: Caps at 5.0 pixels/frame
+- **Landing**: Flat floor detection at Y=200
+- **Signed 16.16**: `Velocity (-5, 0x8000)` = -4.5 moves 4.5 pixels correctly
 
-### 📋 Planned
+### ⚠️  No C Oracle Integration Yet
+
+**Current golden**: Only `run_right.json` exists (Haskell self-output, predictor: "haskell-v1")
+
+**No hop JSON files** - HopRise proven via unit tests only, not C oracle goldens.
+
+**No MiniStep integration** - no `sm_rev_mini_oracle` binary, no recorded C baseline tapes.
+
+### 🚧 Stubbed (Minimal Implementation)
+
+- **Collision**: Only flat floor at Y=200, no slopes/platforms/walls
+- **Air control**: Velocity frozen during jump/fall
+- **Morph ball**: Not implemented
+- **Equipment**: Hi-Jump/Spin/Speed Booster stubbed
+- **Enemies, projectiles, doors**: Not implemented
+
+### 📋 Planned (When Mini/Emu Layers Ready)
+
+- Integrate C `sm_rev_mini_oracle` for fast baseline comparison
+- Record Mini golden tapes (iteration speed)
+- Build emulator acceptance layer (TAS ground truth)
+- Add collision detection (BVH or grid-based)
 - Spin jump mechanics
 - Wall jump
-- Run speed boost
+- Run speed boost + shinespark
 - Liquid physics (water, lava)
 
 ## Testing Strategy
@@ -217,14 +142,42 @@ Three test levels:
    - Jump squat lasts 4 frames
    - Gravity decelerates upward velocity
    - Run accel reaches max speed
+   - **B+Left produces negative velocity**
 
 2. **Property tests** (`Test.Properties`): Invariants
    - Determinism: same tape → same states
-   - Zero input → stationary
+   - Rightward motion accumulates over time
 
-3. **Golden tests** (`Test.Golden`): Frame-by-frame C oracle match
-   - Recorded MiniStep outputs replayed through Haskell
-   - Asserts position/velocity equality at subpixel precision
+3. **Golden tests** (`Test.Golden`): File existence checks
+   - `run_right.json` exists (Haskell self-output)
+   - **NOT C oracle tapes** - no MiniStep integration yet
+
+**Current: 16/16 tests pass locally (no CI yet)**
+
+## Future: Proving Against MiniStep (Not Implemented)
+
+When C `sm_rev_mini_oracle` is merged and integrated, golden testing workflow:
+
+### 1. Generate golden tapes from C (future)
+
+```bash
+# Once sm_rev_mini_oracle exists:
+echo '{"start": {...}, "inputs": [...]}' | sm_rev_mini_oracle --json > golden.json
+```
+
+### 2. Compare Haskell vs Mini
+
+```bash
+cd physics-hs
+cabal test  # Compares Haskell step vs recorded Mini baseline
+```
+
+### 3. Acceptance Against Emulator (future)
+
+Final validation against real SNES emulator (snes9x/libretro):
+- Read WRAM $0AF6/$0AFA (X position) + $0AF8/$0AFC (Y position)
+- Compare Haskell, Mini, and emulator outputs
+- **If Mini ≠ emu, emu wins** (file Mini as known delta)
 
 ## Performance
 
@@ -234,51 +187,23 @@ Pure Haskell step function (no IO):
 - ~10K-100K frames/second (single-threaded)
 - Parallelizable over tape prefixes (speculatively)
 
-Compare to C mini with SDL/ROM:
-
-- ~16 ms per frame (60 FPS cap)
-- ~60 frames/second (real-time)
-
-For ML rollouts, Haskell is 100-1000x faster than real-time C mini.
-
-## How to Refresh Golden Tapes
-
-When the C oracle changes (e.g., physics tweaks), regenerate golden tapes:
-
-```bash
-# 1. Update C oracle
-cd /workspace
-vim src/physics_config.c  # or other physics sources
-make mini-test
-
-# 2. Dump new golden tapes (custom helper or manual recording)
-# Example: extend tests/mini_rollback_api.c to export JSON
-gcc -o dump_golden tests/dump_golden.c src/mini/*.c -I src -lm
-./dump_golden > physics-hs/test/golden/run_right.json
-./dump_golden --jump > physics-hs/test/golden/jump.json
-
-# 3. Verify Haskell matches
-cd physics-hs
-cabal test
-
-# 4. If tests pass, commit updated golden files
-git add test/golden/*.json
-git commit -m "Refresh golden tapes after C physics change"
-```
+For ML rollouts, Haskell is fast enough for speculative prediction without C FFI overhead.
 
 ## Roadmap
 
-- [ ] Finish leftward run
-- [ ] Add air control during jump
+- [ ] Integrate C `sm_rev_mini_oracle` (when merged)
+- [ ] Record Mini baseline golden tapes
+- [ ] Build emulator acceptance layer (snes9x/libretro)
+- [ ] Add collision detection (slopes, platforms, walls)
+- [ ] Implement air control during jump
 - [ ] Port spin jump mechanics
-- [ ] Implement collision detection (BVH or grid-based)
 - [ ] Add morph ball + bomb jump
 - [ ] Wall jump + wall collision
 - [ ] Speed booster charge + shinespark
 - [ ] Liquid physics (water, lava density)
 - [ ] Benchmark vs C mini (headless)
 - [ ] FFI bindings for C interop
-- [ ] CLI tool for tape prediction (`sm-predict`)
+- [ ] CI running `cabal test`
 
 ## Maintenance
 
@@ -286,9 +211,19 @@ When adding new physics:
 
 1. **Port constants** → `Physics.SM.Constants`
 2. **Port logic** → New module or extend existing
-3. **Add unit test** → `Test.Unit`
-4. **Record golden tape** → C oracle dump helper
-5. **Add golden test** → `Test.Golden`
+3. **Add unit test** → `Test.Unit` (prove behavior)
+4. **Future: Record golden tape** → When Mini oracle integrated
+5. **Future: Add golden test** → When C baseline exists
 6. **Update this doc** → Coverage table
 
-Keep the "Proven vs C Oracle" section honest — only mark features as proven once golden tests pass.
+**Keep the "Proven" section honest** — only mark features as proven once unit tests or oracle goldens exist.
+
+## Current Status (HEAD)
+
+**Branch**: `cursor/haskell-physics-kernel-76e5`  
+**Tests**: 16/16 pass locally (no CI)  
+**Golden**: Only `run_right.json` (Haskell self-output)  
+**Oracle**: No MiniStep integration  
+**Emulator**: No acceptance layer  
+
+**This is an iteration kernel**, not a Mini replacement or TAS-correct physics implementation.
