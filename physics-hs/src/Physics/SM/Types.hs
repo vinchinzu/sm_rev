@@ -15,6 +15,7 @@ module Physics.SM.Types
   , subPosition
   , addVelocity
   , applyVelocity
+  , applyVelocityY
   , zeroPosition
   , zeroVelocity
     -- * Core state
