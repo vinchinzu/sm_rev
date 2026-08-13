@@ -184,6 +184,8 @@ data PhysicsConfig = PhysicsConfig
   , cfgRunMaxSpeed :: !Velocity
     -- Terminal velocity
   , cfgTerminalSpeed :: !Pixel
+    -- Jump squat duration (frames)
+  , cfgJumpSquatDuration :: !Word16
   } deriving stock (Eq, Show, Generic)
     deriving anyclass (FromJSON, ToJSON)
 
@@ -209,4 +211,5 @@ defaultConfig = PhysicsConfig
   , cfgRunDecel = Velocity (Pixel 0) (Subpixel 0x0000)
   , cfgRunMaxSpeed = Velocity (Pixel 3) (Subpixel 0x0000)
   , cfgTerminalSpeed = Pixel 5
+  , cfgJumpSquatDuration = 4  -- Frames before jump fires
   }

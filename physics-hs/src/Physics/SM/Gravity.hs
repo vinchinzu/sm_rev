@@ -47,7 +47,8 @@ applyGravity cfg env state
       -- Rising: subtract gravity (decelerate upward velocity)
       let gravAccel = selectGravity cfg env
           newVel = subVelocity (stateYVel state) gravAccel
-      in if velIsNegative newVel
+          -- Transition to falling when velocity reaches zero
+      in if velPixel newVel == Pixel 0 && velSubpixel newVel <= Subpixel 0x1000
          then state { stateYVel = zeroVelocity, stateVerticalDir = VDirFalling }
          else state { stateYVel = newVel }
   | stateVerticalDir state == VDirFalling =

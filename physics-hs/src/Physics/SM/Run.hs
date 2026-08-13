@@ -7,6 +7,7 @@ module Physics.SM.Run
   ) where
 
 import Data.Bits ((.&.))
+import Data.Word (Word32)
 import Physics.SM.Constants
 import Physics.SM.Types
 
@@ -39,12 +40,36 @@ applyRunAcceleration cfg input currentVel =
 
       -- Determine acceleration direction
       (newVel, newMode)
-        | not runHeld = (zeroVelocity, AccelNone)  -- Decel when B not held
+        | not runHeld = applyDeceleration cfg currentVel  -- Use decel, not zero
         | rightHeld = accelerateRight cfg currentVel
         | leftHeld = accelerateLeft cfg currentVel
         | otherwise = (currentVel, AccelNone)  -- No directional input
 
   in (newVel, newMode)
+
+-- | Apply deceleration when B button released.
+applyDeceleration :: PhysicsConfig -> Velocity -> (Velocity, AccelMode)
+applyDeceleration cfg currentVel =
+  let decel = cfgRunDecel cfg
+      currentMag = velToWord32 currentVel
+      decelMag = velToWord32 decel
+  in if currentMag <= decelMag
+     then (zeroVelocity, AccelNone)  -- Stop if decel would overshoot
+     else (subVelocitySafe currentVel decel, AccelDecelerating)
+
+-- | Subtract velocity safely (clamp to zero if negative).
+subVelocitySafe :: Velocity -> Velocity -> Velocity
+subVelocitySafe (Velocity p1 s1) (Velocity p2 s2) =
+  let total1 = fromIntegral (unPixel p1) * 65536 + fromIntegral (unSubpixel s1) :: Word32
+      total2 = fromIntegral (unPixel p2) * 65536 + fromIntegral (unSubpixel s2) :: Word32
+      result = if total1 >= total2 then total1 - total2 else 0
+      newPix = Pixel (fromIntegral (result `div` 65536))
+      newSub = Subpixel (fromIntegral (result `mod` 65536))
+  in Velocity newPix newSub
+
+velToWord32 :: Velocity -> Word32
+velToWord32 (Velocity (Pixel p) (Subpixel s)) =
+  fromIntegral p * 65536 + fromIntegral s
 
 -- | Accelerate rightward (positive X).
 accelerateRight :: PhysicsConfig -> Velocity -> (Velocity, AccelMode)
