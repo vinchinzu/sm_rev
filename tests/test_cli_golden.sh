@@ -43,13 +43,12 @@ if [[ "$predictor" != "sm_rev" ]]; then
   exit 1
 fi
 
-# Ground run: Samus should move horizontally (Mini baseline may not move, but assert x changed or note gap)
-# Note: This is a wire format test; Mini baseline movement is verified in mini_predict_golden.c
+# Ground run: Assert Samus actually moved horizontally (not schema-only)
 if [[ $final_x -le $initial_x ]]; then
-  echo "  NOTE: Mini baseline did not move (x=$initial_x→$final_x). Wire format valid."
-else
-  echo "  ✓ Ground run: x moved from $initial_x to $final_x"
+  echo "FAIL: Ground run did not move (x=$initial_x→$final_x)"
+  exit 1
 fi
+echo "  ✓ Ground run: x moved from $initial_x to $final_x"
 
 echo "  ✓ JSON valid, $frame_count frames, start echoed, predictor=$predictor"
 
