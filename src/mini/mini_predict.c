@@ -12,10 +12,10 @@
 MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state, int frame) {
   MiniTrajectoryFrame result = {0};
   result.frame = frame;
-  result.room_id = state->room.room_id;
   
   // Position: read from g_ram to ensure we get the authoritative post-MiniLoadState values
   // These include subpixels that public Mini fields don't expose
+  result.room_id = room_ptr;              // g_ram $079B
   result.samus_x = samus_x_pos;           // g_ram $0AF6
   result.samus_y = samus_y_pos;           // g_ram $0AFA
   result.samus_x_sub = samus_x_subpos;    // g_ram $0AF8

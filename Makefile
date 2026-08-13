@@ -34,6 +34,8 @@ ifeq ($(BUNDLE_ASSETS),1)
 endif
 
 CORE_SRCS := $(wildcard src/*.c)
+# Exclude predict_cli.c which has its own main() and is built separately
+CORE_SRCS := $(filter-out src/predict_cli.c,$(CORE_SRCS))
 HOST_SRCS := $(wildcard src/host/*.c)
 SNES_SRCS := $(wildcard src/snes/*.c)
 FULL_THIRD_PARTY_SRCS := third_party/gl_core/gl_core_3_1.c third_party/cJSON.c
@@ -94,7 +96,7 @@ else
     SDLFLAGS := $(shell sdl2-config --libs) -lm
 endif
 
-.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-predict-test mini-predict-golden mini-wram-peek-test mini-predict-cli mini-rust-host mini-browser-lib mini-browser-server moddable moddable-test mini-enemy-obs-test mini-enemy-hookup-test mini-cli-enemy-test
+.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-predict-test mini-predict-golden mini-wram-peek-test mini-predict-cli mini-rust-host mini-browser-lib mini-browser-server moddable moddable-test mini-enemy-obs-test mini-enemy-hookup-test mini-cli-enemy-test mss-converter-test
 
 all: $(TARGET_EXEC)
 
@@ -180,6 +182,12 @@ run: all
 mini-test: mini mini-rollback-test mini-predict-golden mini-wram-peek-test mini-predict-cli
 	./$(MINI_TARGET_EXEC) --headless --frames 3
 	python3 tests/test_load_state_cli.py
+
+# MSS converter test currently skipped - requires resync tool
+# (MiniLoadState + MiniSaveState to sync MiniGameState with g_ram)
+mss-converter-test: mini-predict-cli $(MINI_MSS_FIXTURE_GEN)
+	@echo "Running MiniSaveState converter tests..."
+	python3 -m pytest tests/test_mss_converter.py -v
 
 moddable-test: moddable
 	./$(MODDABLE_TARGET_EXEC) --headless --frames 3
