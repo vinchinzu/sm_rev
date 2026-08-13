@@ -98,16 +98,28 @@ addVelocity (Velocity p1 s1) (Velocity p2 s2) =
       newPix = p1 + p2 + carry
   in Velocity newPix newSub
 
--- | Apply velocity to position (signed velocity, unsigned position).
+-- | Apply velocity to position (signed 16.16 velocity, unsigned position).
+--
+-- Signed 16.16: pixel (Int16) + subpixel (Word16 fraction).
+-- Velocity (-5, 0x8000) = -5 + 0.5 = -4.5, NOT -(5 + 0.5).
 --
 -- Y: negative velocity = upward (Y decreases), positive = downward (Y increases).
 -- X: negative velocity = leftward (X decreases), positive = rightward (X increases).
 applyVelocity :: Position -> Velocity -> Position
 applyVelocity (Position pp ps) (Velocity vp vs)
-  | vp < 0 = 
-      -- Negative velocity: subtract magnitude
+  | vp < 0 && unSubpixel vs /= 0 =
+      -- Negative velocity with fractional part: -5.5 means pixel=-5, sub=0x8000
+      -- Magnitude is (abs(vp) - 1) pixels + (0x10000 - vs) subpixels
+      -- Example: Velocity (-5, 0x8000) = -4.5 → subtract (4, 0x8000)
+      let mag_pixel = fromIntegral (abs vp - 1) :: Word16
+          mag_sub_val = (0x10000 :: Word32) - fromIntegral (unSubpixel vs)
+          mag_sub = Subpixel (fromIntegral mag_sub_val :: Word16)
+          absPos = Position (Pixel mag_pixel) mag_sub
+      in subPosition (Position pp ps) absPos
+  | vp < 0 =
+      -- Negative velocity, zero fractional part: -5.0
       let absP = fromIntegral (abs vp) :: Word16
-          absPos = Position (Pixel absP) vs
+          absPos = Position (Pixel absP) (Subpixel 0)
       in subPosition (Position pp ps) absPos
   | otherwise =
       -- Positive velocity: add
