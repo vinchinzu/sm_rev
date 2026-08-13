@@ -11,9 +11,10 @@
 -- If Mini and emulator disagree, emulator wins (file Mini delta).
 module Test.Properties (tests) where
 
-import Data.Aeson (eitherDecode, encode)
+import Data.Aeson (FromJSON, ToJSON, eitherDecode, encode, object, withObject, (.:), (.=))
 import Data.ByteString.Lazy qualified as BL
-import Data.Word (Word16)
+import Data.Word (Word8, Word16)
+import GHC.Generics (Generic)
 import Physics.SM
 import System.Exit (ExitCode (..))
 import System.Process (readProcessWithExitCode)
@@ -119,8 +120,6 @@ runMiniStepBaseline initialSt packedInputs = do
     ExitFailure code ->
       return $ Left $ "Baseline failed (exit " ++ show code ++ "): " ++ stderr
 
-import Data.Word (Word8)
-
 -- | Oracle request format (JSON).
 data OracleRequest = OracleRequest
   { reqInitialState :: Trajectory
@@ -141,6 +140,3 @@ instance FromJSON OracleResponse where
   parseJSON = withObject "OracleResponse" $ \o -> do
     states <- o .: "states"
     return (OracleResponse states)
-
-import Data.Aeson (FromJSON, ToJSON, object, withObject, (.:), (.=))
-import GHC.Generics (Generic)

@@ -7,7 +7,7 @@
 --   sm-predict --tape inputs.json --output predictions.json
 module Main (main) where
 
-import Data.Aeson (eitherDecode, encode)
+import Data.Aeson (FromJSON, ToJSON, eitherDecode, encode, object, withObject, (.:), (.=))
 import Data.ByteString.Lazy qualified as BL
 import Physics.SM
 import System.Environment (getArgs)
@@ -80,5 +80,3 @@ processRequest (PredictRequest initialSt inputs) =
   let cfg = defaultConfig
       states = runTape cfg initialSt inputs
   in PredictResponse states
-
-import Data.Aeson (FromJSON, ToJSON, object, withObject, (.:), (.=))

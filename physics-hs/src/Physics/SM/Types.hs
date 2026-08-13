@@ -32,7 +32,8 @@ module Physics.SM.Types
   ) where
 
 import Data.Aeson (FromJSON, ToJSON)
-import Data.Word (Word16)
+import Data.Bits (Bits, (.&.), shiftR)
+import Data.Word (Word16, Word32)
 import GHC.Generics (Generic)
 
 -- | Whole pixel component (16.0 fixed-point).
@@ -72,7 +73,6 @@ addPosition (Position p1 s1) (Position p2 s2) =
       newSub = Subpixel (fromIntegral subSum)
       newPix = p1 + p2 + carry
   in Position newPix newSub
-  where shiftR = (`div` 65536)
 
 -- | Subtract positions (p1 - p2) with borrow.
 subPosition :: Position -> Position -> Position
@@ -109,8 +109,6 @@ zeroVelocity = Velocity (Pixel 0) (Subpixel 0)
 newtype ButtonMask = ButtonMask { unButtonMask :: Word16 }
   deriving stock (Eq, Show, Generic)
   deriving newtype (Num, Bits, FromJSON, ToJSON)
-
-import Data.Bits (Bits, (.&.))
 
 -- | Controller input for one frame.
 data ControllerInput = ControllerInput

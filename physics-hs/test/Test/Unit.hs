@@ -3,6 +3,7 @@ module Test.Unit (tests) where
 
 import Data.Bits ((.&.), (.|.))
 import Physics.SM
+import Physics.SM.Gravity (subVelocity)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit ((@?=), testCase)
 
@@ -129,5 +130,3 @@ testGravity = testGroup "Gravity"
           state1 = step cfg input state0
       stateYVel state1 @?= Velocity (Pixel 5) (Subpixel 0)  -- Unchanged
   ]
-
-import Physics.SM.Gravity (subVelocity)

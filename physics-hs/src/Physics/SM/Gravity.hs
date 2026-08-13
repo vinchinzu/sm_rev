@@ -7,6 +7,7 @@ module Physics.SM.Gravity
   ) where
 
 import Data.Bits ((.&.))
+import Data.Word (Word32)
 import Physics.SM.Constants
 import Physics.SM.Types
 
@@ -86,5 +87,3 @@ subVelocity (Velocity p1 s1) (Velocity p2 s2) =
 -- In unsigned representation, "negative" means the subtraction wrapped.
 velIsNegative :: Velocity -> Bool
 velIsNegative (Velocity (Pixel p) _) = p > 32768  -- High bit set = wrapped
-
-import Data.Word (Word32)

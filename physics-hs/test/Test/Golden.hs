@@ -14,7 +14,7 @@
 -- If Mini and emulator disagree on acceptance, emulator wins (file Mini delta).
 module Test.Golden (tests) where
 
-import Data.Aeson (eitherDecodeFileStrict')
+import Data.Aeson (FromJSON, eitherDecodeFileStrict', withObject, (.:))
 import Physics.SM
 import System.Directory (doesFileExist)
 import System.Environment (lookupEnv)
@@ -94,5 +94,3 @@ instance FromJSON GoldenTape where
     inputs <- o .: "inputs"
     expected <- o .: "states"
     return (GoldenTape name desc inputs expected)
-
-import Data.Aeson (FromJSON, withObject, (.:))
