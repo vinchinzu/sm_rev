@@ -1,7 +1,9 @@
 -- | FFI wire format types for C interop.
 --
--- These types match the snake_case layout expected by C MiniStep oracle
--- and future ML/RL agent integration.
+-- These types match the snake_case layout for:
+-- - MiniStep baseline (fast iteration, not acceptance)
+-- - retro_rl stable-retro (emulator integration, acceptance layer)
+-- - SMEDIT bridge (emulator WRAM telemetry)
 module Physics.SM.FFI
   ( -- * Frame-level wire types
     FrameInput (..)
@@ -23,10 +25,9 @@ import Data.Word (Word8, Word16)
 import GHC.Generics (Generic)
 import Physics.SM.Types
 
--- | Packed 8-bit SNES controller input (standard wire format).
+-- | Packed 8-bit SNES controller input (LOCKED wire format).
 --
--- This is the LOCKED wire format for retro_rl integration.
--- Bit layout (single byte):
+-- This is the standard SNES D-pad byte used by retro_rl:
 --   Bit 7: Right = 0x80
 --   Bit 6: Left  = 0x40
 --   Bit 5: Down  = 0x20
@@ -36,10 +37,10 @@ import Physics.SM.Types
 --   Bit 1: Y     = 0x02
 --   Bit 0: B     = 0x01
 --
--- Second byte for A/X/L/R (if needed, extend to Word16):
---   Bit 8: A = 0x0100, Bit 9: X = 0x0200, Bit 10: L = 0x0400, Bit 11: R = 0x0800
+-- Wire protocol: Left=0x40, Right=0x80 (packed byte 0)
+-- Internal: converted to 16-bit ButtonMask via packedToInternal
 --
--- Standard SNES: Right=0x80, Left=0x40 (as documented).
+-- Extended buttons (A/X/L/R) in byte 1 not yet implemented.
 newtype FrameInput = FrameInput { frameInputPacked :: Word8 }
   deriving stock (Eq, Show, Generic)
   deriving newtype (Num, FromJSON, ToJSON)

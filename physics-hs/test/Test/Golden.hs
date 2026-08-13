@@ -1,13 +1,17 @@
--- | Golden tape tests: verify against recorded C oracle outputs.
+-- | Golden tape tests: verify against recorded MiniStep baseline outputs.
 --
--- Goldens are JSON files recorded from MiniStep oracle runs. CI tests replay
--- these without requiring the oracle binary or ROM. Optional live oracle path
--- verifies drift when oracle is available.
+-- MiniStep is a SIMPLIFIED MODEL for fast iteration, NOT acceptance.
+-- Acceptance is real emulator (snes9x/libretro) via SMEDIT/retro_rl.
+--
+-- Goldens are JSON files recorded from MiniStep runs. CI tests replay these
+-- without requiring binary or ROM. Optional live MiniStep path verifies drift.
 --
 -- To regenerate golden tapes:
 --   1. Ensure sm_rev_mini_oracle is in PATH
 --   2. Run: cabal test --test-option=--regenerate-goldens
 --   3. Commit updated test/golden/*.json
+--
+-- If Mini and emulator disagree on acceptance, emulator wins (file Mini delta).
 module Test.Golden (tests) where
 
 import Data.Aeson (eitherDecodeFileStrict')

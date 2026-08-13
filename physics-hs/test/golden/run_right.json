@@ -2,16 +2,205 @@
   "name": "ground_run_right_60frames",
   "description": "Ground run holding B+Right for 60 frames",
   "inputs": [
-    {"frameInputPacked": 129},
-    {"frameInputPacked": 129},
-    {"frameInputPacked": 129}
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    },
+    {
+      "frameInputPacked": 129
+    }
   ],
   "states": [
     {
-      "stateXPos": {"posPixel": 100, "posSubpixel": 160},
-      "stateYPos": {"posPixel": 200, "posSubpixel": 0},
-      "stateXVel": {"velPixel": 0, "velSubpixel": 160},
-      "stateYVel": {"velPixel": 0, "velSubpixel": 0},
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 0
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
       "statePose": 1,
       "stateMovementType": 1,
       "stateVerticalDir": "VDirStationary",
@@ -21,10 +210,22 @@
       "stateJumpSquatFrames": 0
     },
     {
-      "stateXPos": {"posPixel": 100, "posSubpixel": 320},
-      "stateYPos": {"posPixel": 200, "posSubpixel": 0},
-      "stateXVel": {"velPixel": 0, "velSubpixel": 320},
-      "stateYVel": {"velPixel": 0, "velSubpixel": 0},
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 160
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 160
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
       "statePose": 1,
       "stateMovementType": 1,
       "stateVerticalDir": "VDirStationary",
@@ -34,14 +235,1476 @@
       "stateJumpSquatFrames": 0
     },
     {
-      "stateXPos": {"posPixel": 100, "posSubpixel": 480},
-      "stateYPos": {"posPixel": 200, "posSubpixel": 0},
-      "stateXVel": {"velPixel": 0, "velSubpixel": 480},
-      "stateYVel": {"velPixel": 0, "velSubpixel": 0},
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 480
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 320
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
       "statePose": 1,
       "stateMovementType": 1,
       "stateVerticalDir": "VDirStationary",
       "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 960
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 480
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 1600
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 640
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 2400
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 800
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 3360
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 960
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 4480
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 1120
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 5760
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 1280
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 7200
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 1440
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 8800
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 1600
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 10560
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 1760
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 12480
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 1920
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 14560
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 2080
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 16800
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 2240
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 19200
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 2400
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 21760
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 2560
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 24480
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 2720
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 27360
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 2880
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 30400
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 3040
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 33600
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 3200
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 36960
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 3360
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 40480
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 3520
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 44160
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 3680
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 48000
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 3840
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 52000
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 4000
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 56160
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 4160
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 60480
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 4320
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 100,
+        "posSubpixel": 64960
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 4480
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 101,
+        "posSubpixel": 4064
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 4640
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 101,
+        "posSubpixel": 8864
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 4800
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 101,
+        "posSubpixel": 13824
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 4960
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 101,
+        "posSubpixel": 18944
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 5120
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 101,
+        "posSubpixel": 24224
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 5280
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 101,
+        "posSubpixel": 29664
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 5440
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 101,
+        "posSubpixel": 35264
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 5600
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 101,
+        "posSubpixel": 41024
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 5760
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 101,
+        "posSubpixel": 46944
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 5920
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 101,
+        "posSubpixel": 53024
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 6080
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 101,
+        "posSubpixel": 59264
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 6240
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 102,
+        "posSubpixel": 128
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 6400
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 102,
+        "posSubpixel": 6688
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 6560
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 102,
+        "posSubpixel": 13408
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 6720
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 102,
+        "posSubpixel": 20288
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 6880
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 102,
+        "posSubpixel": 27328
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 7040
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 102,
+        "posSubpixel": 34528
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 7200
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 102,
+        "posSubpixel": 41888
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 7360
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 102,
+        "posSubpixel": 49408
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 7520
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 102,
+        "posSubpixel": 57088
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 7680
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 102,
+        "posSubpixel": 64928
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 7840
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 103,
+        "posSubpixel": 7392
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 8000
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 103,
+        "posSubpixel": 15552
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 8160
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 103,
+        "posSubpixel": 23872
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 8320
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 103,
+        "posSubpixel": 32352
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 8480
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 103,
+        "posSubpixel": 40992
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 8640
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 103,
+        "posSubpixel": 49792
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 8800
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 103,
+        "posSubpixel": 58752
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 8960
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 104,
+        "posSubpixel": 2336
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 9120
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 104,
+        "posSubpixel": 11616
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 9280
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 104,
+        "posSubpixel": 21056
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 9440
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelAccelerating",
+      "stateOnGround": true,
+      "stateJumpHeld": false,
+      "stateJumpSquatFrames": 0
+    },
+    {
+      "stateXPos": {
+        "posPixel": 104,
+        "posSubpixel": 30656
+      },
+      "stateYPos": {
+        "posPixel": 200,
+        "posSubpixel": 0
+      },
+      "stateXVel": {
+        "velPixel": 0,
+        "velSubpixel": 9600
+      },
+      "stateYVel": {
+        "velPixel": 0,
+        "velSubpixel": 0
+      },
+      "statePose": 1,
+      "stateMovementType": 1,
+      "stateVerticalDir": "VDirStationary",
+      "stateAccelMode": "AccelNone",
       "stateOnGround": true,
       "stateJumpHeld": false,
       "stateJumpSquatFrames": 0

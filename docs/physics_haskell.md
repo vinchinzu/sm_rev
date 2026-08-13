@@ -2,32 +2,46 @@
 
 ## Overview
 
-This Haskell package implements a pure, predictive physics model for Super Metroid. It acts as a **lambda function** that the C mini kernel (the oracle) can be verified against, suitable for:
+This Haskell package implements a pure, predictive physics model for Super Metroid suitable for:
 
+- **Fast iteration**: Bisimulate MiniStep baseline (simplified model, not TAS-correct)
 - **Predictive rollouts** for ML/RL agents (`retro_rl`, `smedit`)
-- **Fast offline search** (branch prediction without SDL/ROM overhead)
 - **Deterministic replay** of input tapes
 - **Property-based testing** of physics invariants
+- **Acceptance**: Verify against real emulator (snes9x/libretro) via SMEDIT/retro_rl
 
-## Architecture
+## Architecture (Do Not Invert)
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  C Mini Kernel (Oracle)                         │
+│  Layer 1: MiniStep Baseline (Fast Iteration)   │
 │  ├─ MiniInit / MiniStep / MiniSaveState         │
-│  ├─ Full game state (RAM + projectiles + ...)   │
-│  └─ Matches original ROM behavior exactly       │
+│  ├─ Simplified model (not TAS-correct)          │
+│  └─ Golden tapes for CI (no ROM/binary)         │
 └─────────────────────────────────────────────────┘
                      │
-                     │ Golden tapes (recorded)
+                     │ Bisimulation for speed
                      ▼
 ┌─────────────────────────────────────────────────┐
 │  Haskell Physics Kernel (Pure Model)            │
 │  step :: Input -> State -> State                │
 │  ├─ Newtypes enforce pixel/subpixel separation  │
 │  ├─ No IO inside step (pure function)           │
-│  └─ Subpixel-precise match to C oracle          │
+│  └─ Subpixel-precise match to baseline          │
 └─────────────────────────────────────────────────┘
+                     │
+                     │ Acceptance layer
+                     ▼
+┌─────────────────────────────────────────────────┐
+│  Layer 2: Real Emulator (Ground Truth)          │
+│  ├─ snes9x / libretro core                      │
+│  ├─ SMEDIT bridge + retro_rl telemetry          │
+│  ├─ WRAM $0AF6/$0AFA + $0AF8/$0AFC              │
+│  └─ If Mini ≠ emu, emu wins (file Mini delta)   │
+└─────────────────────────────────────────────────┘
+```
+
+**Critical**: MiniStep is NOT ground truth. It's a fast baseline. Emulator is acceptance.
 ```
 
 ## How the Pure Model Maps to C Functions

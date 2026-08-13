@@ -1,9 +1,14 @@
--- | Property-based tests calling C MiniStep oracle.
+-- | Property-based tests calling MiniStep baseline (fast iteration).
 --
--- Verifies Haskell step matches C oracle for three critical scenarios:
+-- MiniStep is a SIMPLIFIED MODEL, not TAS-correct acceptance.
+-- Acceptance is real emulator (snes9x/libretro) via SMEDIT/retro_rl.
+--
+-- Verifies Haskell step bisimulates Mini baseline for three scenarios:
 --   1. Ground run holding RIGHT
 --   2. Short hop vs full hop (peak y/subY + landing frame)
 --   3. Run-up onto 1-tile platform
+--
+-- If Mini and emulator disagree, emulator wins (file Mini delta).
 module Test.Properties (tests) where
 
 import Data.Aeson (eitherDecode, encode)
@@ -16,7 +21,7 @@ import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit ((@?=), assertBool, assertFailure, testCase)
 
 tests :: TestTree
-tests = testGroup "Properties (vs MiniStep Oracle)"
+tests = testGroup "Properties (vs MiniStep Baseline)"
   [ testGroundRunRight
   , testShortVsFullHop
   , testPlatformClimb
@@ -24,7 +29,7 @@ tests = testGroup "Properties (vs MiniStep Oracle)"
 
 -- | Test 1: Ground run holding RIGHT for N frames.
 --
--- Verifies position and velocity match C oracle at subpixel precision.
+-- Verifies position and velocity bisimulate MiniStep baseline at subpixel precision.
 testGroundRunRight :: TestTree
 testGroundRunRight = testCase "Ground run RIGHT (B+Right held)" $ do
   let frames = 60  -- 1 second at 60fps
@@ -38,10 +43,10 @@ testGroundRunRight = testCase "Ground run RIGHT (B+Right held)" $ do
       hsStates = runTape cfg state0 inputs
       hsLast = last hsStates
   
-  -- Run C oracle
-  oracleResult <- runMiniStepOracle state0 packed
-  case oracleResult of
-    Left err -> assertFailure $ "Oracle failed: " ++ err
+  -- Run MiniStep baseline
+  baselineResult <- runMiniStepBaseline state0 packed
+  case baselineResult of
+    Left err -> assertFailure $ "Baseline failed: " ++ err
     Right cStates -> do
       let cLast = last cStates
       -- Assert subpixel-precision equality
@@ -59,56 +64,43 @@ testShortVsFullHop = testCase "Short hop vs full hop peak/landing" $ do
   -- Short hop: press jump (A would be 0x01 in byte 1, packed doesn't have A)
   -- For now, use internal format until A button mapping is clear
   -- User wants packed format but A is in second byte. Document this limitation.
-  assertFailure "Short hop test requires A button in packed format (byte 1), documenting ROM block"
+  assertFailure "Short hop test requires A button in packed format (byte 1), Mini baseline gap"
 
 -- | Test 3: Run up onto a 1-tile platform.
 --
--- ROM BLOCK: MiniStep requires collision map (room layout) to express platform geometry.
--- Without a ROM, MiniStep cannot load room collision data. The C oracle needs either:
---   1. A .sfc ROM file to load room data, OR
---   2. Programmatic collision map injection (not currently exposed by MiniStep API)
+-- MINI BASELINE GAP: MiniStep requires collision map (room layout).
+-- Without ROM, MiniStep cannot load room collision data. Baseline needs:
+--   1. Programmatic collision map injection (not currently exposed), OR
+--   2. Emulator acceptance test via SMEDIT/retro_rl
 --
--- This test documents the ROM dependency. When MiniStep gains ROM-free collision
--- map injection (e.g., via JSON fixture), this test can be implemented as:
---   - Initial state: Samus on ground, 1-tile platform ahead at Y-16
---   - Input: B+Right for run-up, then A to jump
---   - Assert: Samus lands on platform (Y position stable, on_ground=true)
+-- This test documents the baseline gap. Emulator acceptance will validate
+-- platform climb via real room data.
 testPlatformClimb :: TestTree
-testPlatformClimb = testCase "Run-up onto 1-tile platform (ROM BLOCK)" $ do
-  -- This test requires:
-  --   1. Room collision map (1-tile platform at specific X,Y)
-  --   2. Ground detection logic (check block below Samus)
-  --   3. Platform edge handling (land on top, not fall through)
-  --
-  -- Current ROM BLOCK: MiniStep boots from ROM/saves which contain room data.
-  -- Without ROM, cannot express the fixture. Options:
-  --   A. MiniStep --json-collision flag to inject map (not yet available)
-  --   B. Recorded golden from ROM run (defeats pure test intent)
-  --   C. Document as blocked until ROM-free collision API
-  --
-  -- Choosing C: document the block explicitly
+testPlatformClimb = testCase "Run-up onto 1-tile platform (Mini baseline gap)" $ do
   assertFailure $ unlines
-    [ "ROM BLOCK: 1-tile platform test requires collision map"
+    [ "MINI BASELINE GAP: 1-tile platform requires collision map"
     , ""
     , "MiniStep needs room geometry to express a 1-tile platform."
     , "Current MiniStep API loads rooms from ROM/saves only."
     , ""
-    , "To unblock:"
-    , "  1. Add MiniStep --collision-json fixture injection, OR"
-    , "  2. Extend MiniStep API to programmatically set collision map"
+    , "Baseline options:"
+    , "  1. Add MiniStep --collision-json fixture injection"
+    , "  2. Skip baseline, test via emulator acceptance (SMEDIT/retro_rl)"
     , ""
-    , "Expected test:"
+    , "Expected emulator acceptance:"
     , "  - Initial: Samus at (100, 200), platform tile at (200, 184)"
     , "  - Input: B+Right (run-up) then A (jump)"
-    , "  - Assert: Land on platform (Y=184, on_ground=true, x/y/subX/subY match oracle)"
+    , "  - Assert: Land on platform (Y=184, on_ground=true, WRAM match)"
+    , ""
+    , "If Mini and emu disagree, emu wins (file Mini delta)."
     ]
 
--- | Call C MiniStep oracle via subprocess.
+-- | Call MiniStep baseline via subprocess (optional, for golden regeneration).
 --
--- Expects a CLI tool: sm_rev_mini_oracle --json < input.json
--- Or falls back to testing Haskell determinism if oracle unavailable.
-runMiniStepOracle :: SamusState -> [Word8] -> IO (Either String [SamusState])
-runMiniStepOracle initialSt packedInputs = do
+-- Expects: sm_rev_mini_oracle --json < input.json
+-- Returns: Baseline states or error (CI uses recorded goldens instead)
+runMiniStepBaseline :: SamusState -> [Word8] -> IO (Either String [SamusState])
+runMiniStepBaseline initialSt packedInputs = do
   -- Prepare input JSON
   let request = OracleRequest
         { reqInitialState = toTrajectory initialSt
@@ -116,16 +108,16 @@ runMiniStepOracle initialSt packedInputs = do
         }
       inputJson = encode request
   
-  -- Call oracle (or check if it exists)
+  -- Call baseline (or check if it exists)
   (exitCode, stdout, stderr) <- readProcessWithExitCode "sm_rev_mini_oracle" ["--json"] (BL.unpack inputJson)
   case exitCode of
     ExitSuccess -> do
-      -- Parse oracle response
+      -- Parse baseline response
       case eitherDecode (BL.pack stdout) of
-        Left parseErr -> return $ Left $ "Oracle parse error: " ++ parseErr
+        Left parseErr -> return $ Left $ "Baseline parse error: " ++ parseErr
         Right (OracleResponse states) -> return $ Right $ map fromTrajectory states
     ExitFailure code ->
-      return $ Left $ "Oracle failed (exit " ++ show code ++ "): " ++ stderr
+      return $ Left $ "Baseline failed (exit " ++ show code ++ "): " ++ stderr
 
 import Data.Word (Word8)
 
