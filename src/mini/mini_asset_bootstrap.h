@@ -45,6 +45,21 @@ typedef struct MiniEditorRoomSpriteView {
   int entry_count;
 } MiniEditorRoomSpriteView;
 
+typedef struct MiniEditorEnemySpawnView {
+  char name[kMiniEditorBridgeEnemyNameCapacity];
+  uint16 species_id;
+  uint16 init_parameter;
+  uint16 properties1;
+  uint16 properties2;
+  uint16 extra_parameter1;
+  uint16 extra_parameter2;
+  int x_pos;
+  int y_pos;
+  int block_x;
+  int block_y;
+  bool has_population_words;
+} MiniEditorEnemySpawnView;
+
 typedef struct MiniEditorSamusRenderedFrameView {
   uint16 pose;
   uint16 anim_frame;
@@ -77,6 +92,7 @@ void MiniAssetBootstrap_PrimeEditorRoomFxAndMissingRomVisuals(const MiniEditorRo
 void MiniAssetBootstrap_GetEditorTilesetView(MiniEditorTilesetView *view);
 void MiniAssetBootstrap_GetEditorBg2View(MiniEditorBg2View *view);
 int MiniAssetBootstrap_GetEditorRoomSpriteViews(const MiniEditorRoomSpriteView **sprites);
+int MiniAssetBootstrap_GetEditorEnemySpawnViews(const MiniEditorEnemySpawnView **enemies);
 void MiniAssetBootstrap_GetEditorSamusRenderedSpritesView(MiniEditorSamusRenderedSpritesView *view);
 
 #endif  // SM_MINI_ASSET_BOOTSTRAP_H_

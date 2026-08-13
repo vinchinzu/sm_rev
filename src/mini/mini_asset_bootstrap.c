@@ -413,6 +413,31 @@ int MiniAssetBootstrap_GetEditorRoomSpriteViews(const MiniEditorRoomSpriteView *
   return g_mini_editor_room_sprite_count;
 }
 
+// Default enemy spawns for predict CLI demonstration
+static const MiniEditorEnemySpawnView g_default_enemy_spawns[] = {
+  {
+    .name = "Roach (default spawn)",
+    .species_id = 0xD87F,  // Roach
+    .init_parameter = 0x0000,
+    .properties1 = 0x2400,
+    .properties2 = 0x0000,
+    .extra_parameter1 = 0x0003,  // angle=0 (right), speed=3
+    .extra_parameter2 = 0x0050,  // trigger radius=80
+    .x_pos = 150,
+    .y_pos = 176,
+    .block_x = 9,
+    .block_y = 11,
+    .has_population_words = true,
+  },
+};
+
+int MiniAssetBootstrap_GetEditorEnemySpawnViews(const MiniEditorEnemySpawnView **enemies) {
+  // Return default spawn list for MiniSim demonstration
+  // Real editor rooms would provide their own spawn list
+  *enemies = g_default_enemy_spawns;
+  return sizeof(g_default_enemy_spawns) / sizeof(g_default_enemy_spawns[0]);
+}
+
 void MiniAssetBootstrap_GetEditorSamusRenderedSpritesView(MiniEditorSamusRenderedSpritesView *view) {
   *view = (MiniEditorSamusRenderedSpritesView){
     .loaded = g_mini_editor_samus_rendered_sprite_rgba != NULL &&

@@ -251,7 +251,22 @@ int main(int argc, char **argv) {
     printf("\"speed_counter\":%u,", frame->speed_counter);
     printf("\"speed_flag\":%u,", frame->speed_flag);
     printf("\"shinespark_timer\":%u", frame->shinespark_timer);
+    
     // Omit enemies when empty (per wire format spec)
+    if (frame->enemy_count > 0 && frame->enemies) {
+      printf(",\"enemies\":[");
+      for (size_t e = 0; e < frame->enemy_count; e++) {
+        const MiniEnemySnapshot *enemy = &frame->enemies[e];
+        if (e > 0) printf(",");
+        printf("{");
+        printf("\"id\":%u,", enemy->enemy_id);
+        printf("\"type\":%u,", enemy->enemy_type);
+        printf("\"x\":%d,", enemy->world_x);
+        printf("\"y\":%d", enemy->world_y);
+        printf("}");
+      }
+      printf("]");
+    }
     printf("}");
   }
   printf("],");

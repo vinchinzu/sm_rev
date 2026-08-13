@@ -3,6 +3,7 @@
 
 #include "mini_room_adapter.h"
 #include "mini_defs.h"
+#include "mini_enemy.h"
 #include "samus_projectile_view.h"
 #include "types.h"
 #include <stddef.h>
@@ -114,6 +115,7 @@ typedef struct MiniGameState {
   MiniSamusCoreState samus;
   MiniControlState controls;
   MiniProjectileState projectile_state;
+  MiniEnemyState enemy_state;
   int player_count;
   MiniPlayerInputState player_inputs[kMiniMaxPlayers];
   MiniPlayerState players[kMiniMaxPlayers];

@@ -62,6 +62,7 @@ MINI_ROLLBACK_TEST := sm_rev_mini_rollback_test
 MINI_PREDICT_TEST := sm_rev_mini_predict_test
 MINI_PREDICT_GOLDEN := sm_rev_mini_predict_golden
 MINI_PREDICT_CLI := sm_rev_predict
+MINI_ENEMY_OBS_TEST := sm_rev_mini_enemy_obs_test
 MINI_RUST_HOST := sm_rev_mini_rs
 MINI_ASSET_DEPS := src/mini/mini_generated_background_data.inc
 MINI_CFLAGS = $(CFLAGS) -DCURRENT_BUILD=BUILD_MINI -ffunction-sections -fdata-sections
@@ -91,7 +92,7 @@ else
     SDLFLAGS := $(shell sdl2-config --libs) -lm
 endif
 
-.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-predict-test mini-predict-golden mini-predict-cli mini-rust-host mini-browser-lib mini-browser-server moddable moddable-test
+.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-predict-test mini-predict-golden mini-predict-cli mini-rust-host mini-browser-lib mini-browser-server moddable moddable-test mini-enemy-obs-test mini-enemy-hookup-test mini-cli-enemy-test
 
 all: $(TARGET_EXEC)
 
@@ -143,6 +144,19 @@ mini-predict-cli: $(MINI_PREDICT_CLI)
 
 $(MINI_PREDICT_CLI): src/predict_cli.c $(MINI_KERNEL_LIB)
 	$(CC) $(MINI_CFLAGS) $< -o $@ -L. -lsm_rev_mini_kernel $(MINI_LDFLAGS)
+
+mini-enemy-obs-test: $(MINI_ENEMY_OBS_TEST)
+	./$(MINI_ENEMY_OBS_TEST)
+
+$(MINI_ENEMY_OBS_TEST): tests/test_enemy_observation.c $(MINI_KERNEL_LIB)
+	$(CC) $(MINI_CFLAGS) $< -o $@ -L. -lsm_rev_mini_kernel $(MINI_LDFLAGS)
+
+mini-enemy-hookup-test: tests/test_enemy_hookup.c $(MINI_KERNEL_LIB)
+	$(CC) $(MINI_CFLAGS) $< -o sm_rev_mini_enemy_hookup_test -L. -lsm_rev_mini_kernel $(MINI_LDFLAGS)
+	./sm_rev_mini_enemy_hookup_test
+
+mini-cli-enemy-test: $(MINI_PREDICT_CLI)
+	python3 tests/test_cli_enemy_prediction.py
 
 mini-rust-host: $(MINI_RUST_HOST)
 
