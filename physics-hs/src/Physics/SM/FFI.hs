@@ -16,7 +16,10 @@ module Physics.SM.FFI
   , fromSimState
   ) where
 
-import Data.Aeson (FromJSON, ToJSON, object, (.=))
+import Data.Aeson
+  ( FromJSON, ToJSON, Value(Object), object, parseJSON, toJSON, withObject
+  , (.:?), (.=)
+  )
 import Data.Int (Int16)
 import Data.Word (Word16)
 import GHC.Generics (Generic)
