@@ -48,7 +48,8 @@ OBJS := $(FULL_SRCS:%.c=%.o)
 MINI_RUNTIME_SRCS := $(wildcard src/mini/*.c)
 # Mini now links the shared gameplay engine and constrains content at runtime to
 # Landing Site. Keep only the full host and emulator bridge out.
-MINI_SHARED_ENGINE_SRCS := $(filter-out src/main.c src/sm_cpu_infra.c src/sm_rtl.c,$(CORE_SRCS))
+# Also exclude predict_cli.c which has its own main()
+MINI_SHARED_ENGINE_SRCS := $(filter-out src/main.c src/sm_cpu_infra.c src/sm_rtl.c src/predict_cli.c,$(CORE_SRCS))
 MINI_EXTRA_SRCS := third_party/cJSON.c
 MINI_SRCS := $(MINI_RUNTIME_SRCS) $(MINI_SHARED_ENGINE_SRCS) $(MINI_EXTRA_SRCS)
 MINI_KERNEL_RUNTIME_SRCS := $(filter-out src/mini/mini_main.c src/mini/mini_runtime.c src/mini/mini_renderer.c src/mini/mini_record.c src/mini/mini_input_script.c src/mini/mini_backdrop.c,$(MINI_RUNTIME_SRCS))
