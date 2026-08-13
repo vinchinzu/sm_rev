@@ -61,7 +61,9 @@ MINI_BROWSER_LIB := libsm_rev_mini_net.so
 MINI_ROLLBACK_TEST := sm_rev_mini_rollback_test
 MINI_PREDICT_TEST := sm_rev_mini_predict_test
 MINI_PREDICT_GOLDEN := sm_rev_mini_predict_golden
+MINI_WRAM_PEEK_TEST := sm_rev_mini_wram_peek_test
 MINI_PREDICT_CLI := sm_rev_predict
+MINI_MSS_FIXTURE_GEN := generate_mss_fixture
 MINI_ENEMY_OBS_TEST := sm_rev_mini_enemy_obs_test
 MINI_RUST_HOST := sm_rev_mini_rs
 MINI_ASSET_DEPS := src/mini/mini_generated_background_data.inc
@@ -92,7 +94,7 @@ else
     SDLFLAGS := $(shell sdl2-config --libs) -lm
 endif
 
-.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-predict-test mini-predict-golden mini-predict-cli mini-rust-host mini-browser-lib mini-browser-server moddable moddable-test mini-enemy-obs-test mini-enemy-hookup-test mini-cli-enemy-test
+.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-predict-test mini-predict-golden mini-wram-peek-test mini-predict-cli mini-rust-host mini-browser-lib mini-browser-server moddable moddable-test mini-enemy-obs-test mini-enemy-hookup-test mini-cli-enemy-test
 
 all: $(TARGET_EXEC)
 
@@ -140,6 +142,15 @@ mini-predict-golden: $(MINI_PREDICT_GOLDEN)
 $(MINI_PREDICT_GOLDEN): tests/mini_predict_golden.c tests/mini_test_room.c $(MINI_KERNEL_LIB)
 	$(CC) $(MINI_CFLAGS) tests/mini_predict_golden.c tests/mini_test_room.c -o $@ -L. -lsm_rev_mini_kernel $(MINI_LDFLAGS)
 
+mini-wram-peek-test: $(MINI_WRAM_PEEK_TEST)
+	./$(MINI_WRAM_PEEK_TEST)
+
+$(MINI_WRAM_PEEK_TEST): tests/test_wram_peek_load.c $(MINI_KERNEL_LIB)
+	$(CC) $(MINI_CFLAGS) $< -o $@ -L. -lsm_rev_mini_kernel $(MINI_LDFLAGS)
+
+$(MINI_MSS_FIXTURE_GEN): tests/generate_mss_fixture.c $(MINI_KERNEL_LIB)
+	$(CC) $(MINI_CFLAGS) $< -o $@ -L. -lsm_rev_mini_kernel $(MINI_LDFLAGS)
+
 mini-predict-cli: $(MINI_PREDICT_CLI)
 
 $(MINI_PREDICT_CLI): src/predict_cli.c $(MINI_KERNEL_LIB)
@@ -166,7 +177,7 @@ $(MINI_RUST_HOST): src/mini/mini_rust_host.rs $(MINI_KERNEL_LIB)
 run: all
 	./$(TARGET_EXEC)
 
-mini-test: mini mini-rollback-test mini-predict-golden
+mini-test: mini mini-rollback-test mini-predict-golden mini-wram-peek-test
 	./$(MINI_TARGET_EXEC) --headless --frames 3
 
 moddable-test: moddable
@@ -177,7 +188,7 @@ mini-mac: mini
 
 clean: clean_obj
 clean_obj:
-	@$(RM) $(OBJS) $(TARGET_EXEC) $(MINI_TARGET_EXEC) $(MODDABLE_TARGET_EXEC) $(MINI_KERNEL_OBJS) $(MINI_KERNEL_LIB) $(MINI_BROWSER_LIB) $(MINI_ROLLBACK_TEST) $(MINI_PREDICT_TEST) $(MINI_PREDICT_GOLDEN) $(MINI_PREDICT_CLI) $(MINI_RUST_HOST) src/embedded/*.o src/embedded/*.c
+	@$(RM) $(OBJS) $(TARGET_EXEC) $(MINI_TARGET_EXEC) $(MODDABLE_TARGET_EXEC) $(MINI_KERNEL_OBJS) $(MINI_KERNEL_LIB) $(MINI_BROWSER_LIB) $(MINI_ROLLBACK_TEST) $(MINI_PREDICT_TEST) $(MINI_PREDICT_GOLDEN) $(MINI_WRAM_PEEK_TEST) $(MINI_PREDICT_CLI) $(MINI_RUST_HOST) src/embedded/*.o src/embedded/*.c
 
 test: all
 	$(PYTHON) tests/run_tests.py -v
