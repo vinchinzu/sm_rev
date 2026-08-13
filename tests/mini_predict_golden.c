@@ -99,32 +99,31 @@ static bool test_ground_run_golden(void) {
     // Debug: Print position every 10 frames
     if (i % 10 == 0 || i == kFrameCount - 1) {
       printf("  Frame %zu: oracle x=%d, pred x=%d, vx=%d, on_ground=%d\n",
-             i, oracle_state->samus.world_x, pred_frame->world_x,
+             i, oracle_state->samus.world_x, pred_frame->samus_x,
              oracle_state->samus.x_velocity, oracle_state->samus.on_ground);
     }
     
     // Sub-pixel accuracy check (SNES RAM $0AF6/$0AF8 for x, $0AFA/$0AFC for y)
-    ASSERT_EQ(pred_frame->world_x, oracle_state->samus.world_x, "samus_x");
-    ASSERT_EQ(pred_frame->x_subpos, samus_x_subpos, "samus_x_sub");
-    ASSERT_EQ(pred_frame->world_y, oracle_state->samus.world_y, "samus_y");
-    ASSERT_EQ(pred_frame->y_subpos, samus_y_subpos, "samus_y_sub");
-    ASSERT_EQ(pred_frame->x_velocity, oracle_state->samus.x_velocity, "velocity_x");
-    ASSERT_EQ(pred_frame->y_velocity, oracle_state->samus.y_velocity, "velocity_y");
+    ASSERT_EQ(pred_frame->samus_x, oracle_state->samus.world_x, "samus_x");
+    ASSERT_EQ(pred_frame->samus_x_sub, samus_x_subpos, "samus_x_sub");
+    ASSERT_EQ(pred_frame->samus_y, oracle_state->samus.world_y, "samus_y");
+    ASSERT_EQ(pred_frame->samus_y_sub, samus_y_subpos, "samus_y_sub");
+    ASSERT_EQ(pred_frame->velocity_x, oracle_state->samus.x_velocity, "velocity_x");
+    ASSERT_EQ(pred_frame->velocity_y, oracle_state->samus.y_velocity, "velocity_y");
     ASSERT_EQ(pred_frame->pose, oracle_state->samus.pose, "pose");
     ASSERT_EQ(pred_frame->movement_type, oracle_state->samus.movement_type, "movement_type");
     
-    uint64_t oracle_hash = MiniStateHash(oracle_state);
-    ASSERT_EQ(pred_frame->state_hash, oracle_hash, "state_hash");
+    // Note: state_hash no longer in wire format frame
   }
 
   // Print final position for verification
   const MiniTrajectoryFrame *final_frame = &prediction->frames[kFrameCount - 1];
   printf("  Final position after %zu frames: x=%d.%04x, y=%d.%04x\n",
          kFrameCount,
-         final_frame->world_x, final_frame->x_subpos & 0xFFFF,
-         final_frame->world_y, final_frame->y_subpos & 0xFFFF);
+         final_frame->samus_x, final_frame->samus_x_sub & 0xFFFF,
+         final_frame->samus_y, final_frame->samus_y_sub & 0xFFFF);
   printf("  Final velocity: vx=%d, vy=%d\n",
-         final_frame->x_velocity, final_frame->y_velocity);
+         final_frame->velocity_x, final_frame->velocity_y);
 
   MiniDestroy(oracle_state);
   MiniPrediction_Destroy(prediction);
@@ -196,17 +195,17 @@ static bool test_jump_height_golden(void) {
     return false;
   }
 
-  int short_peak_y = short_prediction->frames[0].world_y;
+  int short_peak_y = short_prediction->frames[0].samus_y;
   size_t short_peak_frame = 0;
   for (size_t i = 0; i < kShortHopFrames; i++) {
     MiniStepButtons(short_oracle, short_hop_inputs[i], false);
     const MiniTrajectoryFrame *frame = &short_prediction->frames[i];
     
-    ASSERT_EQ(frame->world_y, short_oracle->samus.world_y, "short_hop_y");
-    ASSERT_EQ(frame->y_subpos, samus_y_subpos, "short_hop_y_sub");
+    ASSERT_EQ(frame->samus_y, short_oracle->samus.world_y, "short_hop_y");
+    ASSERT_EQ(frame->samus_y_sub, samus_y_subpos, "short_hop_y_sub");
     
-    if (frame->world_y < short_peak_y) {
-      short_peak_y = frame->world_y;
+    if (frame->samus_y < short_peak_y) {
+      short_peak_y = frame->samus_y;
       short_peak_frame = i;
     }
   }
@@ -220,17 +219,17 @@ static bool test_jump_height_golden(void) {
     return false;
   }
 
-  int full_peak_y = full_prediction->frames[0].world_y;
+  int full_peak_y = full_prediction->frames[0].samus_y;
   size_t full_peak_frame = 0;
   for (size_t i = 0; i < kFullHopFrames; i++) {
     MiniStepButtons(full_oracle, full_hop_inputs[i], false);
     const MiniTrajectoryFrame *frame = &full_prediction->frames[i];
     
-    ASSERT_EQ(frame->world_y, full_oracle->samus.world_y, "full_hop_y");
-    ASSERT_EQ(frame->y_subpos, samus_y_subpos, "full_hop_y_sub");
+    ASSERT_EQ(frame->samus_y, full_oracle->samus.world_y, "full_hop_y");
+    ASSERT_EQ(frame->samus_y_sub, samus_y_subpos, "full_hop_y_sub");
     
-    if (frame->world_y < full_peak_y) {
-      full_peak_y = frame->world_y;
+    if (frame->samus_y < full_peak_y) {
+      full_peak_y = frame->samus_y;
       full_peak_frame = i;
     }
   }
@@ -325,7 +324,7 @@ static bool test_run_jump_platform_golden(void) {
   }
   free(snapshot);
 
-  int peak_y = prediction->frames[0].world_y;
+  int peak_y = prediction->frames[0].samus_y;
   size_t peak_frame = 0;
   size_t takeoff_frame = 0;
   size_t landing_frame = 0;
@@ -336,27 +335,25 @@ static bool test_run_jump_platform_golden(void) {
     const MiniTrajectoryFrame *frame = &prediction->frames[i];
     
     // Sub-pixel accuracy verification (SNES RAM $0AF6/$0AF8 for x, $0AFA/$0AFC for y)
-    ASSERT_EQ(frame->world_x, oracle->samus.world_x, "combined_x");
-    ASSERT_EQ(frame->x_subpos, samus_x_subpos, "combined_x_sub");
-    ASSERT_EQ(frame->world_y, oracle->samus.world_y, "combined_y");
-    ASSERT_EQ(frame->y_subpos, samus_y_subpos, "combined_y_sub");
-    ASSERT_EQ(frame->x_velocity, oracle->samus.x_velocity, "combined_vx");
-    ASSERT_EQ(frame->y_velocity, oracle->samus.y_velocity, "combined_vy");
+    ASSERT_EQ(frame->samus_x, oracle->samus.world_x, "combined_x");
+    ASSERT_EQ(frame->samus_x_sub, samus_x_subpos, "combined_x_sub");
+    ASSERT_EQ(frame->samus_y, oracle->samus.world_y, "combined_y");
+    ASSERT_EQ(frame->samus_y_sub, samus_y_subpos, "combined_y_sub");
+    ASSERT_EQ(frame->velocity_x, oracle->samus.x_velocity, "combined_vx");
+    ASSERT_EQ(frame->velocity_y, oracle->samus.y_velocity, "combined_vy");
     
-    uint64_t oracle_hash = MiniStateHash(oracle);
-    ASSERT_EQ(frame->state_hash, oracle_hash, "combined_hash");
-    
-    // Track jump phases
-    if (!in_air && !frame->on_ground) {
+    // Track jump phases (infer from velocity_y: negative = rising, positive = falling, zero on ground)
+    bool is_grounded = (frame->velocity_y == 0 && i > 0 && prediction->frames[i-1].velocity_y >= 0);
+    if (!in_air && !is_grounded) {
       takeoff_frame = i;
       in_air = true;
     }
-    if (in_air && frame->on_ground) {
+    if (in_air && is_grounded) {
       landing_frame = i;
       in_air = false;
     }
-    if (frame->world_y < peak_y) {
-      peak_y = frame->world_y;
+    if (frame->samus_y < peak_y) {
+      peak_y = frame->samus_y;
       peak_frame = i;
     }
   }
@@ -369,10 +366,10 @@ static bool test_run_jump_platform_golden(void) {
     printf("  Air time: %zu frames\n", landing_frame - takeoff_frame);
   }
   printf("  Final position: x=%d.%04x, y=%d.%04x\n",
-         final_frame->world_x, final_frame->x_subpos & 0xFFFF,
-         final_frame->world_y, final_frame->y_subpos & 0xFFFF);
+         final_frame->samus_x, final_frame->samus_x_sub & 0xFFFF,
+         final_frame->samus_y, final_frame->samus_y_sub & 0xFFFF);
   printf("  Horizontal distance: %d pixels\n",
-         final_frame->world_x - prediction->frames[0].world_x);
+         final_frame->samus_x - prediction->frames[0].samus_x);
 
   MiniDestroy(oracle);
   MiniPrediction_Destroy(prediction);

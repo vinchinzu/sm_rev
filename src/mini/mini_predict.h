@@ -15,21 +15,31 @@ typedef struct MiniEnemySnapshot {
 } MiniEnemySnapshot;
 
 // Trajectory frame: per-frame Samus state snapshot for prediction
+// Wire format compatible with retro_rl physics_sim.TrajectoryFrame
 typedef struct MiniTrajectoryFrame {
   int frame;
-  int world_x;
-  int world_y;
-  int x_subpos;
-  int y_subpos;
-  int16 x_velocity;
-  int16 y_velocity;
-  int16 x_extra_run_speed;
-  int16 y_speed;
+  int room_id;
+  // Position (samus_x/y + sub-pixel)
+  int samus_x;
+  int samus_y;
+  int samus_x_sub;
+  int samus_y_sub;
+  // Velocity (signed 16-bit + sub-pixel)
+  int16 velocity_x;
+  int16 velocity_y;
+  int16 velocity_x_sub;
+  int16 velocity_y_sub;
+  // Momentum (speed booster state - mini always zero)
+  int16 momentum_x;
+  int16 momentum_x_sub;
+  // Pose and movement
   uint16 pose;
+  uint8 facing;           // 0x04=left, 0x08=right
   uint16 movement_type;
-  uint16 buttons;
-  bool on_ground;
-  uint64_t state_hash;
+  // Speed booster state (mini always zero)
+  uint16 speed_counter;
+  uint16 speed_flag;
+  uint16 shinespark_timer;
   
   // Enemy tracking (wire format compatibility - currently always empty)
   MiniEnemySnapshot *enemies;

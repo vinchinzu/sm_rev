@@ -9,19 +9,19 @@
 #include "third_party/cJSON.h"
 
 // retro_rl wire format: standard SNES button bit order
-// Wire format from retro_rl#1: Left=0x40, Right=0x80, etc.
-#define WIRE_BUTTON_B       0x01
-#define WIRE_BUTTON_Y       0x02
-#define WIRE_BUTTON_SELECT  0x04
-#define WIRE_BUTTON_START   0x08
-#define WIRE_BUTTON_UP      0x10
-#define WIRE_BUTTON_DOWN    0x20
-#define WIRE_BUTTON_LEFT    0x40
-#define WIRE_BUTTON_RIGHT   0x80
-#define WIRE_BUTTON_A       0x100
-#define WIRE_BUTTON_X       0x200
-#define WIRE_BUTTON_L       0x400
-#define WIRE_BUTTON_R       0x800
+// Button order: B=0, Y=1, Select=2, Start=3, Up=4, Down=5, Left=6, Right=7, A=8, X=9, L=10, R=11
+#define WIRE_BUTTON_B       0x01    // bit 0
+#define WIRE_BUTTON_Y       0x02    // bit 1
+#define WIRE_BUTTON_SELECT  0x04    // bit 2
+#define WIRE_BUTTON_START   0x08    // bit 3
+#define WIRE_BUTTON_UP      0x10    // bit 4
+#define WIRE_BUTTON_DOWN    0x20    // bit 5
+#define WIRE_BUTTON_LEFT    0x40    // bit 6
+#define WIRE_BUTTON_RIGHT   0x80    // bit 7
+#define WIRE_BUTTON_A       0x100   // bit 8
+#define WIRE_BUTTON_X       0x200   // bit 9
+#define WIRE_BUTTON_L       0x400   // bit 10
+#define WIRE_BUTTON_R       0x800   // bit 11
 
 // Internal mini button format (from ida_types.h)
 #define MINI_BUTTON_B       0x8000
@@ -94,7 +94,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  // Parse input sequence
+  // Parse input sequence (wire format: [{"buttons": int}, ...])
   cJSON *inputs_json = cJSON_GetObjectItem(root, "inputs");
   if (!inputs_json || !cJSON_IsArray(inputs_json)) {
     cJSON_Delete(root);
@@ -110,7 +110,10 @@ int main(int argc, char **argv) {
   }
 
   uint16_t *mini_buttons = malloc(input_count * sizeof(uint16_t));
-  if (!mini_buttons) {
+  uint16_t *wire_buttons = malloc(input_count * sizeof(uint16_t));
+  if (!mini_buttons || !wire_buttons) {
+    free(mini_buttons);
+    free(wire_buttons);
     cJSON_Delete(root);
     fprintf(stderr, "{\"error\":\"allocation failed\"}\n");
     return 1;
@@ -118,39 +121,45 @@ int main(int argc, char **argv) {
 
   for (size_t i = 0; i < input_count; i++) {
     cJSON *input_item = cJSON_GetArrayItem(inputs_json, (int)i);
-    if (!cJSON_IsNumber(input_item)) {
+    if (!cJSON_IsObject(input_item)) {
       free(mini_buttons);
+      free(wire_buttons);
       cJSON_Delete(root);
-      fprintf(stderr, "{\"error\":\"invalid input at index %zu\"}\n", i);
+      fprintf(stderr, "{\"error\":\"invalid input at index %zu (expected object)\"}\n", i);
       return 1;
     }
-    uint16_t wire_buttons = (uint16_t)input_item->valueint;
-    mini_buttons[i] = wire_to_mini_buttons(wire_buttons);
+    cJSON *buttons_json = cJSON_GetObjectItem(input_item, "buttons");
+    if (!buttons_json || !cJSON_IsNumber(buttons_json)) {
+      free(mini_buttons);
+      free(wire_buttons);
+      cJSON_Delete(root);
+      fprintf(stderr, "{\"error\":\"missing 'buttons' field at input index %zu\"}\n", i);
+      return 1;
+    }
+    wire_buttons[i] = (uint16_t)buttons_json->valueint;
+    mini_buttons[i] = wire_to_mini_buttons(wire_buttons[i]);
   }
 
-  // Optional: parse initial state snapshot if provided
-  cJSON *state_json = cJSON_GetObjectItem(root, "state");
-  void *snapshot = NULL;
-  size_t snapshot_size = 0;
-  if (state_json && cJSON_IsString(state_json)) {
-    // TODO: decode base64 or hex state if needed
-    // For now, always start from fresh state
-  }
-
+  // Parse optional start state (wire format: SimState.to_dict())
+  // For now, always start from fresh state (mini kernel doesn't support state loading yet)
+  cJSON *start_json = cJSON_GetObjectItem(root, "start");
+  (void)start_json;  // TODO: implement state loading when mini supports it
+  
   cJSON_Delete(root);
 
   // Run prediction
   MiniPrediction *prediction = MiniPrediction_Create(input_count);
   if (!prediction) {
     free(mini_buttons);
+    free(wire_buttons);
     fprintf(stderr, "{\"error\":\"MiniPrediction_Create failed\"}\n");
     return 1;
   }
 
   bool success = MiniPredict(
     prediction,
-    snapshot,
-    snapshot_size,
+    NULL,  // TODO: pass snapshot when state loading is implemented
+    0,
     mini_buttons,
     input_count,
     kMiniGameWidth,
@@ -160,35 +169,84 @@ int main(int argc, char **argv) {
   free(mini_buttons);
 
   if (!success) {
+    free(wire_buttons);
     MiniPrediction_Destroy(prediction);
     fprintf(stderr, "{\"error\":\"MiniPredict failed\"}\n");
     return 1;
   }
 
-  // Output Trajectory JSON in snake_case (retro_rl wire format)
-  printf("{\"trajectory\":[");
+  // Output Trajectory.to_dict() (retro_rl wire format)
+  printf("{");
+  
+  // start: SimState.to_dict() (use first frame for now since mini doesn't track full state)
+  const MiniTrajectoryFrame *first = prediction->frame_count > 0 ? &prediction->frames[0] : NULL;
+  if (first) {
+    printf("\"start\":{");
+    printf("\"frame\":0,");
+    printf("\"room_id\":%d,", first->room_id);
+    printf("\"samus_x\":%d,", first->samus_x);
+    printf("\"samus_y\":%d,", first->samus_y);
+    printf("\"samus_x_sub\":%d,", first->samus_x_sub);
+    printf("\"samus_y_sub\":%d,", first->samus_y_sub);
+    printf("\"velocity_x\":%d,", first->velocity_x);
+    printf("\"velocity_y\":%d,", first->velocity_y);
+    printf("\"velocity_x_sub\":%d,", first->velocity_x_sub);
+    printf("\"velocity_y_sub\":%d,", first->velocity_y_sub);
+    printf("\"momentum_x\":%d,", first->momentum_x);
+    printf("\"momentum_x_sub\":%d,", first->momentum_x_sub);
+    printf("\"pose\":%u,", first->pose);
+    printf("\"facing\":%u,", first->facing);
+    printf("\"movement_type\":%u,", first->movement_type);
+    printf("\"speed_counter\":%u,", first->speed_counter);
+    printf("\"speed_flag\":%u,", first->speed_flag);
+    printf("\"shinespark_timer\":%u", first->shinespark_timer);
+    printf("},");
+  } else {
+    printf("\"start\":null,");
+  }
+
+  // frames: [TrajectoryFrame.to_dict(), ...]
+  printf("\"frames\":[");
   for (size_t i = 0; i < prediction->frame_count; i++) {
     const MiniTrajectoryFrame *frame = &prediction->frames[i];
     if (i > 0) printf(",");
-    printf("\n  {");
+    printf("{");
     printf("\"frame\":%d,", frame->frame);
-    printf("\"samus_x\":%d,", frame->world_x);
-    printf("\"samus_x_sub\":%d,", frame->x_subpos);
-    printf("\"samus_y\":%d,", frame->world_y);
-    printf("\"samus_y_sub\":%d,", frame->y_subpos);
-    printf("\"velocity_x\":%d,", frame->x_velocity);
-    printf("\"velocity_y\":%d,", frame->y_velocity);
-    printf("\"velocity_x_extra\":%d,", frame->x_extra_run_speed);
-    printf("\"velocity_y_speed\":%d,", frame->y_speed);
+    printf("\"room_id\":%d,", frame->room_id);
+    printf("\"samus_x\":%d,", frame->samus_x);
+    printf("\"samus_y\":%d,", frame->samus_y);
+    printf("\"samus_x_sub\":%d,", frame->samus_x_sub);
+    printf("\"samus_y_sub\":%d,", frame->samus_y_sub);
+    printf("\"velocity_x\":%d,", frame->velocity_x);
+    printf("\"velocity_y\":%d,", frame->velocity_y);
+    printf("\"velocity_x_sub\":%d,", frame->velocity_x_sub);
+    printf("\"velocity_y_sub\":%d,", frame->velocity_y_sub);
+    printf("\"momentum_x\":%d,", frame->momentum_x);
+    printf("\"momentum_x_sub\":%d,", frame->momentum_x_sub);
     printf("\"pose\":%u,", frame->pose);
+    printf("\"facing\":%u,", frame->facing);
     printf("\"movement_type\":%u,", frame->movement_type);
-    printf("\"on_ground\":%s,", frame->on_ground ? "true" : "false");
-    printf("\"room_id\":0,");  // TODO: populate when room system is integrated
-    printf("\"state_hash\":%llu,", (unsigned long long)frame->state_hash);
-    printf("\"enemies\":[]");  // Empty for now, wire format placeholder
+    printf("\"speed_counter\":%u,", frame->speed_counter);
+    printf("\"speed_flag\":%u,", frame->speed_flag);
+    printf("\"shinespark_timer\":%u", frame->shinespark_timer);
+    // Omit enemies when empty (per wire format spec)
     printf("}");
   }
-  printf("\n]}\n");
+  printf("],");
+
+  // predictor: string name
+  printf("\"predictor\":\"sm_rev\",");
+
+  // inputs: [{"buttons": int}, ...]
+  printf("\"inputs\":[");
+  for (size_t i = 0; i < input_count; i++) {
+    if (i > 0) printf(",");
+    printf("{\"buttons\":%u}", wire_buttons[i]);
+  }
+  printf("]");
+
+  free(wire_buttons);
+  printf("}\n");
 
   MiniPrediction_Destroy(prediction);
   return 0;

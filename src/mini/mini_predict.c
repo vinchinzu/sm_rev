@@ -11,19 +11,36 @@
 static MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state, int frame) {
   MiniTrajectoryFrame result = {0};
   result.frame = frame;
-  result.world_x = state->samus.world_x;
-  result.world_y = state->samus.world_y;
-  result.x_subpos = samus_x_subpos;
-  result.y_subpos = samus_y_subpos;
-  result.x_velocity = state->samus.x_velocity;
-  result.y_velocity = state->samus.y_velocity;
-  result.x_extra_run_speed = samus_x_extra_run_speed;
-  result.y_speed = samus_y_speed;
+  result.room_id = state->room.room_id;
+  
+  // Position (world coords + subpixel)
+  result.samus_x = state->samus.world_x;
+  result.samus_y = state->samus.world_y;
+  result.samus_x_sub = samus_x_subpos;
+  result.samus_y_sub = samus_y_subpos;
+  
+  // Velocity (mini tracks pixel velocity, subpixel always zero for authored movement)
+  result.velocity_x = state->samus.x_velocity;
+  result.velocity_y = state->samus.y_velocity;
+  result.velocity_x_sub = 0;  // Authored movement doesn't track subpixel velocity
+  result.velocity_y_sub = 0;
+  
+  // Momentum (speed booster - not in mini authored movement)
+  result.momentum_x = 0;
+  result.momentum_x_sub = 0;
+  
+  // Pose and movement
   result.pose = state->samus.pose;
+  // Facing: infer from pose or movement (0x04=left, 0x08=right)
+  result.facing = (state->samus.x_velocity < 0) ? 0x04 : 0x08;
   result.movement_type = state->samus.movement_type;
-  result.buttons = state->controls.buttons;
-  result.on_ground = state->samus.on_ground;
-  result.state_hash = MiniStateHash(state);
+  
+  // Speed booster state (not in mini)
+  result.speed_counter = 0;
+  result.speed_flag = 0;
+  result.shinespark_timer = 0;
+  
+  // Enemy tracking (wire format compatibility - currently always empty)
   result.enemies = NULL;
   result.enemy_count = 0;
   return result;
