@@ -413,6 +413,11 @@ int MiniAssetBootstrap_GetEditorRoomSpriteViews(const MiniEditorRoomSpriteView *
   return g_mini_editor_room_sprite_count;
 }
 
+int MiniAssetBootstrap_GetEditorEnemySpawnViews(const MiniEditorEnemySpawnView **enemies) {
+  *enemies = NULL;
+  return 0;
+}
+
 void MiniAssetBootstrap_GetEditorSamusRenderedSpritesView(MiniEditorSamusRenderedSpritesView *view) {
   *view = (MiniEditorSamusRenderedSpritesView){
     .loaded = g_mini_editor_samus_rendered_sprite_rgba != NULL &&

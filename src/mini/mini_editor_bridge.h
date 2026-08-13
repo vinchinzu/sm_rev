@@ -15,6 +15,7 @@ enum {
   kMiniEditorBridgePaletteCount = 8 * 16,
   kMiniEditorBridgeSamusPaletteCount = 16,
   kMiniEditorBridgeRoomSpritePaletteCount = 16,
+  kMiniEditorBridgeEnemyNameCapacity = 64,
 };
 
 typedef enum MiniEditorSamusSuit {

@@ -40,9 +40,27 @@ static MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state
   result.speed_flag = 0;
   result.shinespark_timer = 0;
   
-  // Enemy tracking (wire format compatibility - currently always empty)
-  result.enemies = NULL;
+  // Enemy tracking: capture active enemies from MiniSim (pixel x/y only)
   result.enemy_count = 0;
+  result.enemies = NULL;
+  
+  if (state->enemy_state.active_count > 0) {
+    result.enemies = (MiniEnemySnapshot *)malloc(state->enemy_state.active_count * sizeof(MiniEnemySnapshot));
+    if (result.enemies) {
+      for (int i = 0; i < state->enemy_state.count; i++) {
+        const MiniEnemyRuntimeState *enemy = &state->enemy_state.enemies[i];
+        if (enemy->active) {
+          MiniEnemySnapshot *snapshot = &result.enemies[result.enemy_count++];
+          snapshot->enemy_id = enemy->species_id;
+          snapshot->world_x = enemy->x;
+          snapshot->world_y = enemy->y;
+          snapshot->x_velocity = enemy->x_velocity;
+          snapshot->y_velocity = enemy->y_velocity;
+        }
+      }
+    }
+  }
+  
   return result;
 }
 
@@ -65,6 +83,13 @@ MiniPrediction *MiniPrediction_Create(size_t capacity) {
 void MiniPrediction_Destroy(MiniPrediction *prediction) {
   if (!prediction)
     return;
+  // Free enemy snapshots for each frame
+  for (size_t i = 0; i < prediction->frame_count; i++) {
+    if (prediction->frames[i].enemies) {
+      free(prediction->frames[i].enemies);
+      prediction->frames[i].enemies = NULL;
+    }
+  }
   free(prediction->frames);
   free(prediction);
 }

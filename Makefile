@@ -62,6 +62,7 @@ MINI_ROLLBACK_TEST := sm_rev_mini_rollback_test
 MINI_PREDICT_TEST := sm_rev_mini_predict_test
 MINI_PREDICT_GOLDEN := sm_rev_mini_predict_golden
 MINI_PREDICT_CLI := sm_rev_predict
+MINI_ENEMY_OBS_TEST := sm_rev_mini_enemy_obs_test
 MINI_RUST_HOST := sm_rev_mini_rs
 MINI_ASSET_DEPS := src/mini/mini_generated_background_data.inc
 MINI_CFLAGS = $(CFLAGS) -DCURRENT_BUILD=BUILD_MINI -ffunction-sections -fdata-sections
@@ -142,6 +143,12 @@ $(MINI_PREDICT_GOLDEN): tests/mini_predict_golden.c tests/mini_test_room.c $(MIN
 mini-predict-cli: $(MINI_PREDICT_CLI)
 
 $(MINI_PREDICT_CLI): src/predict_cli.c $(MINI_KERNEL_LIB)
+	$(CC) $(MINI_CFLAGS) $< -o $@ -L. -lsm_rev_mini_kernel $(MINI_LDFLAGS)
+
+mini-enemy-obs-test: $(MINI_ENEMY_OBS_TEST)
+	./$(MINI_ENEMY_OBS_TEST)
+
+$(MINI_ENEMY_OBS_TEST): tests/test_enemy_observation.c $(MINI_KERNEL_LIB)
 	$(CC) $(MINI_CFLAGS) $< -o $@ -L. -lsm_rev_mini_kernel $(MINI_LDFLAGS)
 
 mini-rust-host: $(MINI_RUST_HOST)
