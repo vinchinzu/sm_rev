@@ -7,6 +7,7 @@
 #include "funcs.h"
 #include "ida_types.h"
 #include "mini_authored_movement.h"
+#include "mini_enemy_runtime.h"
 #include "mini_ppu_stub.h"
 #include "mini_system.h"
 #include "multi_samus.h"
@@ -411,6 +412,7 @@ void MiniGameState_Init(MiniGameState *state, int viewport_width, int viewport_h
   MiniInitializePlayerOneFromCurrentSamus(state);
   MiniInitializePlayerTwoFromPlayerOne(state);
   MultiSamus_SetNumSamus(1);
+  MiniEnemyRuntime_Initialize(state);
   MiniSyncLegacyPublicFields(state);
 }
 
@@ -617,6 +619,7 @@ void MiniUpdate(MiniGameState *state, const MiniInputState *input) {
     nmi_frame_counter_word++;
     MiniAuthoredMovement_Step(state);
     MiniStubs_ClampCameraToRoom();
+    MiniEnemyRuntime_Update(state);
   } else {
     state->original_oam_next_ptr = 0;
     nmi_frame_counter_word++;
@@ -627,6 +630,7 @@ void MiniUpdate(MiniGameState *state, const MiniInputState *input) {
     MainScrollingRoutine();
     if (!state->room.uses_rom_room)
       MiniStubs_ClampCameraToRoom();
+    MiniEnemyRuntime_Update(state);
     CalculateLayer2PosAndScrollsWhenScrolling();
     AnimtilesHandler();
     NmiProcessAnimtilesVramTransfers();

@@ -260,6 +260,7 @@ int main(int argc, char **argv) {
         if (e > 0) printf(",");
         printf("{");
         printf("\"id\":%u,", enemy->enemy_id);
+        printf("\"type\":%u,", enemy->enemy_type);
         printf("\"x\":%d,", enemy->world_x);
         printf("\"y\":%d", enemy->world_y);
         printf("}");

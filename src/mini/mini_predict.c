@@ -8,7 +8,7 @@
 #include "mini_room_adapter.h"
 #include "variables.h"
 
-static MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state, int frame) {
+MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state, int frame) {
   MiniTrajectoryFrame result = {0};
   result.frame = frame;
   result.room_id = state->room.room_id;
@@ -52,6 +52,7 @@ static MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state
         if (enemy->active) {
           MiniEnemySnapshot *snapshot = &result.enemies[result.enemy_count++];
           snapshot->enemy_id = enemy->species_id;
+          snapshot->enemy_type = enemy->behavior;
           snapshot->world_x = enemy->x;
           snapshot->world_y = enemy->y;
           snapshot->x_velocity = enemy->x_velocity;

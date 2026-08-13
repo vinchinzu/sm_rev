@@ -5,9 +5,13 @@
 #include <stdint.h>
 #include "types.h"
 
+// Forward declaration
+typedef struct MiniGameState MiniGameState;
+
 // Enemy snapshot for trajectory frame (future use)
 typedef struct MiniEnemySnapshot {
-  uint16 enemy_id;
+  uint16 enemy_id;        // species_id
+  uint16 enemy_type;      // behavior enum
   int world_x;
   int world_y;
   int16 x_velocity;
@@ -70,5 +74,8 @@ bool MiniPredict(MiniPrediction *prediction,
                  size_t input_count,
                  int viewport_width,
                  int viewport_height);
+
+// Capture current frame state for trajectory (exposed for testing)
+MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state, int frame);
 
 #endif  // SM_MINI_PREDICT_H_
