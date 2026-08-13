@@ -167,21 +167,66 @@ for (size_t i = 0; i < prediction->frame_count; i++) {
 MiniPrediction_Destroy(prediction);
 ```
 
-## Current Limitations
+## Current Limitations and Workarounds
 
-### ROM Requirement
+### ROM-Free Test Infrastructure ✅
 
-**BLOCKER**: The mini kernel requires a Super Metroid ROM file (`.smc` or `.sfc`) to load rooms with collision geometry. The fallback room created by `MiniCreate()` has no physics (no ground, no collision), so Samus cannot move.
+The mini kernel originally required a Super Metroid ROM for room collision geometry. This has been **resolved** via the **authored movement system** (`kMiniRoomSource_EditorExport`):
 
-**Workaround**: Place a ROM file in the expected location or load from a save state (requires ROM). See `src/mini/mini_rom_bootstrap.c` for ROM loading logic.
+- **ROM-free test rooms** with programmatic collision geometry (see `tests/mini_test_room.c`)
+- **Deterministic Samus physics** suitable for golden test validation
+- **Sub-pixel accurate** ground movement ✅ (verified in `test_ground_run_golden`)
 
-**Golden Tests**: The three golden tests in `tests/mini_predict_golden.c` (ground run, jump height, run+jump) currently fail due to this ROM blocker. Once a ROM is available, they will verify sub-pixel accuracy against the `MiniStep` oracle.
+### Authored Movement Physics Limitations
 
-### Missing Features
+The ROM-free authored movement system provides **simplified physics** compared to full Super Metroid:
+
+**What Works:**
+- ✅ Ground movement (walk, run) with accurate speed
+- ✅ Ground detection and block collision
+- ✅ Basic jumping with gravity and falling
+- ✅ Morph ball mode
+- ✅ Wall jumps
+- ✅ Sub-pixel position tracking
+
+**Known Limitations:**
+- ⚠️ **Fixed jump height**: No variable-height jumps based on button hold duration
+- ⚠️ **Enemies stubbed**: No enemy spawn/movement in authored movement rooms (see Enemy Data below)
+- ⚠️ Some advanced movement tech may differ from ROM physics
+
+**Golden Test Status:**
+1. ✅ **Ground run** (hold RIGHT): **PASSING** with sub-pixel accuracy
+2. ⚠️ **Jump height** (short vs full hop): **Fails** due to fixed jump height limitation
+3. ⚠️ **Combined platforming**: Not yet debugged
+
+For **full physics validation**, use ROM-based tests with `uses_original_gameplay_runtime=true`.
+
+### Enemy Data
+
+Per project requirements, enemy position tracking is planned but **currently stubbed**:
+
+**Current Status:**
+- Enemy source files (`src/enemy_*.c`) included in mini build
+- No enemy spawning in `kMiniRoomSource_EditorExport` rooms
+- Enemy tracking requires linking enemy system into authored movement
+
+**Planned Approach:**
+1. Extend `MiniTrajectoryFrame` with optional `enemies[]` field
+2. Link `enemy_main.c`, `enemy_collision.c` into mini
+3. Implement enemy spawn for test rooms
+4. Add golden test for enemy x/y movement vs oracle
+5. **Damage boost fixture** (contact + knockback + i-frames) for later validation
+
+**Relevant enemy files** for integration:
+- `src/enemy_main.c` - Enemy update loop
+- `src/enemy_collision.c` - Samus-enemy collision
+- `src/enemy_drops.c` - Enemy death/drops
+- `src/enemy_config.c` - Configuration tables
+
+### Other Missing Features
 
 - Room transitions not yet supported
-- Enemy interactions partially stubbed
-- Save state serialization format not yet stabilized for retro_rl
+- Save state serialization format not yet finalized for retro_rl
 
 ## Future Work
 
