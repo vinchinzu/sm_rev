@@ -1,9 +1,11 @@
 #include "mini_predict.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "mini_game.h"
+#include "mini_room_adapter.h"
 #include "variables.h"
 
 static MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state, int frame) {
@@ -73,6 +75,9 @@ bool MiniPredict(MiniPrediction *prediction,
       MiniDestroy(state);
       return false;
     }
+    // Debug: check collision map after load
+    printf("[MiniPredict] After load, collision at (7,11)=%d (8,11)=%d\n",
+           MiniStubs_GetCollisionMaterial(7, 11), MiniStubs_GetCollisionMaterial(8, 11));
   } else {
     state = MiniCreate(viewport_width, viewport_height);
     if (!state)
