@@ -25,6 +25,18 @@ testAcceleration = testGroup "Horizontal Acceleration"
       unSubpixel (velSubpixel (stateXVel state1)) @?= 0x00a0  -- cfgRunAccel
       stateAccelMode state1 @?= AccelAccelerating
 
+  , testCase "B+Left accelerates to negative velocity" $ do
+      let cfg = defaultConfig
+          input = ControllerInput (btnB .|. btnLeft) (ButtonMask 0)
+          state0 = initialState cfg
+          state1 = step cfg input state0
+          state10 = iterate (step cfg input) state0 !! 10
+      -- After 1 step: velocity should be negative
+      velPixel (stateXVel state1) @?= (-1)  -- Borrowed from subpixel
+      -- After 10 steps: velocity more negative
+      velPixel (stateXVel state10) < 0 @?= True
+      stateAccelMode state10 @?= AccelAccelerating
+
   , testCase "B+Right reaches max speed after N frames" $ do
       let cfg = defaultConfig
           input = ControllerInput (btnB .|. btnRight) (btnB .|. btnRight)

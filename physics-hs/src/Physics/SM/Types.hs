@@ -14,6 +14,7 @@ module Physics.SM.Types
   , addPosition
   , subPosition
   , addVelocity
+  , subVelocity
   , applyVelocity
   , zeroPosition
   , zeroVelocity
@@ -33,7 +34,7 @@ module Physics.SM.Types
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Bits (Bits, shiftR)
-import Data.Int (Int16)
+import Data.Int (Int16, Int32)
 import Data.Word (Word16, Word32)
 import GHC.Generics (Generic)
 
@@ -96,6 +97,18 @@ addVelocity (Velocity p1 s1) (Velocity p2 s2) =
       carry = fromIntegral (subSum `div` 65536) :: Int16
       newSub = Subpixel (fromIntegral subSum)
       newPix = p1 + p2 + carry
+  in Velocity newPix newSub
+
+-- | Subtract velocity (v1 - v2) with signed arithmetic.
+subVelocity :: Velocity -> Velocity -> Velocity
+subVelocity (Velocity p1 s1) (Velocity p2 s2) =
+  let sub1 = fromIntegral (unSubpixel s1) :: Int32
+      sub2 = fromIntegral (unSubpixel s2) :: Int32
+      subDiff = sub1 - sub2
+      (borrow, newSub) = if subDiff < 0
+                         then (1 :: Int16, Subpixel (fromIntegral (65536 + subDiff)))
+                         else (0, Subpixel (fromIntegral subDiff))
+      newPix = p1 - p2 - borrow
   in Velocity newPix newSub
 
 -- | Apply velocity to position (signed 16.16 velocity, unsigned position).

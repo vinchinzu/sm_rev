@@ -18,11 +18,11 @@
 
 **Status**: Run acceleration works for rightward and leftward motion.
 
-**Current**: `accelerateRight` adds positive X velocity, `accelerateLeft` adds negative X velocity.
+**Proven**: Unit test confirms B+Left produces negative X velocity.
 
-**Gap**: No leftward motion tests yet (only rightward motion tested in Test.Properties).
+**Gap**: No leftward motion property test (only rightward in Test.Properties).
 
-**Impact**: Both directions accelerate correctly in code, but only rightward motion has property test coverage.
+**Impact**: Both directions work correctly in code and unit tests.
 
 ## Air Control
 

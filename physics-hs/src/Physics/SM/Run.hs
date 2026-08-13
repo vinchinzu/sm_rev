@@ -84,18 +84,17 @@ accelerateRight cfg currentVel =
 
 -- | Accelerate leftward (negative X).
 --
--- Applies negative acceleration for leftward movement.
+-- Subtracts acceleration to produce negative X velocity.
 accelerateLeft :: PhysicsConfig -> Velocity -> (Velocity, AccelMode)
 accelerateLeft cfg currentVel =
-  let maxSpeed = cfgRunMaxSpeed cfg
-      accel = cfgRunAccel cfg
-      -- Negate acceleration for leftward motion
-      negAccel = Velocity (negate (velPixel accel)) (velSubpixel accel)
-      newVel = addVelocity currentVel negAccel
-      -- Check if velocity is more negative than -maxSpeed
-      maxNegSpeed = Velocity (negate (velPixel maxSpeed)) (velSubpixel maxSpeed)
-  in if velPixel newVel < velPixel maxNegSpeed
-     then (maxNegSpeed, AccelNone)  -- Capped at max leftward speed
+  let maxSpeed = cfgRunMaxSpeed cfg  -- Velocity 3 (Subpixel 0)
+      accel = cfgRunAccel cfg          -- Velocity 0 (Subpixel 0x00a0)
+      -- Subtract acceleration (makes velocity more negative)
+      newVel = subVelocity currentVel accel
+      -- Max leftward speed is -3.0 (negative max)
+      maxNegPixel = negate (velPixel maxSpeed)
+  in if velPixel newVel < maxNegPixel
+     then (Velocity maxNegPixel (Subpixel 0), AccelNone)
      else (newVel, AccelAccelerating)
 
 -- | Check if velocity exceeds maximum (unsigned comparison).
