@@ -35,7 +35,6 @@ handleJumpInput cfg input state
 initJump :: PhysicsConfig -> Environment -> Bool -> SamusState -> SamusState
 initJump cfg env hasHiJump state =
   let jumpVel = selectJumpVel cfg env hasHiJump
-      envIndex = envToIndex env
   in state
        { stateYVel = jumpVel
        , stateVerticalDir = VDirRising
