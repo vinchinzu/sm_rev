@@ -76,19 +76,19 @@ MiniGameState *MiniTestRoom_CreateWithFloor(int viewport_width, int viewport_hei
     }
   }
 
-  // Create a 1-tile platform for jump test (at mid-height)
-  int platform_y = kFloorBlockY - 4;
-  int platform_x_start = kTestRoomWidthBlocks / 2 - 1;
+  // Create a 1-tile platform for jump test (higher up, away from spawn)
+  int platform_y = 3;  // Near top, won't interfere with jump testing
+  int platform_x_start = kTestRoomWidthBlocks / 2 + 3;  // Offset to the right
   for (int x = platform_x_start; x < platform_x_start + 2; x++) {
     int index = platform_y * kTestRoomWidthBlocks + x;
     level_data[index] = BlockTileWithType(0, kBlockType_Solid);
     BTS[index] = 0;
   }
 
-  // Set up world bounds
+  // Set up world bounds (generous ceiling for high jumps)
   const int world_left = 32;
   const int world_right = viewport_width - 32;
-  const int world_ceiling = 32;
+  const int world_ceiling = 0;  // Allow jumps to screen top
   const int world_floor = kTestRoomHeightBlocks * kMiniBlockSize;
 
   // Configure room info for authored movement

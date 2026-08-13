@@ -184,7 +184,8 @@ int main(int argc, char **argv) {
     printf("\"movement_type\":%u,", frame->movement_type);
     printf("\"on_ground\":%s,", frame->on_ground ? "true" : "false");
     printf("\"room_id\":0,");  // TODO: populate when room system is integrated
-    printf("\"state_hash\":%llu", (unsigned long long)frame->state_hash);
+    printf("\"state_hash\":%llu,", (unsigned long long)frame->state_hash);
+    printf("\"enemies\":[]");  // Empty for now, wire format placeholder
     printf("}");
   }
   printf("\n]}\n");

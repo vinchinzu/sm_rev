@@ -285,7 +285,7 @@ static bool test_run_jump_platform_golden(void) {
     inputs[i] = kButton_Right;
   }
 
-  // Create test room snapshot
+  // Create test room snapshot (single source of truth for both prediction and oracle)
   MiniGameState *test_state = MiniTestRoom_CreateWithFloor(kMiniGameWidth, kMiniGameHeight);
   if (!test_state) {
     fprintf(stderr, "FAIL: MiniTestRoom_CreateWithFloor failed\n");
@@ -300,7 +300,7 @@ static bool test_run_jump_platform_golden(void) {
   }
   MiniDestroy(test_state);
 
-  // Run prediction from test room
+  // Run prediction from snapshot
   MiniPrediction *prediction = MiniPrediction_Create(kFrameCount);
   if (!prediction) {
     free(snapshot);
@@ -314,14 +314,16 @@ static bool test_run_jump_platform_golden(void) {
     fprintf(stderr, "FAIL: MiniPredict failed\n");
     return false;
   }
-  free(snapshot);
 
-  // Verify against oracle at sub-pixel accuracy with test room
-  MiniGameState *oracle = MiniTestRoom_CreateWithFloor(kMiniGameWidth, kMiniGameHeight);
-  if (!oracle) {
+  // Create oracle from SAME snapshot (ensures identical starting state)
+  MiniGameState *oracle = MiniCreate(kMiniGameWidth, kMiniGameHeight);
+  if (!oracle || !MiniLoadState(oracle, snapshot, snapshot_size)) {
+    free(snapshot);
     MiniPrediction_Destroy(prediction);
+    fprintf(stderr, "FAIL: oracle MiniLoadState failed\n");
     return false;
   }
+  free(snapshot);
 
   int peak_y = prediction->frames[0].world_y;
   size_t peak_frame = 0;
