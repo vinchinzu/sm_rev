@@ -1,0 +1,8 @@
+dist-newstyle/
+.ghc.environment.*
+*.hi
+*.o
+*.swp
+*.swo
+*~
+cabal.project.local
