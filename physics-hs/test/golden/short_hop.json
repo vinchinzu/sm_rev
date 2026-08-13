@@ -1,0 +1,59 @@
+{
+  "source": "haskell-step-function",
+  "note": "NOT Mini baseline - Haskell self-output for determinism testing only",
+  "description": "Short hop: Hold A for 10 frames then release, flat floor Y=200",
+  "config": {
+    "groundY": 200,
+    "jumpSquatDuration": 4,
+    "jumpVelocity": 319488
+  },
+  "input_sequence": [
+    {"buttons": 256, "frames": 10},
+    {"buttons": 0, "frames": 20}
+  ],
+  "states": [
+    {
+      "frame": 0,
+      "samus_x": 100,
+      "samus_y": 200,
+      "samus_x_sub": 0,
+      "samus_y_sub": 0,
+      "velocity_x": 0,
+      "velocity_y": 0,
+      "velocity_x_sub": 0,
+      "velocity_y_sub": 0,
+      "on_ground": true,
+      "pose": 1,
+      "jump_squat_frames": 0
+    },
+    {
+      "frame": 1,
+      "samus_x": 100,
+      "samus_y": 200,
+      "samus_x_sub": 0,
+      "samus_y_sub": 0,
+      "velocity_x": 0,
+      "velocity_y": 0,
+      "velocity_x_sub": 0,
+      "velocity_y_sub": 0,
+      "on_ground": true,
+      "pose": 1,
+      "jump_squat_frames": 1,
+      "note": "Jump squat frame 1"
+    },
+    {
+      "frame": 5,
+      "samus_x": 100,
+      "samus_y": 195,
+      "samus_x_sub": 0,
+      "samus_y_sub": 0,
+      "velocity_x": 0,
+      "velocity_y": 4,
+      "velocity_x_sub": 0,
+      "velocity_y_sub": 57344,
+      "on_ground": false,
+      "pose": 19,
+      "note": "Jump fired, in air"
+    }
+  ]
+}

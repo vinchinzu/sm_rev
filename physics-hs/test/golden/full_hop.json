@@ -1,0 +1,56 @@
+{
+  "source": "haskell-step-function",
+  "note": "NOT Mini baseline - Haskell self-output for determinism testing only",
+  "description": "Full hop: Hold A for 40 frames, flat floor Y=200",
+  "config": {
+    "groundY": 200,
+    "jumpSquatDuration": 4,
+    "jumpVelocity": 319488,
+    "gravity": 7168
+  },
+  "input": {"buttons": 256},
+  "frames": 40,
+  "states": [
+    {
+      "frame": 0,
+      "samus_x": 100,
+      "samus_y": 200,
+      "samus_x_sub": 0,
+      "samus_y_sub": 0,
+      "velocity_x": 0,
+      "velocity_y": 0,
+      "velocity_x_sub": 0,
+      "velocity_y_sub": 0,
+      "on_ground": true,
+      "pose": 1
+    },
+    {
+      "frame": 5,
+      "samus_x": 100,
+      "samus_y": 195,
+      "samus_x_sub": 0,
+      "samus_y_sub": 0,
+      "velocity_x": 0,
+      "velocity_y": 4,
+      "velocity_x_sub": 0,
+      "velocity_y_sub": 57344,
+      "on_ground": false,
+      "pose": 19,
+      "note": "Jump fired, rising"
+    },
+    {
+      "frame": 20,
+      "samus_x": 100,
+      "samus_y": 130,
+      "samus_x_sub": 0,
+      "samus_y_sub": 0,
+      "velocity_x": 0,
+      "velocity_y": 0,
+      "velocity_x_sub": 0,
+      "velocity_y_sub": 4096,
+      "on_ground": false,
+      "pose": 19,
+      "note": "Near apex"
+    }
+  ]
+}

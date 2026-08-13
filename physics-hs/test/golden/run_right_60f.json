@@ -1,0 +1,53 @@
+{
+  "source": "haskell-step-function",
+  "note": "NOT Mini baseline - Haskell self-output for determinism testing only",
+  "description": "Ground run: Hold B+Right for 60 frames, flat floor Y=200",
+  "config": {
+    "groundY": 200,
+    "runAccel": 160,
+    "runMaxSpeed": 196608
+  },
+  "input": {"buttons": 129},
+  "frames": 60,
+  "states": [
+    {
+      "frame": 0,
+      "samus_x": 100,
+      "samus_y": 200,
+      "samus_x_sub": 0,
+      "samus_y_sub": 0,
+      "velocity_x": 0,
+      "velocity_y": 0,
+      "velocity_x_sub": 0,
+      "velocity_y_sub": 0,
+      "on_ground": true,
+      "pose": 1
+    },
+    {
+      "frame": 1,
+      "samus_x": 100,
+      "samus_y": 200,
+      "samus_x_sub": 160,
+      "samus_y_sub": 0,
+      "velocity_x": 0,
+      "velocity_y": 0,
+      "velocity_x_sub": 160,
+      "velocity_y_sub": 0,
+      "on_ground": true,
+      "pose": 1
+    },
+    {
+      "frame": 2,
+      "samus_x": 100,
+      "samus_y": 200,
+      "samus_x_sub": 320,
+      "samus_y_sub": 0,
+      "velocity_x": 0,
+      "velocity_y": 0,
+      "velocity_x_sub": 320,
+      "velocity_y_sub": 0,
+      "on_ground": true,
+      "pose": 1
+    }
+  ]
+}
