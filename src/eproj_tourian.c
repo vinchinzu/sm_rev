@@ -331,8 +331,10 @@ void EprojPreInstr_MotherBrainBomb(uint16 k) {  // 0x86C4C8
     eproj_x_vel[v1] = sign16(eproj_x_vel[v1]) ? -v2 : v2;
     if (MoveMotherBrainBomb(k, 7) & 1) {
 LABEL_5:
-      int v3 = k >> 1;
-      eproj_F[v3] += 2;
+      {
+        int v3 = k >> 1;
+        eproj_F[v3] += 2;
+      }
     }
   }
 }

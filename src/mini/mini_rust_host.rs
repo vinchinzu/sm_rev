@@ -14,6 +14,30 @@ struct MiniGameState {
     _private: [u8; 0],
 }
 
+#[repr(C)]
+struct MiniPrediction {
+    _private: [u8; 0],
+}
+
+#[repr(C)]
+#[derive(Debug, Clone)]
+struct MiniTrajectoryFrame {
+    frame: c_int,
+    world_x: c_int,
+    world_y: c_int,
+    x_subpos: c_int,
+    y_subpos: c_int,
+    x_velocity: i16,
+    y_velocity: i16,
+    x_extra_run_speed: i16,
+    y_speed: i16,
+    pose: u16,
+    movement_type: u16,
+    buttons: u16,
+    on_ground: bool,
+    state_hash: u64,
+}
+
 extern "C" {
     fn MiniStubs_SetRoomExportPath(path: *const c_char);
     fn MiniCreate(viewport_width: c_int, viewport_height: c_int) -> *mut MiniGameState;
@@ -23,6 +47,17 @@ extern "C" {
     fn MiniSaveStateSize() -> usize;
     fn MiniSaveState(state: *const MiniGameState, buffer: *mut u8, buffer_size: usize) -> bool;
     fn MiniLoadState(state: *mut MiniGameState, buffer: *const u8, buffer_size: usize) -> bool;
+    fn MiniPrediction_Create(capacity: usize) -> *mut MiniPrediction;
+    fn MiniPrediction_Destroy(prediction: *mut MiniPrediction);
+    fn MiniPredict(
+        prediction: *mut MiniPrediction,
+        state_snapshot: *const u8,
+        snapshot_size: usize,
+        input_buttons: *const u16,
+        input_count: usize,
+        viewport_width: c_int,
+        viewport_height: c_int,
+    ) -> bool;
 }
 
 struct Options {
@@ -32,6 +67,7 @@ struct Options {
     input_delay: usize,
     rollback_window: usize,
     trace: bool,
+    predict: bool,
 }
 
 fn parse_args() -> Result<Options, String> {
@@ -41,6 +77,7 @@ fn parse_args() -> Result<Options, String> {
     let mut input_delay = 3usize;
     let mut rollback_window = 32usize;
     let mut trace = false;
+    let mut predict = false;
     let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -81,6 +118,9 @@ fn parse_args() -> Result<Options, String> {
             "--trace" => {
                 trace = true;
             }
+            "--predict" => {
+                predict = true;
+            }
             "--help" | "-h" => {
                 print_help();
                 process::exit(0);
@@ -101,14 +141,16 @@ fn parse_args() -> Result<Options, String> {
         input_delay,
         rollback_window,
         trace,
+        predict,
     })
 }
 
 fn print_help() {
     println!(
-        "Usage: sm_rev_mini_rs [--frames N] [--room-export PATH] [--rollback] [--input-delay N] [--rollback-window N] [--trace]"
+        "Usage: sm_rev_mini_rs [--frames N] [--room-export PATH] [--rollback] [--predict] [--input-delay N] [--rollback-window N] [--trace]"
     );
     println!("  --rollback          Run the headless rollback simulation driver.");
+    println!("  --predict           Run trajectory prediction mode and output JSON.");
     println!("  --input-delay N     Reveal actual delayed input N frames late in rollback mode.");
     println!("  --rollback-window N Keep N pre-step snapshots in the rollback ring.");
     println!("  --trace             Print rollback/resimulation events to stderr.");
@@ -476,6 +518,65 @@ fn print_rollback_summary(summary: &RollbackSummary) {
     println!("]}}");
 }
 
+fn run_predict_host(options: &Options) -> Result<(), String> {
+    let input_sequence: Vec<u16> = (0..options.frames)
+        .map(scripted_buttons)
+        .collect();
+
+    unsafe {
+        let prediction = MiniPrediction_Create(options.frames);
+        if prediction.is_null() {
+            return Err("MiniPrediction_Create failed".to_string());
+        }
+
+        if !MiniPredict(
+            prediction,
+            std::ptr::null(),
+            0,
+            input_sequence.as_ptr(),
+            input_sequence.len(),
+            MINI_GAME_WIDTH,
+            MINI_GAME_HEIGHT,
+        ) {
+            MiniPrediction_Destroy(prediction);
+            return Err("MiniPredict failed".to_string());
+        }
+
+        let frame_count = (*(prediction as *const MiniPrediction as *const usize).offset(1));
+        let frames_ptr = *(prediction as *const MiniPrediction as *const *const MiniTrajectoryFrame);
+        let frames = std::slice::from_raw_parts(frames_ptr, frame_count);
+
+        print!("{{\"build\":\"mini-rust-host\",\"mode\":\"predict\",\"frames\":{},\"trajectory\":[", options.frames);
+        for (i, frame) in frames.iter().enumerate() {
+            if i != 0 {
+                print!(",");
+            }
+            print!(
+                "{{\"frame\":{},\"world_x\":{},\"world_y\":{},\"x_subpos\":{},\"y_subpos\":{},\"x_velocity\":{},\"y_velocity\":{},\"x_extra_run_speed\":{},\"y_speed\":{},\"pose\":\"0x{:04x}\",\"movement_type\":\"0x{:04x}\",\"buttons\":\"0x{:04x}\",\"on_ground\":{},\"state_hash\":\"0x{:016x}\"}}",
+                frame.frame,
+                frame.world_x,
+                frame.world_y,
+                frame.x_subpos,
+                frame.y_subpos,
+                frame.x_velocity,
+                frame.y_velocity,
+                frame.x_extra_run_speed,
+                frame.y_speed,
+                frame.pose,
+                frame.movement_type,
+                frame.buttons,
+                frame.on_ground,
+                frame.state_hash
+            );
+        }
+        println!("]}}");
+
+        MiniPrediction_Destroy(prediction);
+    }
+
+    Ok(())
+}
+
 fn run() -> Result<(), String> {
     let options = parse_args()?;
     let room_export_path = match &options.room_export_path {
@@ -493,7 +594,9 @@ fn run() -> Result<(), String> {
         );
     }
 
-    if options.rollback {
+    if options.predict {
+        run_predict_host(&options)
+    } else if options.rollback {
         let summary = run_rollback_host(&options)?;
         let desynced = summary.first_desync.is_some();
         print_rollback_summary(&summary);

@@ -1,3 +1,6 @@
+#ifndef SM_FUNCS_H_
+#define SM_FUNCS_H_
+
 #include "types.h"
 
 
@@ -7987,3 +7990,5 @@ void VerifySRAM(void);
 #define fnlocret_828C81 0x828C81
 #define fnlocret_8B9585 0x8B9585
 #define FUNC16(x) ((fn##x) & 0xffff)
+
+#endif  // SM_FUNCS_H_
