@@ -4,6 +4,8 @@
 
 The physics prediction API provides headless trajectory simulation for Super Metroid TAS (tool-assisted speedrun) route planning and RL (reinforcement learning) training. It exposes the mini Samus/physics kernel through a JSON-based CLI interface compatible with the [retro_rl](https://github.com/vinchinzu/retro_rl/pull/1) wire format.
 
+**Architecture Note**: Mini is a **simplified speed baseline** for fast iteration, NOT TAS ground truth. Acceptance testing is the real emulator (snes9x/libretro via SMEDIT + retro_rl). When Mini ≠ emulator, **emulator wins**. Golden tests verify internal consistency (prediction = MiniStep), not correctness vs. real SM physics.
+
 ## CLI Interface
 
 ### Command
@@ -193,10 +195,12 @@ The ROM-free authored movement system provides **simplified physics** compared t
 - ⚠️ **Enemies stubbed**: No enemy spawn/movement in authored movement rooms (see Enemy Data below)
 - ⚠️ Some advanced movement tech may differ from ROM physics (no spin jump, speed booster, grapple)
 
-**Golden Test Status:**
-1. ✅ **Ground run** (hold RIGHT): **PASSING** with sub-pixel accuracy
-2. ✅ **Jump height** (short vs full hop): **PASSING** - 63 pixel difference verified
-3. ✅ **Combined platforming** (run + jump): **PASSING** - 102 pixels horizontal, reaches y=80 peak
+**Mini Baseline Golden Status** (fast iteration, not TAS correctness):
+1. ✅ **Ground run** (hold RIGHT): prediction = MiniStep (sub-pixel consistent)
+2. ✅ **Jump height** (short vs full hop): prediction = MiniStep (63px difference)
+3. ✅ **Combined platforming** (run + jump): prediction = MiniStep (102px horizontal, y=80 peak)
+
+Note: These verify **internal consistency** (no prediction drift from MiniStep). For TAS acceptance, compare against real emulator via retro_rl.
 
 For **full physics validation**, use ROM-based tests with `uses_original_gameplay_runtime=true`.
 
