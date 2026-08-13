@@ -28,7 +28,7 @@ static void test_spawn_enemies(MiniGameState *state) {
     .y = 100,
     .home_x = 100,
     .home_y = 100,
-    .x_velocity = 0,  // Will be set by AI when triggered
+    .x_velocity = 3,  // Set initial velocity (roach walks right at 3 px/frame)
     .y_velocity = 0,
     .x_radius = roach_meta ? roach_meta->x_radius : 4,
     .y_radius = roach_meta ? roach_meta->y_radius : 4,
@@ -40,12 +40,12 @@ static void test_spawn_enemies(MiniGameState *state) {
     .main_ai = roach_meta ? roach_meta->main_ai : 0xA2D0,
     .behavior = kMiniEnemyBehavior_Roach,
     .facing_right = true,
-    .ai_state = 0,  // Will trigger when Samus is nearby
+    .ai_state = 1,  // Pre-triggered state so roach starts moving immediately
     .state_timer = 0,
     .init_parameter = 0x0000,
     .properties1 = 0x2400,
     .properties2 = 0x0000,
-    .extra_parameter1 = 0x5003,  // Velocity encoding
+    .extra_parameter1 = 0x0003,  // Velocity encoding: angle=0 (right), speed=3
     .extra_parameter2 = 0x0050,  // Trigger radius = 80
   };
   

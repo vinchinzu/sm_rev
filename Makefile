@@ -151,6 +151,10 @@ mini-enemy-obs-test: $(MINI_ENEMY_OBS_TEST)
 $(MINI_ENEMY_OBS_TEST): tests/test_enemy_observation.c $(MINI_KERNEL_LIB)
 	$(CC) $(MINI_CFLAGS) $< -o $@ -L. -lsm_rev_mini_kernel $(MINI_LDFLAGS)
 
+mini-enemy-hookup-test: tests/test_enemy_hookup.c $(MINI_KERNEL_LIB)
+	$(CC) $(MINI_CFLAGS) $< -o sm_rev_mini_enemy_hookup_test -L. -lsm_rev_mini_kernel $(MINI_LDFLAGS)
+	./sm_rev_mini_enemy_hookup_test
+
 mini-rust-host: $(MINI_RUST_HOST)
 
 $(MINI_RUST_HOST): src/mini/mini_rust_host.rs $(MINI_KERNEL_LIB)
