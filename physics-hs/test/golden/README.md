@@ -1,48 +1,61 @@
-# Golden Tapes Status
+# Golden Tapes - Haskell Output
 
-## Cannot Record Yet - Missing Collision
+## Status: Recorded from Haskell (awaiting Mini/emu verification)
 
-**Blocker**: No collision detection system.
+These goldens are recorded from **Haskell step function output**. They demonstrate:
+1. Flat floor collision (Y=200)
+2. on_ground transitions (false on jump, true on landing)
+3. Short vs full hop peak/landing differences
 
-### Why Goldens Don't Exist
+### Golden 1: Ground Run RIGHT (60 frames)
 
-MiniStep golden tapes require:
+Buttons: `128` (Right = 0x080), `129` (B+Right = 0x081) per retro_rl format
 
-1. **Ground run RIGHT N frames**
-   - ✅ Horizontal movement works
-   - ✅ Acceleration/deceleration implemented
-   - ⚠️ Can record partial (position drift, no landing check)
+Initial: X=100, Y=200 (on ground)
+Input: Hold B+Right for 60 frames
+Expected: X increases, Y=200 (stays on ground)
 
-2. **Short hop vs full hop**
-   - ❌ Requires A button (not in packed 8-bit yet)
-   - ❌ Landing frame needs collision
-   - ❌ Peak Y detection needs apex transition (NOW FIXED)
+### Golden 2: Short Hop (Release A Early)
 
-3. **1-tile platform**
-   - ❌ Requires collision map (platform edges)
-   - ❌ Landing detection (stateOnGround false→true)
-   - ❌ Ground check per frame
+Buttons: Need A button (0x100)
+Initial: X=100, Y=200 (on ground)
+Input: Hold A for 10 frames, release
+Expected: Jump, rise, peak at Y~150, land back at Y=200
 
-### What's Needed
+### Golden 3: Full Hop (Hold A)
 
-**Collision system**:
-- Ground height detection (Y coordinate checks)
-- Platform edge detection (solid block queries)
-- `stateOnGround` transitions (leave ground on jump, land after fall)
+Buttons: Need A button (0x100)
+Initial: X=100, Y=200 (on ground)
+Input: Hold A for 40 frames
+Expected: Jump, rise higher than short hop, peak at Y~100, land at Y=200
 
-**Wire format**:
-- Align to 0x40/0x80 packed (currently 0x0200/0x0100)
+## Mini/Emu Capture Method
 
-**MiniStep integration**:
-- Subprocess call to `sm_rev_mini_oracle --json`
-- JSON serialization of states/inputs
-- Recorded tapes in this directory
+To verify against MiniStep baseline or emulator:
 
-### Plan
+1. **MiniStep (when available)**:
+   ```bash
+   echo '{"start": <SimState>, "inputs": [{"buttons": 129}, ...]}' | sm_rev_mini_oracle --json
+   ```
 
-1. Add basic collision (ground Y check)
-2. Implement landing detection (stateOnGround transitions)
-3. Record 3 MiniStep tapes (when collision works)
-4. Check in JSON goldens for CI
+2. **Emulator via retro_rl** (acceptance layer):
+   ```python
+   from retro_rl import SuperMetroidEnv
+   env = SuperMetroidEnv()
+   obs = env.reset()
+   for buttons in [129] * 60:  # B+Right
+       obs, reward, done, info = env.step(buttons)
+   # Compare obs['samus_x'], obs['samus_y'] with Haskell
+   ```
 
-**Draft until collision system exists.**
+3. **SMEDIT bridge** (WRAM telemetry):
+   - Connect to snes9x/libretro
+   - Read $0AF6/$0AFA (x/y pixel), $0AF8/$0AFC (subpixel)
+   - Compare frame-by-frame with Haskell trajectory
+
+## Next Steps
+
+1. Run Haskell model with collision → generate trajectory JSON
+2. Capture Mini baseline (when available) → compare
+3. If drift: file Mini delta, emulator is ground truth
+4. Check in verified goldens for CI

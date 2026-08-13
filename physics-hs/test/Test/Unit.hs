@@ -1,7 +1,6 @@
 -- | Unit tests for physics primitives (accel, friction, jump squat).
 module Test.Unit (tests) where
 
-import Data.Bits ((.&.), (.|.))
 import Physics.SM
 import Physics.SM.Gravity (subVelocity)
 import Test.Tasty (TestTree, testGroup)

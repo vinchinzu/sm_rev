@@ -26,16 +26,16 @@ step cfg input state =
 --
 -- Matches MiniGameState_Init defaults for a grounded Samus.
 initialState :: PhysicsConfig -> SamusState
-initialState _cfg = SamusState
+initialState cfg = SamusState
   { stateXPos = Position (Pixel 100) (Subpixel 0)
-  , stateYPos = Position (Pixel 200) (Subpixel 0)
+  , stateYPos = Position (cfgGroundY cfg) (Subpixel 0)  -- On ground at cfgGroundY
   , stateXVel = zeroVelocity
   , stateYVel = zeroVelocity
   , statePose = poseStandRight
   , stateMovementType = mvtStanding
   , stateVerticalDir = VDirStationary
   , stateAccelMode = AccelNone
-  , stateOnGround = True
+  , stateOnGround = True  -- Start on ground
   , stateJumpHeld = False
   , stateJumpSquatFrames = 0
   }

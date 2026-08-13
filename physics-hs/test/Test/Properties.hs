@@ -1,25 +1,14 @@
--- | Property-based tests calling MiniStep baseline (fast iteration).
---
--- MiniStep is a SIMPLIFIED MODEL, not TAS-correct acceptance.
--- Acceptance is real emulator (snes9x/libretro) via SMEDIT/retro_rl.
---
--- Verifies Haskell step bisimulates Mini baseline for three scenarios:
---   1. Ground run holding RIGHT
---   2. Short hop vs full hop (peak y/subY + landing frame)
---   3. Run-up onto 1-tile platform
---
--- If Mini and emulator disagree, emulator wins (file Mini delta).
 module Test.Properties (tests) where
 
 import Data.Aeson (FromJSON, ToJSON, eitherDecode, encode, object, withObject, (.:), (.=))
 import Data.ByteString.Lazy qualified as BL
-import Data.Word (Word8, Word16)
+import Data.Word (Word8)
 import GHC.Generics (Generic)
 import Physics.SM
 import System.Exit (ExitCode (..))
 import System.Process (readProcessWithExitCode)
 import Test.Tasty (TestTree, testGroup)
-import Test.Tasty.HUnit ((@?=), assertBool, assertFailure, testCase)
+import Test.Tasty.HUnit ((@?=), assertFailure, testCase)
 
 tests :: TestTree
 tests = testGroup "Properties (vs MiniStep Baseline)"

@@ -5,6 +5,7 @@ module Physics.SM.Gravity
   ( applyGravity
   , updateVerticalMovement
   , checkLanding
+  , subVelocity  -- Exported for tests
   ) where
 
 import Data.Bits ((.&.))

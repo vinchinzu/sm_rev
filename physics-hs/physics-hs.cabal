@@ -27,6 +27,7 @@ common shared-options
     -Werror
   default-extensions:
     BangPatterns
+    DeriveAnyClass
     DeriveGeneric
     DerivingStrategies
     GeneralizedNewtypeDeriving
@@ -72,6 +73,7 @@ test-suite physics-hs-test
     QuickCheck >= 2.14,
     aeson,
     bytestring,
+    directory >= 1.3,
     text,
     process >= 1.6
 
