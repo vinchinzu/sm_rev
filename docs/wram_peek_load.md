@@ -86,6 +86,36 @@ When `--load-state` is provided, the trajectory has `N+1` frames for `N` inputs:
 - `frames[0]`: pre-step state (loaded blob)
 - `frames[1..N]`: post-step states after inputs[0..N-1]
 
+### Observation Tuple Fields
+
+The observation tuple (Oσ†) includes:
+- **Position**: `samus_x`, `samus_y`, `samus_x_sub`, `samus_y_sub` (from g_ram `$0AF6/$0AF8/$0AFA/$0AFC`)
+- **Pose**: `pose` (from g_ram `$0A1C`)
+- **Room**: `room_id` (from g_ram `$079B`)
+- **Energy**: `energy` (from g_ram `$09C2`)
+- **Frame counters**: `frame_counter_1`, `frame_counter_2` (from g_ram `$1842/$09DA`, both uint16)
+- **Velocity/momentum**: `velocity_x`, `velocity_y`, `momentum_x`, etc.
+
+**Not emitted** (hardcoded false, not measured):
+- `is_dead`: Death state (field exists internally but not yet measured from game state)
+- `is_game_over`: Game over state (field exists internally but not yet measured from game state)
+
+These fields are documented in the struct but are NOT included in JSON output because they are not yet measured from WRAM or game state.
+
+## Scope: Frame-0 Hydrate Only
+
+**This PR implements frame-0 hydration only.** It verifies that:
+1. `--load-state` correctly loads a MiniSaveState blob
+2. Frame 0 observation tuple matches the blob's WRAM values (`$0AF6/$0AF8/$0AFA/$0AFC`)
+3. Subsequent frames step from that loaded state
+
+**This PR does NOT test**:
+- Grounded-walk residuals R(τ) vs SuperMetroidEnv (that's later work)
+- Movement distance validation (X may not change without proper room setup)
+- Death/game-over state detection (fields exist but hardcoded false)
+
+The C test (`tests/test_wram_peek_load.c`) is explicitly **frame-0 hydrate only**, not a grounded-walk residual test.
+
 ## Creating Fixtures
 
 ### Generate a MiniSaveState Blob

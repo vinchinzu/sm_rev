@@ -48,6 +48,34 @@ def extract_wram_from_mss(blob_path: Path) -> bytes:
     return blob[wram_start:wram_end]
 
 
+def verify_frame0_from_blob(output: dict, expected_x: int, expected_x_sub: int, 
+                            expected_y: int, expected_y_sub: int) -> tuple[bool, str]:
+    """Verify frame 0 matches expected values from blob.
+    
+    Returns (success, error_message).
+    """
+    if len(output.get("frames", [])) == 0:
+        return False, "No frames in output"
+    
+    frame0 = output["frames"][0]
+    
+    # Frame 0 is the pre-step state from the loaded blob
+    if frame0["samus_x"] != expected_x:
+        return False, f"Frame 0 samus_x={frame0['samus_x']}, expected {expected_x} (from blob)"
+    
+    if frame0["samus_y"] != expected_y:
+        return False, f"Frame 0 samus_y={frame0['samus_y']}, expected {expected_y} (from blob)"
+    
+    # Verify subpixels are also loaded correctly
+    if frame0["samus_x_sub"] != expected_x_sub:
+        return False, f"Frame 0 samus_x_sub={frame0['samus_x_sub']}, expected {expected_x_sub} (from blob)"
+    
+    if frame0["samus_y_sub"] != expected_y_sub:
+        return False, f"Frame 0 samus_y_sub={frame0['samus_y_sub']}, expected {expected_y_sub} (from blob)"
+    
+    return True, ""
+
+
 def test_load_state_cli():
     """Test that --load-state flag works with MiniSaveState blobs."""
     workspace = Path(__file__).parent.parent
@@ -81,60 +109,53 @@ def test_load_state_cli():
     test_input = {
         "inputs": [{"buttons": 128}] * 10
     }
+    test_input_json = json.dumps(test_input)
     
-    # Run CLI with --load-state
-    result = subprocess.run(
-        [str(predict_cli), "--load-state", str(state_file)],
-        input=json.dumps(test_input),
-        capture_output=True,
-        text=True
-    )
+    # Test all three argument orderings
+    test_cases = [
+        ("--load-state FILE", [str(predict_cli), "--load-state", str(state_file)]),
+        ("predict --load-state FILE", [str(predict_cli), "predict", "--load-state", str(state_file)]),
+        ("--load-state FILE predict", [str(predict_cli), "--load-state", str(state_file), "predict"]),
+    ]
     
-    if result.returncode != 0:
-        print(f"ERROR: CLI returned non-zero exit code: {result.returncode}")
-        print(f"stderr: {result.stderr}")
-        return 1
+    for test_name, args in test_cases:
+        print(f"\nTesting: {test_name}")
+        
+        result = subprocess.run(
+            args,
+            input=test_input_json,
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode != 0:
+            print(f"  ERROR: CLI returned non-zero exit code: {result.returncode}")
+            print(f"  stderr: {result.stderr}")
+            return 1
+        
+        # Parse output
+        try:
+            output = json.loads(result.stdout)
+        except json.JSONDecodeError as e:
+            print(f"  ERROR: Failed to parse JSON output: {e}")
+            print(f"  stdout: {result.stdout}")
+            return 1
+        
+        # Verify frame 0 matches the loaded state (pre-step)
+        success, error_msg = verify_frame0_from_blob(
+            output, expected_x, expected_x_sub, expected_y, expected_y_sub
+        )
+        
+        if not success:
+            print(f"  ERROR: {error_msg}")
+            return 1
+        
+        frame0 = output["frames"][0]
+        print(f"  ✓ frames[0] (pre-step): x={frame0['samus_x']}.{frame0['samus_x_sub']}, " + 
+              f"y={frame0['samus_y']}.{frame0['samus_y_sub']}")
+        print(f"  ✓ Total frames: {len(output['frames'])} (frame 0 pre-step + {len(output['frames'])-1} post-step)")
     
-    # Parse output
-    try:
-        output = json.loads(result.stdout)
-    except json.JSONDecodeError as e:
-        print(f"ERROR: Failed to parse JSON output: {e}")
-        print(f"stdout: {result.stdout}")
-        return 1
-    
-    # Verify frame 0 matches the loaded state (pre-step)
-    if len(output["frames"]) == 0:
-        print("ERROR: No frames in output")
-        return 1
-    
-    frame0 = output["frames"][0]
-    
-    # Frame 0 is the pre-step state from the loaded blob
-    # Assert against values peeked from the blob, not hardcoded numbers
-    if frame0["samus_x"] != expected_x:
-        print(f"ERROR: Frame 0 samus_x={frame0['samus_x']}, expected {expected_x} (from blob)")
-        return 1
-    
-    if frame0["samus_y"] != expected_y:
-        print(f"ERROR: Frame 0 samus_y={frame0['samus_y']}, expected {expected_y} (from blob)")
-        return 1
-    
-    # Verify subpixels are also loaded correctly
-    if frame0["samus_x_sub"] != expected_x_sub:
-        print(f"ERROR: Frame 0 samus_x_sub={frame0['samus_x_sub']}, expected {expected_x_sub} (from blob)")
-        return 1
-    
-    if frame0["samus_y_sub"] != expected_y_sub:
-        print(f"ERROR: Frame 0 samus_y_sub={frame0['samus_y_sub']}, expected {expected_y_sub} (from blob)")
-        return 1
-    
-    print("✓ CLI --load-state works correctly")
-    print(f"  frames[0] (pre-step): x={frame0['samus_x']}.{frame0['samus_x_sub']}, " + 
-          f"y={frame0['samus_y']}.{frame0['samus_y_sub']}")
-    print(f"  Total frames: {len(output['frames'])} (frame 0 pre-step + {len(output['frames'])-1} post-step)")
-    print(f"  Predictor: {output['predictor']}")
-    
+    print("\n✓ All CLI argument orderings work correctly")
     return 0
 
 

@@ -177,7 +177,7 @@ $(MINI_RUST_HOST): src/mini/mini_rust_host.rs $(MINI_KERNEL_LIB)
 run: all
 	./$(TARGET_EXEC)
 
-mini-test: mini mini-rollback-test mini-predict-golden mini-wram-peek-test
+mini-test: mini mini-rollback-test mini-predict-golden mini-wram-peek-test mini-predict-cli
 	./$(MINI_TARGET_EXEC) --headless --frames 3
 	python3 tests/test_load_state_cli.py
 
