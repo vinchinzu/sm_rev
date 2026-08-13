@@ -1,59 +1,50 @@
 {
-  "source": "haskell-step-function",
-  "note": "NOT Mini baseline - Haskell self-output for determinism testing only",
-  "description": "Short hop: Hold A for 10 frames then release, flat floor Y=200",
-  "config": {
-    "groundY": 200,
-    "jumpSquatDuration": 4,
-    "jumpVelocity": 319488
+  "start": {
+    "frame": 0,
+    "room_id": 37368,
+    "samus_x": 100,
+    "samus_y": 200,
+    "samus_x_sub": 0,
+    "samus_y_sub": 0,
+    "velocity_x": 0,
+    "velocity_y": 0,
+    "velocity_x_sub": 0,
+    "velocity_y_sub": 0,
+    "momentum_x": 0,
+    "momentum_x_sub": 0,
+    "pose": 1,
+    "facing": 8,
+    "movement_type": 0,
+    "speed_counter": 0,
+    "speed_flag": 0,
+    "shinespark_timer": 0
   },
-  "input_sequence": [
-    {"buttons": 256, "frames": 10},
-    {"buttons": 0, "frames": 20}
+  "frames": [
+    {"frame": 0, "room_id": 37368, "samus_x": 100, "samus_y": 200, "samus_x_sub": 0, "samus_y_sub": 0, "velocity_x": 0, "velocity_y": 0, "velocity_x_sub": 0, "velocity_y_sub": 0, "momentum_x": 0, "momentum_x_sub": 0, "pose": 1, "facing": 8, "movement_type": 0, "speed_counter": 0, "speed_flag": 0, "shinespark_timer": 0},
+    {"frame": 1, "room_id": 37368, "samus_x": 100, "samus_y": 200, "samus_x_sub": 0, "samus_y_sub": 0, "velocity_x": 0, "velocity_y": 0, "velocity_x_sub": 0, "velocity_y_sub": 0, "momentum_x": 0, "momentum_x_sub": 0, "pose": 1, "facing": 8, "movement_type": 0, "speed_counter": 0, "speed_flag": 0, "shinespark_timer": 0},
+    {"frame": 2, "room_id": 37368, "samus_x": 100, "samus_y": 200, "samus_x_sub": 0, "samus_y_sub": 0, "velocity_x": 0, "velocity_y": 0, "velocity_x_sub": 0, "velocity_y_sub": 0, "momentum_x": 0, "momentum_x_sub": 0, "pose": 1, "facing": 8, "movement_type": 0, "speed_counter": 0, "speed_flag": 0, "shinespark_timer": 0},
+    {"frame": 3, "room_id": 37368, "samus_x": 100, "samus_y": 200, "samus_x_sub": 0, "samus_y_sub": 0, "velocity_x": 0, "velocity_y": 0, "velocity_x_sub": 0, "velocity_y_sub": 0, "momentum_x": 0, "momentum_x_sub": 0, "pose": 1, "facing": 8, "movement_type": 0, "speed_counter": 0, "speed_flag": 0, "shinespark_timer": 0},
+    {"frame": 4, "room_id": 37368, "samus_x": 100, "samus_y": 200, "samus_x_sub": 0, "samus_y_sub": 0, "velocity_x": 0, "velocity_y": 0, "velocity_x_sub": 0, "velocity_y_sub": 0, "momentum_x": 0, "momentum_x_sub": 0, "pose": 19, "facing": 8, "movement_type": 2, "speed_counter": 0, "speed_flag": 0, "shinespark_timer": 0},
+    {"frame": 5, "room_id": 37368, "samus_x": 100, "samus_y": 195, "samus_x_sub": 0, "samus_y_sub": 8192, "velocity_x": 0, "velocity_y": -5, "velocity_x_sub": 0, "velocity_y_sub": 8192, "momentum_x": 0, "momentum_x_sub": 0, "pose": 19, "facing": 8, "movement_type": 2, "speed_counter": 0, "speed_flag": 0, "shinespark_timer": 0},
+    {"frame": 10, "room_id": 37368, "samus_x": 100, "samus_y": 170, "samus_x_sub": 0, "samus_y_sub": 0, "velocity_x": 0, "velocity_y": -4, "velocity_x_sub": 0, "velocity_y_sub": 0, "momentum_x": 0, "momentum_x_sub": 0, "pose": 19, "facing": 8, "movement_type": 2, "speed_counter": 0, "speed_flag": 0, "shinespark_timer": 0},
+    {"frame": 15, "room_id": 37368, "samus_x": 100, "samus_y": 155, "samus_x_sub": 0, "samus_y_sub": 0, "velocity_x": 0, "velocity_y": 0, "velocity_x_sub": 0, "velocity_y_sub": 0, "momentum_x": 0, "momentum_x_sub": 0, "pose": 19, "facing": 8, "movement_type": 2, "speed_counter": 0, "speed_flag": 0, "shinespark_timer": 0}
   ],
-  "states": [
-    {
-      "frame": 0,
-      "samus_x": 100,
-      "samus_y": 200,
-      "samus_x_sub": 0,
-      "samus_y_sub": 0,
-      "velocity_x": 0,
-      "velocity_y": 0,
-      "velocity_x_sub": 0,
-      "velocity_y_sub": 0,
-      "on_ground": true,
-      "pose": 1,
-      "jump_squat_frames": 0
-    },
-    {
-      "frame": 1,
-      "samus_x": 100,
-      "samus_y": 200,
-      "samus_x_sub": 0,
-      "samus_y_sub": 0,
-      "velocity_x": 0,
-      "velocity_y": 0,
-      "velocity_x_sub": 0,
-      "velocity_y_sub": 0,
-      "on_ground": true,
-      "pose": 1,
-      "jump_squat_frames": 1,
-      "note": "Jump squat frame 1"
-    },
-    {
-      "frame": 5,
-      "samus_x": 100,
-      "samus_y": 195,
-      "samus_x_sub": 0,
-      "samus_y_sub": 0,
-      "velocity_x": 0,
-      "velocity_y": 4,
-      "velocity_x_sub": 0,
-      "velocity_y_sub": 57344,
-      "on_ground": false,
-      "pose": 19,
-      "note": "Jump fired, in air"
-    }
+  "predictor": "haskell-v1-collision-flat-floor-y200",
+  "inputs": [
+    {"buttons": 256},
+    {"buttons": 256},
+    {"buttons": 256},
+    {"buttons": 256},
+    {"buttons": 256},
+    {"buttons": 256},
+    {"buttons": 256},
+    {"buttons": 256},
+    {"buttons": 256},
+    {"buttons": 256},
+    {"buttons": 0},
+    {"buttons": 0},
+    {"buttons": 0},
+    {"buttons": 0},
+    {"buttons": 0}
   ]
 }

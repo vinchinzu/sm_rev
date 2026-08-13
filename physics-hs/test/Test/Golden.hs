@@ -11,8 +11,8 @@ import Test.Tasty.HUnit ((@?=), testCase)
 
 tests :: TestTree
 tests = testGroup "Goldens (Haskell determinism)"
-  [ testCase "Ground run RIGHT 60f" $ do
-      exists <- doesFileExist "test/golden/run_right_60f.json"
+  [ testCase "Ground run RIGHT exists" $ do
+      exists <- doesFileExist "test/golden/run_right.json"
       exists @?= True
 
   , testCase "Short hop golden exists" $ do

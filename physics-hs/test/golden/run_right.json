@@ -1,0 +1,39 @@
+{
+  "start": {
+    "frame": 0,
+    "room_id": 37368,
+    "samus_x": 100,
+    "samus_y": 200,
+    "samus_x_sub": 0,
+    "samus_y_sub": 0,
+    "velocity_x": 0,
+    "velocity_y": 0,
+    "velocity_x_sub": 0,
+    "velocity_y_sub": 0,
+    "momentum_x": 0,
+    "momentum_x_sub": 0,
+    "pose": 1,
+    "facing": 8,
+    "movement_type": 0,
+    "speed_counter": 0,
+    "speed_flag": 0,
+    "shinespark_timer": 0
+  },
+  "frames": [
+    {"frame": 0, "room_id": 37368, "samus_x": 100, "samus_y": 200, "samus_x_sub": 0, "samus_y_sub": 0, "velocity_x": 0, "velocity_y": 0, "velocity_x_sub": 0, "velocity_y_sub": 0, "momentum_x": 0, "momentum_x_sub": 0, "pose": 1, "facing": 8, "movement_type": 0, "speed_counter": 0, "speed_flag": 0, "shinespark_timer": 0},
+    {"frame": 1, "room_id": 37368, "samus_x": 100, "samus_y": 200, "samus_x_sub": 160, "samus_y_sub": 0, "velocity_x": 0, "velocity_y": 0, "velocity_x_sub": 160, "velocity_y_sub": 0, "momentum_x": 0, "momentum_x_sub": 0, "pose": 1, "facing": 8, "movement_type": 0, "speed_counter": 0, "speed_flag": 0, "shinespark_timer": 0},
+    {"frame": 2, "room_id": 37368, "samus_x": 100, "samus_y": 200, "samus_x_sub": 480, "samus_y_sub": 0, "velocity_x": 0, "velocity_y": 0, "velocity_x_sub": 320, "velocity_y_sub": 0, "momentum_x": 0, "momentum_x_sub": 0, "pose": 1, "facing": 8, "movement_type": 0, "speed_counter": 0, "speed_flag": 0, "shinespark_timer": 0},
+    {"frame": 3, "room_id": 37368, "samus_x": 100, "samus_y": 200, "samus_x_sub": 960, "samus_y_sub": 0, "velocity_x": 0, "velocity_y": 0, "velocity_x_sub": 480, "velocity_y_sub": 0, "momentum_x": 0, "momentum_x_sub": 0, "pose": 1, "facing": 8, "movement_type": 0, "speed_counter": 0, "speed_flag": 0, "shinespark_timer": 0},
+    {"frame": 4, "room_id": 37368, "samus_x": 101, "samus_y": 200, "samus_x_sub": 640, "samus_y_sub": 0, "velocity_x": 0, "velocity_y": 0, "velocity_x_sub": 640, "velocity_y_sub": 0, "momentum_x": 0, "momentum_x_sub": 0, "pose": 1, "facing": 8, "movement_type": 0, "speed_counter": 0, "speed_flag": 0, "shinespark_timer": 0},
+    {"frame": 5, "room_id": 37368, "samus_x": 102, "samus_y": 200, "samus_x_sub": 480, "samus_y_sub": 0, "velocity_x": 0, "velocity_y": 0, "velocity_x_sub": 800, "velocity_y_sub": 0, "momentum_x": 0, "momentum_x_sub": 0, "pose": 1, "facing": 8, "movement_type": 0, "speed_counter": 0, "speed_flag": 0, "shinespark_timer": 0}
+  ],
+  "predictor": "haskell-v1-collision-flat-floor-y200",
+  "inputs": [
+    {"buttons": 129},
+    {"buttons": 129},
+    {"buttons": 129},
+    {"buttons": 129},
+    {"buttons": 129},
+    {"buttons": 129}
+  ]
+}
