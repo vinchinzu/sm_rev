@@ -20,10 +20,11 @@ typedef struct MiniEnemySnapshot {
 
 // Trajectory frame: per-frame Samus state snapshot for prediction
 // Wire format compatible with retro_rl physics_sim.TrajectoryFrame
+// Exposes full observable state (Oσ†) from g_ram after MiniLoadState
 typedef struct MiniTrajectoryFrame {
   int frame;
   int room_id;
-  // Position (samus_x/y + sub-pixel)
+  // Position (samus_x/y + sub-pixel from g_ram $0AF6/$0AF8/$0AFA/$0AFC)
   int samus_x;
   int samus_y;
   int samus_x_sub;
@@ -44,6 +45,13 @@ typedef struct MiniTrajectoryFrame {
   uint16 speed_counter;
   uint16 speed_flag;
   uint16 shinespark_timer;
+  // Energy and death state (from g_ram $09C2, game state)
+  uint16 energy;          // $09C2: current health
+  bool is_dead;           // Samus death state
+  bool is_game_over;      // Game over state
+  // Frame counters (from g_ram $1842/$09DA)
+  uint32 frame_counter_1;    // $1842: first frame counter (uint32)
+  uint16 frame_counter_2;    // $09DA: second frame counter (uint16)
   
   // Enemy tracking (wire format compatibility - currently always empty)
   MiniEnemySnapshot *enemies;

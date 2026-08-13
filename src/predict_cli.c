@@ -289,7 +289,12 @@ int main(int argc, char **argv) {
       printf("\"movement_type\":%u,", first->movement_type);
       printf("\"speed_counter\":%u,", first->speed_counter);
       printf("\"speed_flag\":%u,", first->speed_flag);
-      printf("\"shinespark_timer\":%u", first->shinespark_timer);
+      printf("\"shinespark_timer\":%u,", first->shinespark_timer);
+      printf("\"energy\":%u,", first->energy);
+      printf("\"is_dead\":%s,", first->is_dead ? "true" : "false");
+      printf("\"is_game_over\":%s,", first->is_game_over ? "true" : "false");
+      printf("\"frame_counter_1\":%u,", first->frame_counter_1);
+      printf("\"frame_counter_2\":%u", first->frame_counter_2);
       printf("},");
     } else {
       printf("\"start\":null,");
@@ -314,12 +319,17 @@ int main(int argc, char **argv) {
     printf("\"velocity_y_sub\":%d,", frame->velocity_y_sub);
     printf("\"momentum_x\":%d,", frame->momentum_x);
     printf("\"momentum_x_sub\":%d,", frame->momentum_x_sub);
-    printf("\"pose\":%u,", frame->pose);
-    printf("\"facing\":%u,", frame->facing);
-    printf("\"movement_type\":%u,", frame->movement_type);
-    printf("\"speed_counter\":%u,", frame->speed_counter);
-    printf("\"speed_flag\":%u,", frame->speed_flag);
-    printf("\"shinespark_timer\":%u", frame->shinespark_timer);
+      printf("\"pose\":%u,", frame->pose);
+      printf("\"facing\":%u,", frame->facing);
+      printf("\"movement_type\":%u,", frame->movement_type);
+      printf("\"speed_counter\":%u,", frame->speed_counter);
+      printf("\"speed_flag\":%u,", frame->speed_flag);
+      printf("\"shinespark_timer\":%u,", frame->shinespark_timer);
+      printf("\"energy\":%u,", frame->energy);
+      printf("\"is_dead\":%s,", frame->is_dead ? "true" : "false");
+      printf("\"is_game_over\":%s,", frame->is_game_over ? "true" : "false");
+      printf("\"frame_counter_1\":%u,", frame->frame_counter_1);
+      printf("\"frame_counter_2\":%u", frame->frame_counter_2);
     
     // Omit enemies when empty (per wire format spec)
     if (frame->enemy_count > 0 && frame->enemies) {

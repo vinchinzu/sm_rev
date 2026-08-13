@@ -6,6 +6,7 @@
 
 #include "mini_game.h"
 #include "mini_room_adapter.h"
+#include "mini_wram_peek.h"
 #include "variables.h"
 
 MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state, int frame) {
@@ -13,11 +14,12 @@ MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state, int f
   result.frame = frame;
   result.room_id = state->room.room_id;
   
-  // Position (world coords + subpixel)
-  result.samus_x = state->samus.world_x;
-  result.samus_y = state->samus.world_y;
-  result.samus_x_sub = samus_x_subpos;
-  result.samus_y_sub = samus_y_subpos;
+  // Position: read from g_ram to ensure we get the authoritative post-MiniLoadState values
+  // These include subpixels that public Mini fields don't expose
+  result.samus_x = samus_x_pos;           // g_ram $0AF6
+  result.samus_y = samus_y_pos;           // g_ram $0AFA
+  result.samus_x_sub = samus_x_subpos;    // g_ram $0AF8
+  result.samus_y_sub = samus_y_subpos;    // g_ram $0AFC
   
   // Velocity (mini tracks pixel velocity, subpixel always zero for authored movement)
   result.velocity_x = state->samus.x_velocity;
@@ -29,9 +31,8 @@ MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state, int f
   result.momentum_x = 0;
   result.momentum_x_sub = 0;
   
-  // Pose and movement
-  result.pose = state->samus.pose;
-  // Facing: infer from pose or movement (0x04=left, 0x08=right)
+  // Pose and movement: read from g_ram for post-MiniLoadState correctness
+  result.pose = samus_pose;                    // g_ram $0A1C
   result.facing = (state->samus.x_velocity < 0) ? 0x04 : 0x08;
   result.movement_type = state->samus.movement_type;
   
@@ -39,6 +40,18 @@ MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state, int f
   result.speed_counter = 0;
   result.speed_flag = 0;
   result.shinespark_timer = 0;
+  
+  // Energy: read from g_ram $09C2
+  result.energy = samus_health;                // g_ram $09C2
+  
+  // Death and game over state (mini doesn't track death state yet, future work)
+  result.is_dead = false;
+  result.is_game_over = false;
+  
+  // Frame counters: read from g_ram for observation tuple
+  // Avoid naming conflicts with variables.h macros by using generic names
+  result.frame_counter_1 = *(uint32*)(g_ram + kWramAddr_FrameCounter1);
+  result.frame_counter_2 = *(uint16*)(g_ram + kWramAddr_FrameCounter2);
   
   // Enemy tracking: capture active enemies from MiniSim (pixel x/y only)
   result.enemy_count = 0;
