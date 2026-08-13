@@ -398,9 +398,9 @@ int main(void) {
   printf("\n");
   
   if (all_passed) {
-    printf("=== ALL GOLDEN TESTS PASSED ===\n");
-    printf("Sub-pixel accuracy verified against MiniStep oracle\n");
-    printf("Note: mini_frame_step.c/.h not found on feature/mini-climb-endless branch\n");
+    printf("\n=== ALL MINI BASELINE GOLDEN TESTS PASSED ===\n");
+    printf("Prediction matches MiniStep baseline (sub-pixel consistent, fast iteration).\n");
+    printf("NOT TAS ground truth - emulator acceptance via retro_rl determines correctness.\n");
     return 0;
   } else {
     printf("=== SOME GOLDEN TESTS FAILED ===\n");
