@@ -62,13 +62,15 @@ data SimState = SimState
   } deriving stock (Eq, Show, Generic)
     deriving anyclass (FromJSON, ToJSON)
 
--- | TrajectoryFrame: SimState + optional enemies (deleted if empty).
+-- | TrajectoryFrame: SimState + optional enemies.
+--
+-- Note: enemies field omitted from JSON if Nothing (manual ToJSON below).
 data TrajectoryFrame = TrajectoryFrame
   { frameState :: !SimState
-  , enemies :: !(Maybe [Enemy])  -- Omitted if empty/Nothing
+  , enemies :: !(Maybe [Enemy])
   } deriving stock (Eq, Show, Generic)
-    deriving anyclass (ToJSON)
 
+-- Manual ToJSON to omit enemies field when Nothing
 instance ToJSON TrajectoryFrame where
   toJSON (TrajectoryFrame st Nothing) = Data.Aeson.object
     [ "frame" .= frame st
