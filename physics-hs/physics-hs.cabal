@@ -1,10 +1,10 @@
 cabal-version: 2.4
 name: physics-hs
 version: 0.1.0.0
-synopsis: Pure Haskell physics model for Super Metroid
+synopsis: Pure Haskell physics model for Super Metroid (Mini baseline iteration)
 description:
-  SpaceX-quality predictive physics kernel for Super Metroid.
-  Pure functional implementation matching the C mini oracle at subpixel precision.
+  Pure functional physics kernel. Wire format matches retro_rl@66836f5.
+  MiniStep is fast iteration baseline (NOT TAS-correct). Emulator is ground truth.
 license: MIT
 author: sm_rev contributors
 maintainer: sm_rev@github

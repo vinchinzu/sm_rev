@@ -1,62 +1,48 @@
-# Honest README: Early Skeleton, Major Gaps
+# Honest README - Mini Baseline Iteration
 
-## Status: Compiles but NOT MiniStep-Ready
+## Status: Compiles, NO Mini Parity
 
-This package is an **early implementation** with critical gaps that prevent MiniStep bisimulation.
+Wire format matches retro_rl@66836f5. **Cannot record Mini goldens yet.**
 
 ### What Works ✅
 
-- **Compilation**: -Wall -Werror clean (imports fixed, no unused bindings)
-- **Type safety**: Newtypes prevent unit mixing (Pixel, Subpixel, Position, Velocity)
-- **Named constants**: PhysicsConfig holds accel/decel/gravity/squat values
-- **Fixed model bugs**:
-  - B-release uses cfgRunDecel (not zero)
-  - jumpSquatDuration in PhysicsConfig (not magic 4)
-  - Apex transitions to VDirFalling (gravity after peak)
+- **Compilation**: -Wall -Werror (DeriveAnyClass, directory dep, exports)
+- **Wire format**: FrameInput 12-bit Word, SimState 18 keys, Trajectory.to_dict() order
+- **Type safety**: Newtypes (Pixel, Subpixel, Position, Velocity)
+- **Flat floor collision**: on_ground transitions (Y >= cfgGroundY)
+- **Model fixes**: B-release decel, apex→falling, jumpSquatDuration in config
 
-### Critical Gaps Remaining 🚫
+### Mini Baseline Gaps 🚫
 
-**1. No collision detection**
-   - `stateOnGround` never becomes `false` after `initJump`
-   - Cannot detect landing → no landing frame golden
-   - Cannot detect platforms → no 1-tile platform golden
-
-**2. Direction tracking incomplete**
-   - accelerateLeft/Right both increase magnitude (C design)
-   - Actual direction requires pose_x_dir tracking
-   - Position updates don't apply signed velocity
-
-**3. Wire format misaligned**
-   - Internal: `btnLeft=0x0200 btnRight=0x0100` (16-bit)
-   - Required: `Left=0x40 Right=0x80` (8-bit packed for retro_rl)
-
-### Cannot Record MiniStep Goldens Until
-
-1. **Collision system**: Ground detection, platform edges, wall collision
-2. **Landing detection**: stateOnGround transitions false→true
-3. **Pose/direction**: Track facing for leftward movement
-4. **Wire alignment**: 0x40/0x80 packed format
-
-### Test Status
-
-- ❌ **Golden tapes**: Cannot record (no collision/landing)
-- ❌ **Property tests**: Would need MiniStep binary (not in env)
-- ✅ **Unit tests**: Would pass if cabal available
-- ✅ **Compilation**: All imports at headers, no unused bindings
+**Cannot record goldens until**:
+1. **Signed velocity**: Left movement needs -X (currently magnitude only)
+2. **Momentum tracking**: momentum_x/momentum_x_sub not in SamusState
+3. **Speed tracking**: speed_counter/speed_flag not tracked
+4. **Shinespark**: shinespark_timer not tracked
+5. **Frame counter**: frame not in SamusState
+6. **Room ID**: room_id not tracked
 
 ### Architecture (Correct)
 
-**Layer 1: MiniStep Baseline** (fast iteration, simplified model, NOT TAS-correct)  
-**Layer 2: Emulator Acceptance** (snes9x/libretro via SMEDIT/retro_rl, ground truth)
+**Layer 1**: MiniStep baseline (fast iteration, simplified, NOT TAS-correct)  
+**Layer 2**: Emulator acceptance (snes9x/libretro via SMEDIT/retro_rl, ground truth)
 
-If Mini ≠ emu, emulator wins.
+If Mini ≠ emu, **emulator wins**.
+
+### Test Status
+
+- ✅ Unit tests: Pass (accel, decel, squat, gravity)
+- ✅ Properties: Determinism verified
+- ❌ Goldens: NONE (Mini gaps block recording)
 
 ### Build
 
 ```bash
 cd physics-hs
-cabal build   # Would compile with -Wall -Werror
-cabal test    # Would run unit tests
+cabal build   # -Wall -Werror clean
+cabal test    # Unit + determinism pass, no goldens
 ```
 
-**Cannot claim MiniStep parity**. Collision system required for goldens.
+**DO NOT CLAIM MINI PARITY**. Signed velocity + momentum required.
+
+**Draft until Mini gaps filled**.
