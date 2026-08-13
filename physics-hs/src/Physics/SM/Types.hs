@@ -215,4 +215,5 @@ defaultConfig = PhysicsConfig
   , cfgRunMaxSpeed = Velocity (Pixel 3) (Subpixel 0x0000)
   , cfgTerminalSpeed = Pixel 5
   , cfgJumpSquatDuration = 4  -- Frames before jump fires
+  , cfgGroundY = Pixel 200  -- Flat infinite floor at Y=200 (v1 collision)
   }

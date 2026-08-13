@@ -1,9 +1,10 @@
--- | Gravity and falling logic.
+-- | Gravity and falling logic with landing detection.
 --
 -- Ported from src/samus_motion.c (Samus_MoveY_WithSpeedCalc, Samus_DetermineAccel_Y).
 module Physics.SM.Gravity
   ( applyGravity
   , updateVerticalMovement
+  , checkLanding
   ) where
 
 import Data.Bits ((.&.))
