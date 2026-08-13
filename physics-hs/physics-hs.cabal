@@ -1,0 +1,86 @@
+cabal-version: 2.4
+name: physics-hs
+version: 0.1.0.0
+synopsis: Pure Haskell physics model for Super Metroid
+description:
+  SpaceX-quality predictive physics kernel for Super Metroid.
+  Pure functional implementation matching the C mini oracle at subpixel precision.
+license: MIT
+author: sm_rev contributors
+maintainer: sm_rev@github
+category: Game
+build-type: Simple
+extra-source-files: README.md
+
+common shared-options
+  default-language: Haskell2010
+  ghc-options:
+    -Wall
+    -Wcompat
+    -Widentities
+    -Wincomplete-record-updates
+    -Wincomplete-uni-patterns
+    -Wmissing-export-lists
+    -Wmissing-home-modules
+    -Wpartial-fields
+    -Wredundant-constraints
+    -Werror
+  default-extensions:
+    BangPatterns
+    DeriveGeneric
+    DerivingStrategies
+    GeneralizedNewtypeDeriving
+    ImportQualifiedPost
+    LambdaCase
+    OverloadedStrings
+    RecordWildCards
+    StrictData
+
+library
+  import: shared-options
+  hs-source-dirs: src
+  exposed-modules:
+    Physics.SM.Types
+    Physics.SM.Constants
+    Physics.SM.Step
+    Physics.SM.Run
+    Physics.SM.Jump
+    Physics.SM.Gravity
+    Physics.SM
+  build-depends:
+    base >= 4.14 && < 5,
+    bytestring >= 0.11,
+    text >= 1.2,
+    aeson >= 2.0
+
+test-suite physics-hs-test
+  import: shared-options
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Main.hs
+  other-modules:
+    Test.Unit
+    Test.Golden
+    Test.Properties
+  build-depends:
+    base,
+    physics-hs,
+    tasty >= 1.4,
+    tasty-hunit >= 0.10,
+    tasty-quickcheck >= 0.10,
+    QuickCheck >= 2.14,
+    aeson,
+    bytestring,
+    text,
+    process >= 1.6
+
+executable sm-predict
+  import: shared-options
+  hs-source-dirs: app
+  main-is: Main.hs
+  build-depends:
+    base,
+    physics-hs,
+    aeson,
+    bytestring,
+    text
