@@ -78,8 +78,14 @@ static char* read_stdin(void) {
 }
 
 int main(int argc, char **argv) {
-  (void)argc;
-  (void)argv;
+  // SmRevClient invokes as: [SM_REV_PATH, "predict"]
+  // Accept optional "predict" arg for compatibility (no-op)
+  if (argc > 1 && strcmp(argv[1], "predict") == 0) {
+    // Expected usage, continue
+  } else if (argc > 1) {
+    fprintf(stderr, "{\"error\":\"unknown command '%s' (expected 'predict' or no args)\"}\n", argv[1]);
+    return 1;
+  }
 
   char *json_input = read_stdin();
   if (!json_input) {
