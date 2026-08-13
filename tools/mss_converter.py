@@ -69,12 +69,10 @@ def read_u32_le(data: bytes | bytearray, offset: int) -> int:
 def find_ram_offset_in_mss(mss_data: bytes) -> int | None:
     """Find the offset of the ram[] array in a MiniStateSnapshot binary.
     
-    The ram[] array is 0x20000 bytes and comes after the variable-size structs.
-    We search for it by looking for patterns or by calculating the offset from
-    known structure sizes.
-    
-    For now, we use a heuristic: scan through the file looking for a plausible
-    RAM section. The RAM section should be 0x20000 bytes followed by SRAM.
+    Uses the exact layout from tests/test_load_state_cli.py:
+    - Trailing after WRAM: SRAM (0x2000) + flags + padding (0xC bytes total)
+    - So WRAM ends at: len - 0x200C
+    - WRAM starts at: len - 0x20000 - 0x200C
     """
     if len(mss_data) < MINI_RAM_SIZE + MINI_SRAM_SIZE + 100:
         return None
@@ -85,24 +83,15 @@ def find_ram_offset_in_mss(mss_data: bytes) -> int | None:
     if read_u32_le(mss_data, 4) != MINI_SNAPSHOT_VERSION:
         return None
     
-    # The ram[] array is near the end: it's followed by sram[], then a few trailing fields.
-    # Total trailing size after ram[]: sram[0x2000] + use_my_apu_code(1) + host_debug_flag(1)
-    #                                   + snes_frame_counter(4) + installed_bug_fix_counter(2)
-    #                                   (plus padding for alignment)
-    # Let's estimate: 0x2000 + 8 bytes padding = 0x2008
-    expected_ram_offset = len(mss_data) - MINI_RAM_SIZE - MINI_SRAM_SIZE - 16
+    # Exact layout: ram[0x20000] + sram[0x2000] + trailing(0xC)
+    # Trailing: use_my_apu_code(1) + host_debug_flag(1) + padding(2) 
+    #           + snes_frame_counter(4) + installed_bug_fix_counter(2) + padding(2)
+    ram_offset = len(mss_data) - MINI_RAM_SIZE - 0x200C
     
-    # Scan backwards from expected position (allow ±1KB tolerance for struct padding)
-    for offset in range(expected_ram_offset - 1024, expected_ram_offset + 1024):
-        if offset < 0 or offset + MINI_RAM_SIZE > len(mss_data):
-            continue
-        
-        # Check if this looks like a valid RAM offset by verifying trailing SRAM exists
-        sram_offset = offset + MINI_RAM_SIZE
-        if sram_offset + MINI_SRAM_SIZE <= len(mss_data):
-            return offset
+    if ram_offset < 0:
+        return None
     
-    return None
+    return ram_offset
 
 
 def overlay_wram_onto_mss(mss_data: bytearray, wram: bytes) -> None:
