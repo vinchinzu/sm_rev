@@ -1,114 +1,87 @@
-# physics-hs: Super Metroid Physics Kernel (Haskell)
+# Haskell Physics Kernel - WORK IN PROGRESS
 
-A SpaceX-quality pure functional physics model for Super Metroid.
+## Status: NOT READY FOR MINISTEP PARITY
 
-## Design
+This package is an **early skeleton** with major gaps. It does NOT bisimulate MiniStep yet.
 
-This is the **predictive model**, not a sketch:
+### What Compiles
 
-- **Pure**: `(SamusState, ControllerInput) -> SamusState` per frame. No IO inside the step.
-- **Fast iteration baseline**: C `MiniStep` for rapid golden testing (simplified model).
-- **Acceptance layer**: Real emulator (snes9x/libretro) WRAM ($0AF6/$0AFA + $0AF8/$0AFC) via SMEDIT + retro_rl.
-- **Type-safe**: Newtypes prevent mixing pixels, subpixels, and velocities.
+- Type definitions (Position, Velocity, SamusState)
+- Named constants (button masks, poses)
+- Basic arithmetic (16.16 fixed-point add/sub)
+- Module structure
 
-## Architecture Layers (Do Not Invert)
+### Critical Model Gaps (Prevent MiniStep Parity)
 
-```
-Layer 1: Fast Iteration (MiniStep baseline - simplified model)
-├─ Haskell pure (State, Input) -> State bisimulates Mini for SPEED
-├─ Recorded Mini JSON goldens (CI tests without ROM/binary)
-└─ Purpose: Rapid development iteration, NOT TAS-correct acceptance
+1. **No collision detection**
+   - `stateOnGround` never becomes `false` after jump
+   - Cannot detect landing → no landing frame golden
+   - Cannot detect platform edges → no 1-tile platform golden
 
-Layer 2: Acceptance (Real Emulator - ground truth)
-├─ Same tape → same Samus x/y/subX/subY/pose on REAL emu (snes9x/libretro)
-├─ SMEDIT bridge + retro_rl stable-retro for WRAM telemetry
-├─ If Mini and emu disagree, emu wins (file Mini delta)
-└─ Ceres→Morph→Bomb usefulness is emu playback, not mini-only
+2. **accelerateLeft is wrong**
+   - Currently: unsigned +X (copy of accelerateRight)
+   - Should be: -X (leftward movement)
 
-Haskell Model (pure predictor)
-├─ initialState :: Config -> SamusState
-├─ step :: Input -> State -> State
-├─ runTape :: State -> [Input] -> [State]
-└─ Types enforce pixel/subpixel separation
-```
+3. **Apex hang bug**
+   - `subVelocity` clamps to 0 when negative
+   - Full hop with A held never enters `VDirFalling`
+   - Rising velocity doesn't transition smoothly to falling
 
-**Critical**: MiniStep is NOT ground truth. It's a fast baseline for iteration. Emulator is acceptance.
+4. **jumpSquatDuration magic number**
+   - Hardcoded `4` in `Jump.hs`
+   - Should be in `PhysicsConfig`
+   - Unit test "Jump squat lasts 4 frames" disagrees with `handleJumpInput`
 
-## Building
+5. **B-release zeros X velocity**
+   - `applyRunAcceleration`: `not runHeld = (zeroVelocity, AccelNone)`
+   - Should use `cfgRunDecel` (currently unused)
+   - Pose almost never updated during run
 
-### Prerequisites
+6. **Wire format**
+   - `btnLeft=0x0200 btnRight=0x0100` (internal 16-bit)
+   - Locked wire is `Left=0x40 Right=0x80` (packed 8-bit)
+   - Need adapter or type alignment
 
-- GHC >= 9.0 (Haskell compiler)
-- Cabal >= 3.6 (Haskell build tool)
+### What's Missing
 
-Install via [GHCup](https://www.haskell.org/ghcup/):
+- Collision detection (ground, walls, ceiling, platforms)
+- Leftward movement (accelerateLeft is broken)
+- Smooth apex transition (falling after peak)
+- Deceleration (B-release handling)
+- Pose updates (run animation)
+- Short hop vs full hop (peak Y differs)
+- Landing detection (on_ground transition)
 
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh
-ghcup install ghc 9.4.8
-ghcup install cabal 3.10.2.0
-```
+### Testing
+
+- **Unit tests**: Pass (but test magic numbers, not real behavior)
+- **Property tests**: FAKE (Haskell-vs-Haskell, not vs MiniStep)
+- **Golden tests**: NO GOLDENS (removed fake JSON)
+
+### Cannot Claim Until
+
+1. Collision detection implemented (stateOnGround transitions)
+2. accelerateLeft fixed (-X movement)
+3. Apex transition fixed (VDirFalling after peak)
+4. jumpSquatDuration moved to PhysicsConfig
+5. Deceleration implemented (cfgRunDecel)
+6. Pose updates during run
+7. Real MiniStep goldens recorded (3 tapes: run, short/full hop, 1-tile platform)
+8. Wire format aligned (0x40/0x80 packed)
+
+### Architecture (Correct)
+
+**Layer 1: MiniStep Baseline** (fast iteration, simplified model, NOT TAS-correct)  
+**Layer 2: Emulator Acceptance** (snes9x/libretro ground truth)
+
+If Mini ≠ emu, emulator wins.
 
 ### Build
 
 ```bash
 cd physics-hs
-cabal build
-cabal test
+cabal build   # Compiles with -Wall -Werror (imports/unused fixed)
+cabal test    # Unit tests pass (but don't prove MiniStep parity)
 ```
 
-## Usage
-
-```haskell
-import Physics.SM
-
--- Create initial state
-let state = initialState defaultConfig
-
--- Step one frame
-let state' = step input state
-
--- Run a tape of inputs
-let states = runTape state inputs
-```
-
-## Testing
-
-Three levels of verification:
-
-1. **Unit tests**: Accel, friction, jump squat verified against named constants
-2. **Golden tapes**: Recorded MiniStep outputs for fast CI (baseline, not acceptance)
-3. **Properties**: Determinism (same tape → same states)
-4. **Acceptance** (future): Same tape → same WRAM on real emulator via SMEDIT/retro_rl
-
-To regenerate golden tapes from MiniStep baseline:
-
-```bash
-# When MiniStep binary available:
-sm_rev_mini_oracle --json < fixture.json > golden.json
-# CI runs against checked-in goldens (no binary required)
-cabal test
-```
-
-## What's Implemented
-
-### ✅ Iteration Baseline (matches MiniStep for fast dev)
-- Ground run (left/right with B-run)
-- Jump (short hop + full jump)
-- Gravity and fall
-
-### 🚧 Still C-only
-- Air control
-- Morph ball
-- Collision detection
-- Enemies
-
-## Constants
-
-All physics constants are ported from:
-- `src/physics_config.c` - Jump speeds, gravity, run accel
-- `src/samus_motion.c` - Movement logic
-- `src/samus_jump.c` - Jump initialization
-- `src/samus_speed.c` - Horizontal speed
-
-Named constants replace magic numbers. See `Physics.SM.Constants`.
+**DO NOT CLAIM MINISTEP PARITY**. This is an early skeleton with major bugs.

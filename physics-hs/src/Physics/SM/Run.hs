@@ -16,7 +16,7 @@ import Physics.SM.Types
 updateHorizontalMovement :: PhysicsConfig -> ControllerInput -> SamusState -> SamusState
 updateHorizontalMovement cfg input state
   | stateOnGround state =
-      let (newVel, newAccelMode) = applyRunAcceleration cfg input (stateXVel state) (stateAccelMode state)
+      let (newVel, newAccelMode) = applyRunAcceleration cfg input (stateXVel state)
           newPos = applyVelocity (stateXPos state) newVel
       in state { stateXPos = newPos
                , stateXVel = newVel
@@ -30,8 +30,8 @@ updateHorizontalMovement cfg input state
 -- | Apply run acceleration/deceleration based on held buttons.
 --
 -- Matches the physics_params run_accel/run_max_speed logic.
-applyRunAcceleration :: PhysicsConfig -> ControllerInput -> Velocity -> AccelMode -> (Velocity, AccelMode)
-applyRunAcceleration cfg input currentVel accelMode =
+applyRunAcceleration :: PhysicsConfig -> ControllerInput -> Velocity -> (Velocity, AccelMode)
+applyRunAcceleration cfg input currentVel =
   let buttons = inputButtons input
       runHeld = (buttons .&. btnB) /= ButtonMask 0
       leftHeld = (buttons .&. btnLeft) /= ButtonMask 0
