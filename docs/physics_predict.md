@@ -270,7 +270,7 @@ These simplifications make Mini a **speed baseline** for fast iteration, not a s
 make mini-predict-golden && ./sm_rev_mini_predict_golden
 ```
 
-Tests ground run, short/full hop, and 1-tile platform jump against `MiniStep` oracle.
+Tests ground run, short/full hop, and run+jump combined trajectory against `MiniStep` oracle. **Note**: Mini does not model platform collision; 1-tile landing unverified.
 
 ### CLI Golden Tests (Wire Format)
 

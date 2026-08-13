@@ -147,13 +147,14 @@ fn parse_args() -> Result<Options, String> {
 
 fn print_help() {
     println!(
-        "Usage: sm_rev_mini_rs [--frames N] [--room-export PATH] [--rollback] [--predict] [--input-delay N] [--rollback-window N] [--trace]"
+        "Usage: sm_rev_mini_rs [--frames N] [--room-export PATH] [--rollback] [--input-delay N] [--rollback-window N] [--trace]"
     );
     println!("  --rollback          Run the headless rollback simulation driver.");
-    // println!("  --predict           Run trajectory prediction mode and output JSON.");  // Removed: use sm_rev_predict CLI instead
     println!("  --input-delay N     Reveal actual delayed input N frames late in rollback mode.");
     println!("  --rollback-window N Keep N pre-step snapshots in the rollback ring.");
     println!("  --trace             Print rollback/resimulation events to stderr.");
+    println!();
+    println!("Note: Prediction mode removed. Use sm_rev_predict CLI instead.");
 }
 
 fn scripted_buttons(frame: usize) -> u16 {

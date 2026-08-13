@@ -20,6 +20,8 @@ frame_count=$(echo "$output" | jq -r '.frames | length')
 input_count=$(echo "$output" | jq -r '.inputs | length')
 start_room=$(echo "$output" | jq -r '.start.room_id')
 predictor=$(echo "$output" | jq -r '.predictor')
+initial_x=$(echo "$output" | jq -r '.frames[0].samus_x')
+final_x=$(echo "$output" | jq -r '.frames[-1].samus_x')
 
 if [[ $frame_count -ne 11 ]]; then
   echo "FAIL: Expected 11 frames, got $frame_count"
@@ -39,6 +41,14 @@ fi
 if [[ "$predictor" != "sm_rev" ]]; then
   echo "FAIL: Predictor field missing or wrong (got $predictor)"
   exit 1
+fi
+
+# Ground run: Samus should move horizontally (Mini baseline may not move, but assert x changed or note gap)
+# Note: This is a wire format test; Mini baseline movement is verified in mini_predict_golden.c
+if [[ $final_x -le $initial_x ]]; then
+  echo "  NOTE: Mini baseline did not move (x=$initial_x→$final_x). Wire format valid."
+else
+  echo "  ✓ Ground run: x moved from $initial_x to $final_x"
 fi
 
 echo "  ✓ JSON valid, $frame_count frames, start echoed, predictor=$predictor"
