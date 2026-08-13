@@ -108,7 +108,7 @@ addVelocity (Velocity p1 s1) (Velocity p2 s2) =
 applyVelocity :: Position -> Velocity -> Position
 applyVelocity (Position pp ps) (Velocity vp vs)
   | vp < 0 && unSubpixel vs /= 0 =
-      -- Negative velocity with fractional part: -5.5 means pixel=-5, sub=0x8000
+      -- Negative velocity with fractional part: pixel=-5, sub=0x8000 means -4.5
       -- Magnitude is (abs(vp) - 1) pixels + (0x10000 - vs) subpixels
       -- Example: Velocity (-5, 0x8000) = -4.5 → subtract (4, 0x8000)
       let mag_pixel = fromIntegral (abs vp - 1) :: Word16
