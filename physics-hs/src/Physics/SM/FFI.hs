@@ -17,7 +17,6 @@ module Physics.SM.FFI
   ) where
 
 import Data.Aeson (FromJSON, ToJSON, object, (.=))
-import Data.Bits ((.|.), (.&.))
 import Data.Int (Int16)
 import Data.Word (Word16)
 import GHC.Generics (Generic)
