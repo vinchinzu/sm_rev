@@ -67,7 +67,7 @@ struct Options {
     input_delay: usize,
     rollback_window: usize,
     trace: bool,
-    predict: bool,
+    // predict: bool,  // Removed: use sm_rev_predict CLI instead
 }
 
 fn parse_args() -> Result<Options, String> {
@@ -77,7 +77,7 @@ fn parse_args() -> Result<Options, String> {
     let mut input_delay = 3usize;
     let mut rollback_window = 32usize;
     let mut trace = false;
-    let mut predict = false;
+    // let mut predict = false;  // Removed
     let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -141,7 +141,7 @@ fn parse_args() -> Result<Options, String> {
         input_delay,
         rollback_window,
         trace,
-        predict,
+        // predict,  // Removed
     })
 }
 
@@ -594,9 +594,10 @@ fn run() -> Result<(), String> {
         );
     }
 
-    if options.predict {
-        run_predict_host(&options)
-    } else if options.rollback {
+    // if options.predict {
+    //     run_predict_host(&options)  // Removed: use sm_rev_predict CLI instead
+    // } else
+    if options.rollback {
         let summary = run_rollback_host(&options)?;
         let desynced = summary.first_desync.is_some();
         print_rollback_summary(&summary);
