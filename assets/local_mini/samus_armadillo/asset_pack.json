@@ -1,0 +1,1294 @@
+{
+  "name": "not_a_samus_armadillo",
+  "type": "sm_rev_mini_samus_asset_pack",
+  "character": "armadillo_with_hand_cannon",
+  "samusAssets": {
+    "bank92Path": "samus_bank92.bin",
+    "dataPath": "samus_data.bin",
+    "ranges": [
+      {
+        "snesAddress": 10146304,
+        "size": 11776,
+        "dataOffset": 0
+      },
+      {
+        "snesAddress": 10195968,
+        "size": 32,
+        "dataOffset": 11776
+      },
+      {
+        "snesAddress": 10197024,
+        "size": 32,
+        "dataOffset": 11808
+      },
+      {
+        "snesAddress": 10198080,
+        "size": 32,
+        "dataOffset": 11840
+      },
+      {
+        "snesAddress": 10215424,
+        "size": 32,
+        "dataOffset": 11872
+      },
+      {
+        "snesAddress": 10215488,
+        "size": 864,
+        "dataOffset": 11904
+      },
+      {
+        "snesAddress": 10217984,
+        "size": 1024,
+        "dataOffset": 12768
+      },
+      {
+        "snesAddress": 10219040,
+        "size": 3968,
+        "dataOffset": 13792
+      },
+      {
+        "snesAddress": 10256384,
+        "size": 12672,
+        "dataOffset": 17760
+      },
+      {
+        "snesAddress": 10269376,
+        "size": 7712,
+        "dataOffset": 30432
+      },
+      {
+        "snesAddress": 10277568,
+        "size": 10176,
+        "dataOffset": 38144
+      },
+      {
+        "snesAddress": 10321920,
+        "size": 14560,
+        "dataOffset": 48320
+      },
+      {
+        "snesAddress": 10336512,
+        "size": 3648,
+        "dataOffset": 62880
+      },
+      {
+        "snesAddress": 10340416,
+        "size": 6080,
+        "dataOffset": 66528
+      },
+      {
+        "snesAddress": 10346816,
+        "size": 5696,
+        "dataOffset": 72608
+      },
+      {
+        "snesAddress": 10387456,
+        "size": 9184,
+        "dataOffset": 78304
+      },
+      {
+        "snesAddress": 10397920,
+        "size": 864,
+        "dataOffset": 87488
+      },
+      {
+        "snesAddress": 10398816,
+        "size": 5184,
+        "dataOffset": 88352
+      },
+      {
+        "snesAddress": 10404064,
+        "size": 2304,
+        "dataOffset": 93536
+      },
+      {
+        "snesAddress": 10406688,
+        "size": 3872,
+        "dataOffset": 95840
+      },
+      {
+        "snesAddress": 10411840,
+        "size": 2688,
+        "dataOffset": 99712
+      },
+      {
+        "snesAddress": 10415040,
+        "size": 256,
+        "dataOffset": 102400
+      },
+      {
+        "snesAddress": 10452992,
+        "size": 2400,
+        "dataOffset": 102656
+      },
+      {
+        "snesAddress": 10456192,
+        "size": 2560,
+        "dataOffset": 105056
+      },
+      {
+        "snesAddress": 10459008,
+        "size": 2400,
+        "dataOffset": 107616
+      },
+      {
+        "snesAddress": 10462208,
+        "size": 2240,
+        "dataOffset": 110016
+      },
+      {
+        "snesAddress": 10464704,
+        "size": 2400,
+        "dataOffset": 112256
+      },
+      {
+        "snesAddress": 10467904,
+        "size": 2560,
+        "dataOffset": 114656
+      },
+      {
+        "snesAddress": 10470720,
+        "size": 2400,
+        "dataOffset": 117216
+      },
+      {
+        "snesAddress": 10473920,
+        "size": 9120,
+        "dataOffset": 119616
+      }
+    ],
+    "initialSuit": "power",
+    "paletteAssets": {
+      "powerPath": "samus_power_palette.bin",
+      "variaPath": "samus_varia_palette.bin",
+      "gravityPath": "samus_gravity_palette.bin"
+    },
+    "renderedSprites": {
+      "rgbaPath": "samus_rendered_160.rgba",
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "frames": [
+        {
+          "pose": 0,
+          "animFrame": 0,
+          "dataOffset": 0,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 0,
+          "animFrame": 3,
+          "dataOffset": 36864,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 0,
+          "animFrame": 6,
+          "dataOffset": 73728,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 0,
+          "animFrame": 10,
+          "dataOffset": 110592,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 0,
+          "animFrame": 13,
+          "dataOffset": 147456,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 0,
+          "animFrame": 16,
+          "dataOffset": 184320,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 0,
+          "animFrame": 19,
+          "dataOffset": 221184,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 0,
+          "animFrame": 22,
+          "dataOffset": 258048,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 0,
+          "animFrame": 26,
+          "dataOffset": 294912,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 0,
+          "animFrame": 29,
+          "dataOffset": 331776,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 0,
+          "animFrame": 32,
+          "dataOffset": 368640,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 0,
+          "animFrame": 35,
+          "dataOffset": 405504,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 0,
+          "animFrame": 39,
+          "dataOffset": 442368,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 0,
+          "animFrame": 42,
+          "dataOffset": 479232,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 0,
+          "animFrame": 45,
+          "dataOffset": 516096,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 0,
+          "animFrame": 48,
+          "dataOffset": 552960,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 0,
+          "animFrame": 51,
+          "dataOffset": 589824,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 0,
+          "animFrame": 55,
+          "dataOffset": 626688,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 0,
+          "animFrame": 58,
+          "dataOffset": 663552,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 0,
+          "animFrame": 61,
+          "dataOffset": 700416,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 1,
+          "animFrame": 1,
+          "dataOffset": 737280,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 1,
+          "animFrame": 4,
+          "dataOffset": 774144,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 2,
+          "animFrame": 0,
+          "dataOffset": 811008,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 2,
+          "animFrame": 3,
+          "dataOffset": 847872,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 2,
+          "animFrame": 6,
+          "dataOffset": 884736,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 3,
+          "animFrame": 1,
+          "dataOffset": 921600,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 6,
+          "animFrame": 0,
+          "dataOffset": 958464,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 9,
+          "animFrame": 0,
+          "dataOffset": 995328,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 9,
+          "animFrame": 3,
+          "dataOffset": 1032192,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 9,
+          "animFrame": 6,
+          "dataOffset": 1069056,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 9,
+          "animFrame": 9,
+          "dataOffset": 1105920,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 10,
+          "animFrame": 3,
+          "dataOffset": 1142784,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 10,
+          "animFrame": 6,
+          "dataOffset": 1179648,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 10,
+          "animFrame": 9,
+          "dataOffset": 1216512,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 11,
+          "animFrame": 2,
+          "dataOffset": 1253376,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 11,
+          "animFrame": 5,
+          "dataOffset": 1290240,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 11,
+          "animFrame": 9,
+          "dataOffset": 1327104,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 12,
+          "animFrame": 2,
+          "dataOffset": 1363968,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 12,
+          "animFrame": 5,
+          "dataOffset": 1400832,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 12,
+          "animFrame": 8,
+          "dataOffset": 1437696,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 13,
+          "animFrame": 2,
+          "dataOffset": 1474560,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 13,
+          "animFrame": 5,
+          "dataOffset": 1511424,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 13,
+          "animFrame": 8,
+          "dataOffset": 1548288,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 14,
+          "animFrame": 1,
+          "dataOffset": 1585152,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 14,
+          "animFrame": 4,
+          "dataOffset": 1622016,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 14,
+          "animFrame": 8,
+          "dataOffset": 1658880,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 15,
+          "animFrame": 1,
+          "dataOffset": 1695744,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 15,
+          "animFrame": 4,
+          "dataOffset": 1732608,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 15,
+          "animFrame": 7,
+          "dataOffset": 1769472,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 16,
+          "animFrame": 0,
+          "dataOffset": 1806336,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 16,
+          "animFrame": 4,
+          "dataOffset": 1843200,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 16,
+          "animFrame": 7,
+          "dataOffset": 1880064,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 17,
+          "animFrame": 0,
+          "dataOffset": 1916928,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 17,
+          "animFrame": 3,
+          "dataOffset": 1953792,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 17,
+          "animFrame": 7,
+          "dataOffset": 1990656,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 25,
+          "animFrame": 0,
+          "dataOffset": 2027520,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 25,
+          "animFrame": 3,
+          "dataOffset": 2064384,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 25,
+          "animFrame": 6,
+          "dataOffset": 2101248,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 25,
+          "animFrame": 9,
+          "dataOffset": 2138112,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 26,
+          "animFrame": 3,
+          "dataOffset": 2174976,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 26,
+          "animFrame": 6,
+          "dataOffset": 2211840,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 26,
+          "animFrame": 9,
+          "dataOffset": 2248704,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 27,
+          "animFrame": 2,
+          "dataOffset": 2285568,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 27,
+          "animFrame": 5,
+          "dataOffset": 2322432,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 27,
+          "animFrame": 9,
+          "dataOffset": 2359296,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 28,
+          "animFrame": 2,
+          "dataOffset": 2396160,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 28,
+          "animFrame": 5,
+          "dataOffset": 2433024,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 28,
+          "animFrame": 8,
+          "dataOffset": 2469888,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 29,
+          "animFrame": 2,
+          "dataOffset": 2506752,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 29,
+          "animFrame": 5,
+          "dataOffset": 2543616,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 29,
+          "animFrame": 8,
+          "dataOffset": 2580480,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 30,
+          "animFrame": 2,
+          "dataOffset": 2617344,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 30,
+          "animFrame": 5,
+          "dataOffset": 2654208,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 31,
+          "animFrame": 0,
+          "dataOffset": 2691072,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 31,
+          "animFrame": 3,
+          "dataOffset": 2727936,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 31,
+          "animFrame": 6,
+          "dataOffset": 2764800,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 32,
+          "animFrame": 0,
+          "dataOffset": 2801664,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 32,
+          "animFrame": 3,
+          "dataOffset": 2838528,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 32,
+          "animFrame": 7,
+          "dataOffset": 2875392,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 33,
+          "animFrame": 0,
+          "dataOffset": 2912256,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 33,
+          "animFrame": 3,
+          "dataOffset": 2949120,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 33,
+          "animFrame": 6,
+          "dataOffset": 2985984,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 34,
+          "animFrame": 0,
+          "dataOffset": 3022848,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 34,
+          "animFrame": 3,
+          "dataOffset": 3059712,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 34,
+          "animFrame": 6,
+          "dataOffset": 3096576,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 34,
+          "animFrame": 9,
+          "dataOffset": 3133440,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 35,
+          "animFrame": 2,
+          "dataOffset": 3170304,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 35,
+          "animFrame": 6,
+          "dataOffset": 3207168,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 35,
+          "animFrame": 9,
+          "dataOffset": 3244032,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 36,
+          "animFrame": 2,
+          "dataOffset": 3280896,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 36,
+          "animFrame": 5,
+          "dataOffset": 3317760,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 36,
+          "animFrame": 8,
+          "dataOffset": 3354624,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 37,
+          "animFrame": 2,
+          "dataOffset": 3391488,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 38,
+          "animFrame": 2,
+          "dataOffset": 3428352,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 41,
+          "animFrame": 2,
+          "dataOffset": 3465216,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 42,
+          "animFrame": 0,
+          "dataOffset": 3502080,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 42,
+          "animFrame": 4,
+          "dataOffset": 3538944,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 43,
+          "animFrame": 2,
+          "dataOffset": 3575808,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 44,
+          "animFrame": 2,
+          "dataOffset": 3612672,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 46,
+          "animFrame": 0,
+          "dataOffset": 3649536,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 47,
+          "animFrame": 1,
+          "dataOffset": 3686400,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 48,
+          "animFrame": 2,
+          "dataOffset": 3723264,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 49,
+          "animFrame": 2,
+          "dataOffset": 3760128,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 49,
+          "animFrame": 5,
+          "dataOffset": 3796992,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 49,
+          "animFrame": 8,
+          "dataOffset": 3833856,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 50,
+          "animFrame": 2,
+          "dataOffset": 3870720,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 50,
+          "animFrame": 6,
+          "dataOffset": 3907584,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 51,
+          "animFrame": 0,
+          "dataOffset": 3944448,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 51,
+          "animFrame": 3,
+          "dataOffset": 3981312,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 51,
+          "animFrame": 6,
+          "dataOffset": 4018176,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 52,
+          "animFrame": 0,
+          "dataOffset": 4055040,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 52,
+          "animFrame": 3,
+          "dataOffset": 4091904,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 52,
+          "animFrame": 6,
+          "dataOffset": 4128768,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 52,
+          "animFrame": 9,
+          "dataOffset": 4165632,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 55,
+          "animFrame": 0,
+          "dataOffset": 4202496,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 57,
+          "animFrame": 0,
+          "dataOffset": 4239360,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 57,
+          "animFrame": 3,
+          "dataOffset": 4276224,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 57,
+          "animFrame": 6,
+          "dataOffset": 4313088,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 57,
+          "animFrame": 9,
+          "dataOffset": 4349952,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 58,
+          "animFrame": 2,
+          "dataOffset": 4386816,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 58,
+          "animFrame": 6,
+          "dataOffset": 4423680,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 58,
+          "animFrame": 9,
+          "dataOffset": 4460544,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 61,
+          "animFrame": 0,
+          "dataOffset": 4497408,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 62,
+          "animFrame": 1,
+          "dataOffset": 4534272,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 63,
+          "animFrame": 3,
+          "dataOffset": 4571136,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 63,
+          "animFrame": 6,
+          "dataOffset": 4608000,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 64,
+          "animFrame": 0,
+          "dataOffset": 4644864,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 64,
+          "animFrame": 3,
+          "dataOffset": 4681728,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 64,
+          "animFrame": 6,
+          "dataOffset": 4718592,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 65,
+          "animFrame": 1,
+          "dataOffset": 4755456,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 65,
+          "animFrame": 4,
+          "dataOffset": 4792320,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 65,
+          "animFrame": 7,
+          "dataOffset": 4829184,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 73,
+          "animFrame": 1,
+          "dataOffset": 4866048,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 73,
+          "animFrame": 4,
+          "dataOffset": 4902912,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 74,
+          "animFrame": 2,
+          "dataOffset": 4939776,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 74,
+          "animFrame": 5,
+          "dataOffset": 4976640,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 77,
+          "animFrame": 0,
+          "dataOffset": 5013504,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 77,
+          "animFrame": 3,
+          "dataOffset": 5050368,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 78,
+          "animFrame": 1,
+          "dataOffset": 5087232,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 78,
+          "animFrame": 4,
+          "dataOffset": 5124096,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 86,
+          "animFrame": 0,
+          "dataOffset": 5160960,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 89,
+          "animFrame": 0,
+          "dataOffset": 5197824,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 105,
+          "animFrame": 1,
+          "dataOffset": 5234688,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 107,
+          "animFrame": 1,
+          "dataOffset": 5271552,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 109,
+          "animFrame": 0,
+          "dataOffset": 5308416,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 135,
+          "animFrame": 0,
+          "dataOffset": 5345280,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 136,
+          "animFrame": 0,
+          "dataOffset": 5382144,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 137,
+          "animFrame": 0,
+          "dataOffset": 5419008,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 137,
+          "animFrame": 4,
+          "dataOffset": 5455872,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 137,
+          "animFrame": 7,
+          "dataOffset": 5492736,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 138,
+          "animFrame": 2,
+          "dataOffset": 5529600,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 138,
+          "animFrame": 5,
+          "dataOffset": 5566464,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 139,
+          "animFrame": 1,
+          "dataOffset": 5603328,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 140,
+          "animFrame": 1,
+          "dataOffset": 5640192,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 219,
+          "animFrame": 1,
+          "dataOffset": 5677056,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 231,
+          "animFrame": 1,
+          "dataOffset": 5713920,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 232,
+          "animFrame": 2,
+          "dataOffset": 5750784,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 232,
+          "animFrame": 6,
+          "dataOffset": 5787648,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 232,
+          "animFrame": 9,
+          "dataOffset": 5824512,
+          "originX": 48,
+          "originY": 56
+        },
+        {
+          "pose": 232,
+          "animFrame": 12,
+          "dataOffset": 5861376,
+          "originX": 48,
+          "originY": 56
+        }
+      ]
+    }
+  }
+}

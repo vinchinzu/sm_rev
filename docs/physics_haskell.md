@@ -1,60 +1,80 @@
 # Haskell Physics Kernel for Super Metroid
 
+## Posture (Do Not Invert)
+
+`physics-hs` is a useful supporting layer. It is not the main event.
+
+Keep it for things C `MiniStep` cannot give cheaply:
+
+- side-effect-free deterministic rollouts that are easy to parallelize from
+  pure / ML / RL code
+- property tests and invariants that are painful in mutating C
+- type-safe modelling of residual-relevant state (`Pixel` / `Subpixel` /
+  `Position` / `Velocity`)
+- a readable executable specification of the implemented motion fragment
+- a cheap continuous check once Mini is wired: H and M still agree on that
+  fragment
+
+Grow the fragment when the extra state is useful for those jobs. The SMB
+stepper (`retro_rl/nes/smb/approx.py`) taught the useful set: real walk/run
+tables, air X on takeoff, A-release gravity, landing leftovers, and
+internal residual fields (`momentum_x` / extra run). That is now in
+Haskell. Do not grow past it into emu-only behavior.
+
+It becomes overhead the moment any of these happen:
+
+- every physics tweak must be mirrored in Haskell before Mini or emulator
+  work can proceed
+- the kernel is never called from planning, rollouts, property tests, or CI
+- the pure model expands into areas only the emulator can get right (full
+  lag, complex enemy interactions, exact door transitions). Ceres rooms
+  and original door-transition game states belong in Mini and the emulator.
+
+```
+Haskell (residual-complete spec + pure rollouts)
+        │  observational agreement on residual-relevant state
+        ▼
+MiniStep / MiniPredict (fast baseline, not TAS-correct)
+        │  residual profiles
+        ▼
+Emulator (snes9x / libretro)  ← ground truth
+```
+
+If Mini ≠ emu, **emu wins**. File the Mini delta. Do not grow Haskell to
+paper over it.
+
+The higher-leverage tool is still the Mini–emulator residual profile.
+Haskell owns the parts of the workflow that benefit from purity.
+
 ## Overview
 
-This Haskell package implements a pure, predictive physics model for Super Metroid suitable for:
+This Haskell package implements a pure model of the residual-relevant Samus
+fragment:
 
-- **Fast iteration**: Deterministic physics exploration (no C oracle yet)
-- **Predictive rollouts** for ML/RL agents (`retro_rl`, `smedit`)
+- **Pure rollouts** for `retro_rl` / SMEDIT planning
 - **Deterministic replay** of input tapes
-- **Property-based testing** of physics invariants
-- **Future acceptance**: Verify against real emulator (snes9x/libretro) via SMEDIT/retro_rl
+- **Property-based testing** of the implemented fragment
+- **H↔M CI** against existing `MiniPredict` / `MiniStep` (not wired yet)
 
-## Architecture (Do Not Invert)
-
-```
-┌─────────────────────────────────────────────────┐
-│  Layer 1: MiniStep Baseline (Future)            │
-│  ├─ MiniInit / MiniStep / MiniSaveState         │
-│  ├─ Simplified model (NOT TAS-correct)          │
-│  ├─ Golden tapes for fast iteration             │
-│  └─ NOT INTEGRATED YET                          │
-└─────────────────────────────────────────────────┘
-                     │
-                     │ Bisimulation for speed (future)
-                     ▼
-┌─────────────────────────────────────────────────┐
-│  Haskell Physics Kernel (Pure Model)            │
-│  step :: Input -> State -> State                │
-│  ├─ Newtypes enforce pixel/subpixel separation  │
-│  ├─ No IO inside step (pure function)           │
-│  ├─ Unit tests prove rise/fall/accel            │
-│  └─ Signed 16.16 velocity (Int16 + Word16)      │
-└─────────────────────────────────────────────────┘
-                     │
-                     │ Acceptance layer (future)
-                     ▼
-┌─────────────────────────────────────────────────┐
-│  Layer 2: Real Emulator (Ground Truth)          │
-│  ├─ snes9x / libretro core                      │
-│  ├─ SMEDIT bridge + retro_rl telemetry          │
-│  ├─ WRAM $0AF6/$0AFA + $0AF8/$0AFC              │
-│  ├─ If Mini ≠ emu, emu wins (file Mini delta)   │
-│  └─ NOT IMPLEMENTED YET                         │
-└─────────────────────────────────────────────────┘
-```
-
-**Critical**: MiniStep is NOT ground truth. It's a fast baseline. Emulator is acceptance. **Neither layer integrated yet.**
+It does not replace Mini, and it is not TAS-correct.
 
 ## How the Pure Model Maps to C Functions
 
+This is the intended fragment mapping, not a claim that H and M currently
+agree. `MiniStep` is a mode dispatcher (original runtime, authored
+movement, multiplayer). Haskell models one residual-relevant motion
+fragment, not all of `MiniUpdate`.
+
 | Haskell Module | C Source | Purpose |
 |----------------|----------|---------|
-| `Physics.SM.Types` | `mini/mini_game.h` (MiniSamusCoreState) | Position, velocity, pose newtypes |
+| `Physics.SM.Types` | `mini/mini_game.h` (MiniSamusCoreState) | Position, velocity, pose, extra run |
 | `Physics.SM.Constants` | `ida_types.h` (kButton_*, kPose_*) | Named button/pose constants |
-| `Physics.SM.Run` | `src/samus_speed.c`, `src/samus_motion.c` | Horizontal run accel/decel |
-| `Physics.SM.Jump` | `src/samus_jump.c` | Jump squat, initial Y velocity |
-| `Physics.SM.Gravity` | `src/samus_motion.c` (Samus_MoveY_WithSpeedCalc) | Gravity, terminal velocity |
+| `Physics.SM.SpeedTable` | ROM `$90:9F55` / `$A08D` / `$A1DD` | Walk / run / jump / spin / fall tables |
+| `Physics.SM.Momentum` | `src/samus_speed.c` (HandleExtraRunspeedX) | Extra run / speed-booster residual |
+| `Physics.SM.Pose` | `src/samus_pose.c` (narrow) | Stand / run / crouch / morph / land |
+| `Physics.SM.Run` | `src/samus_speed.c`, `src/samus_motion.c` | Ground + air X |
+| `Physics.SM.Jump` | `src/samus_jump.c` | Jump squat, 4.E000 impulse, spin |
+| `Physics.SM.Gravity` | `src/samus_motion.c` (Samus_MoveY_WithSpeedCalc) | Pre-gravity move, A-release, land leftover |
 | `Physics.SM.Step` | `mini/mini_game.c` (MiniStep) | Top-level frame step |
 | `Physics.SM` | — | Public API: `runTape` |
 
@@ -85,11 +105,11 @@ All physics constants are ported with named identifiers:
 
 | Constant | Value (Hex) | Value (Decimal) | Source |
 |----------|-------------|-----------------|--------|
-| `cfgJumpInitialSpeed` (air) | `(-5, 0x8000)` | -4.5 pixels/frame | `physics_config.c:36` |
-| `cfgGravityAccel` (air) | `(0, 0x1c00)` | 0.109375 pixels/frame² | `physics_config.c:51` |
-| `cfgRunAccel` | `(0, 0x00a0)` | 0.00244 pixels/frame² | `physics_config.c:48` |
-| `cfgRunMaxSpeed` | `(3, 0x0000)` | 3.0 pixels/frame | `physics_config.c:50` |
-| `cfgTerminalSpeed` | `5` | 5 pixels/frame | `samus_motion.c:27` |
+| `cfgJumpInitialSpeed` (air) | `(-5, 0x2000)` | -4.875 pixels/frame (`4.E000`) | `physics_config.c` |
+| `cfgGravityAccel` (air) | `(0, 0x1c00)` | 0.109375 pixels/frame² | `physics_config.c` |
+| Air run table accel / max | `(0, 0x3000)` / `(2, 0xC000)` | 0.1875 / 2.75 px/frame | ROM `$90:9F61` |
+| Extra run accel / cap | `(0, 0x1000)` / `(2, 0)` | 0.0625 / 2.0 px/frame | ROM `$90:9F07` / `$9F19` |
+| `cfgTerminalSpeed` | `5` | 5 pixels/frame | `samus_motion.c` |
 
 See `Physics.SM.Constants` for button masks and pose constants.
 
@@ -97,42 +117,44 @@ See `Physics.SM.Constants` for button masks and pose constants.
 
 ### ✅ Proven (Unit Tests)
 
-- **Ground run**: B+Right accelerates to 3.0 pixels/frame max
+- **Ground walk**: Right without B uses the ROM run row (`0.3000` / `2.C000`)
+- **Ground run**: B+Right also builds extra run (`0.1000`/frame, cap `2.0`)
 - **Leftward run**: B+Left produces negative X velocity
-- **Jump squat**: 4-frame timing
-- **Jump initiation**: Y velocity starts negative (-4.5 pixels/frame)
-- **Rise**: Y decreases after jump (HopRise test)
-- **Gravity**: Decelerates upward, accelerates downward
+- **Air X**: leave-ground frame uses jump/spin/fall tables, not ground leftovers
+- **Jump squat**: 4-frame timing, pose `4B`/`4C`
+- **Jump initiation**: vanilla `4.E000` (−4.875 px/frame)
+- **A-release**: snaps to falling at 0, then applies gravity
+- **Rise / land**: Y decreases; land snaps pixel Y and keeps Y sub leftover
 - **Terminal velocity**: Caps at 5.0 pixels/frame
-- **Landing**: Flat floor detection at Y=200
-- **Signed 16.16**: `Velocity (-5, 0x8000)` = -4.5 moves 4.5 pixels correctly
+- **Signed 16.16**: `Velocity (-5, 0x2000)` = -4.875 moves 4.875 pixels correctly
 
-### ⚠️  No C Oracle Integration Yet
+### ⚠️  Mini Oracle Exists In C, Not Wired Here
 
-**Current golden**: Only `run_right.json` exists (Haskell self-output, predictor: "haskell-v1")
+Mini already has `MiniPredict`, `MiniStep`, and
+`tests/mini_predict_golden.c`. There is no separate `sm_rev_mini_oracle`
+binary to wait for.
 
-**No hop JSON files** - HopRise proven via unit tests only, not C oracle goldens.
+**Current golden**: Only `run_right.json` exists (Haskell self-output,
+predictor: `"haskell-v1"`). That is a determinism tape, not an H↔M check.
 
-**No MiniStep integration** - no `sm_rev_mini_oracle` binary, no recorded C baseline tapes.
+**No hop JSON files** — HopRise is proven via unit tests only.
 
-### 🚧 Stubbed (Minimal Implementation)
+Wiring H to Mini is still the next *CI* task. The model itself now includes
+the SMB-useful fragment (tables, air X, extra run, land leftovers).
 
-- **Collision**: Only flat floor at Y=200, no slopes/platforms/walls
-- **Air control**: Velocity frozen during jump/fall
-- **Morph ball**: Not implemented
-- **Equipment**: Hi-Jump/Spin/Speed Booster stubbed
-- **Enemies, projectiles, doors**: Not implemented
+### Out Of Scope For Haskell
 
-### 📋 Planned (When Mini/Emu Layers Ready)
+These belong in C Mini stubs and Mini–emulator residual profiles first:
 
-- Integrate C `sm_rev_mini_oracle` for fast baseline comparison
-- Record Mini golden tapes (iteration speed)
-- Build emulator acceptance layer (TAS ground truth)
-- Add collision detection (BVH or grid-based)
-- Spin jump mechanics
-- Wall jump
-- Run speed boost + shinespark
-- Liquid physics (water, lava)
+- slopes, platforms, walls, ceilings
+- knockback / damage boost
+- wall jump, shinespark crash
+- enemies, projectiles, doors
+- TAS-correct liquid FX / lag
+
+Haskell already observes a *narrow* useful subset: spin vs normal jump
+tables, morph/crouch pose, water/lava *tables* when `stateEnvironment` is
+set. Do not port the rest to "keep the spec complete."
 
 ## Testing Strategy
 
@@ -148,36 +170,40 @@ Three test levels:
    - Determinism: same tape → same states
    - Rightward motion accumulates over time
 
-3. **Golden tests** (`Test.Golden`): File existence checks
+3. **Segment tests** (`Test.Segments`): SMB residual shape
+   - idle, walk, run, jump, run-jump, land leftovers
+
+4. **Golden tests** (`Test.Golden`): currently file-existence only
    - `run_right.json` exists (Haskell self-output)
-   - **NOT C oracle tapes** - no MiniStep integration yet
+   - this is **not** an H↔M check
 
-**Current: 16/16 tests pass locally (no CI yet)**
+**Current: unit + segment + property tests pass locally. `Test.MiniCompare` is the H↔M hook (`make hm-test`).**
 
-## Future: Proving Against MiniStep (Not Implemented)
+## Next Haskell Work: Wire Mini; Grow Only Residual-Useful State
 
-When C `sm_rev_mini_oracle` is merged and integrated, golden testing workflow:
+`make mini-predict-golden` already compares `MiniPredict` to `MiniStep`.
+Haskell should consume that same residual-relevant fragment.
 
-### 1. Generate golden tapes from C (future)
-
-```bash
-# Once sm_rev_mini_oracle exists:
-echo '{"start": {...}, "inputs": [...]}' | sm_rev_mini_oracle --json > golden.json
-```
-
-### 2. Compare Haskell vs Mini
+### 1. Record Mini tapes from the existing C API
 
 ```bash
-cd physics-hs
-cabal test  # Compares Haskell step vs recorded Mini baseline
+make mini-predict-golden
+# or the predict CLI once it can hydrate a known start state
 ```
 
-### 3. Acceptance Against Emulator (future)
+### 2. Compare Haskell vs Mini in `cabal test`
 
-Final validation against real SNES emulator (snes9x/libretro):
-- Read WRAM $0AF6/$0AFA (X position) + $0AF8/$0AFC (Y position)
-- Compare Haskell, Mini, and emulator outputs
-- **If Mini ≠ emu, emu wins** (file Mini as known delta)
+Same tape, same residual-relevant fields (`samus_x/y`, subpixels,
+`velocity_x/y` and subs, pose, movement type). Treat disagreement as a CI
+failure of the *implemented fragment*, not as permission to fork the model.
+
+### 3. Mini–emulator residual stays the higher-leverage check
+
+Final validation against snes9x/libretro:
+- Read WRAM `$0AF6`/`$0AFA` (X) + `$0AF8`/`$0AFC` (Y)
+- Compare Mini and emulator first
+- **If Mini ≠ emu, emu wins** (file Mini as a known delta)
+- Only then ask whether Haskell still agrees with Mini
 
 ## Performance
 
@@ -191,39 +217,39 @@ For ML rollouts, Haskell is fast enough for speculative prediction without C FFI
 
 ## Roadmap
 
-- [ ] Integrate C `sm_rev_mini_oracle` (when merged)
-- [ ] Record Mini baseline golden tapes
-- [ ] Build emulator acceptance layer (snes9x/libretro)
-- [ ] Add collision detection (slopes, platforms, walls)
-- [ ] Implement air control during jump
-- [ ] Port spin jump mechanics
-- [ ] Add morph ball + bomb jump
-- [ ] Wall jump + wall collision
-- [ ] Speed booster charge + shinespark
-- [ ] Liquid physics (water, lava density)
-- [ ] Benchmark vs C mini (headless)
-- [ ] FFI bindings for C interop
-- [ ] CI running `cabal test`
+Keep this list short. Do not treat it as a second Super Metroid port.
+
+- [ ] Wire existing `MiniPredict` / `MiniStep` as the H↔M oracle
+- [ ] Replace file-existence goldens with residual-relevant field compares
+- [ ] Run `cabal test` in CI as a cheap H↔M signal
+- [ ] Keep property tests on the implemented fragment (determinism,
+      signed 16.16, jump rise, accel)
+- [x] Measure Mini–emulator residual profiles (see [mini_emu_delta.md](mini_emu_delta.md))
+- [x] ROM speed tables, air X, extra run, A-release, land leftovers
+- [ ] Only then consider slopes/walls in Haskell, after Mini already has
+      an M–E residual budget for that geometry
 
 ## Maintenance
 
-When adding new physics:
+When the C fragment changes:
 
-1. **Port constants** → `Physics.SM.Constants`
-2. **Port logic** → New module or extend existing
-3. **Add unit test** → `Test.Unit` (prove behavior)
-4. **Future: Record golden tape** → When Mini oracle integrated
-5. **Future: Add golden test** → When C baseline exists
-6. **Update this doc** → Coverage table
+1. Update Mini first. Measure M–E residual if the change can affect TAS
+   planning.
+2. If the change is inside the Haskell fragment, port constants then
+   logic, then add a unit or property test.
+3. Record or refresh a Mini tape and keep the H↔M compare green.
+4. Update the coverage table. Only mark a feature proven when H and M
+   agree on it, or when a unit test owns a Haskell-only invariant.
 
-**Keep the "Proven" section honest** — only mark features as proven once unit tests or oracle goldens exist.
+Add a Haskell mechanic because pure rollouts or residual CI need that
+fragment (SMB lesson), not because the C side grew.
 
 ## Current Status (HEAD)
 
-**Branch**: `cursor/haskell-physics-kernel-76e5`  
-**Tests**: 16/16 pass locally (no CI)  
-**Golden**: Only `run_right.json` (Haskell self-output)  
-**Oracle**: No MiniStep integration  
-**Emulator**: No acceptance layer  
+**Tests**: unit + segment + property tests pass locally; `Test.MiniCompare` is the H↔M hook  
+**Golden**: only `run_right.json` (Haskell self-output)  
+**Oracle**: Mini C API exists; `cabal test` calls `sm_rev_predict` when present  
+**Emulator**: first M–E profile is in [mini_emu_delta.md](mini_emu_delta.md)
 
-**This is an iteration kernel**, not a Mini replacement or TAS-correct physics implementation.
+This is a supporting specification and rollout kernel for the residual-
+relevant fragment. It is not a Mini replacement and not TAS-correct.

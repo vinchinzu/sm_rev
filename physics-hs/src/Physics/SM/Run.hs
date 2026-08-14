@@ -1,103 +1,117 @@
--- | Horizontal movement (run/walk) implementation.
+-- | Horizontal movement (walk / run / air X).
 --
--- Ported from src/samus_speed.c and src/samus_motion.c.
+-- Ported from Samus_CalcBaseSpeed_X / NoDecel and the ROM speed tables.
+-- SMB residual work showed air X is the first useful expansion after
+-- grounded walk/run: do not hold X velocity in air.
 module Physics.SM.Run
   ( updateHorizontalMovement
   , applyRunAcceleration
   ) where
 
-import Data.Bits ((.&.))
-import Data.Int (Int16)
-import Data.Word (Word32)
+import Data.Word (Word16)
 import Physics.SM.Constants
+import Physics.SM.Momentum (extraInFacingDir)
+import Physics.SM.SpeedTable
 import Physics.SM.Types
 
--- | Update horizontal position and velocity based on input.
---
--- Corresponds to Samus_HandleMovement_X and Samus_CalcBaseSpeed_X.
+-- | Update horizontal position and base X velocity.
 updateHorizontalMovement :: PhysicsConfig -> ControllerInput -> SamusState -> SamusState
-updateHorizontalMovement cfg input state
-  | stateOnGround state =
-      let (newVel, newAccelMode) = applyRunAcceleration cfg input (stateXVel state)
-          newPos = applyVelocity (stateXPos state) newVel
-      in state { stateXPos = newPos
-               , stateXVel = newVel
-               , stateAccelMode = newAccelMode
-               }
-  | otherwise =
-      -- In air: maintain current velocity (no air accel for now, full air control needs collision)
-      let newPos = applyVelocity (stateXPos state) (stateXVel state)
-      in state { stateXPos = newPos }
+updateHorizontalMovement _cfg input state
+  | stateOnGround state = applyDisplacement (updateGroundX input state)
+  | otherwise           = applyDisplacement (updateAirX input state)
 
--- | Apply run acceleration/deceleration based on held buttons.
---
--- Matches the physics_params run_accel/run_max_speed logic.
+-- | Public helper used by unit tests: ground accel only, no extra run.
 applyRunAcceleration :: PhysicsConfig -> ControllerInput -> Velocity -> (Velocity, AccelMode)
-applyRunAcceleration cfg input currentVel =
-  let buttons = inputButtons input
-      runHeld = (buttons .&. btnB) /= ButtonMask 0
-      leftHeld = (buttons .&. btnLeft) /= ButtonMask 0
-      rightHeld = (buttons .&. btnRight) /= ButtonMask 0
+applyRunAcceleration _cfg input currentVel =
+  let dummy = (initialDummy currentVel)
+      stepped = updateGroundX input dummy
+  in (stateXVel stepped, stateAccelMode stepped)
+  where
+    initialDummy vel = SamusState
+      { stateXPos = zeroPosition
+      , stateYPos = zeroPosition
+      , stateXVel = vel
+      , stateYVel = zeroVelocity
+      , stateXExtra = zeroVelocity
+      , stateHasMomentum = False
+      , stateSpeedBoostCounter = 0
+      , statePose = poseStandRight
+      , stateMovementType = mvtRunning
+      , stateVerticalDir = VDirStationary
+      , stateAccelMode = AccelNone
+      , stateOnGround = True
+      , stateFacing = faceRight
+      , stateFrame = 0
+      , statePrevButtons = ButtonMask 0
+      , stateJumpHeld = False
+      , stateJumpSquatFrames = 0
+      , stateEnvironment = EnvAir
+      , stateEquipment = defaultEquipment
+      }
 
-      -- Determine acceleration direction
-      (newVel, newMode)
-        | not runHeld = applyDeceleration cfg currentVel  -- Use decel, not zero
-        | rightHeld = accelerateRight cfg currentVel
-        | leftHeld = accelerateLeft cfg currentVel
-        | otherwise = (currentVel, AccelNone)  -- No directional input
+updateGroundX :: ControllerInput -> SamusState -> SamusState
+updateGroundX input state =
+  let dir = xDirection input
+      entry = speedEntry (stateEnvironment state) (stateMovementType state)
+      facingDir = if isFacingRight (stateFacing state) then 1 else -1
+  in case dir of
+       0 -> decelerate entry state
+       _ | dir /= facingDir && stateXVel state /= zeroVelocity ->
+             decelerate entry state
+         | dir /= facingDir ->
+             accelerate entry dir state { stateFacing = facingFromDir dir }
+         | otherwise ->
+             accelerate entry dir state
 
-  in (newVel, newMode)
+updateAirX :: ControllerInput -> SamusState -> SamusState
+updateAirX input state =
+  let dir = xDirection input
+      entry = speedEntry (stateEnvironment state) (stateMovementType state)
+  in case dir of
+       0 ->
+         -- C zeros base X when no air direction is held. Extra run stays.
+         state { stateXVel = zeroVelocity, stateAccelMode = AccelNone }
+       _ ->
+         accelerate entry dir state { stateFacing = facingFromDir dir }
 
--- | Apply deceleration when B button released.
-applyDeceleration :: PhysicsConfig -> Velocity -> (Velocity, AccelMode)
-applyDeceleration cfg currentVel =
-  let decel = cfgRunDecel cfg
-      currentMag = velToWord32 currentVel
-      decelMag = velToWord32 decel
-  in if currentMag <= decelMag
-     then (zeroVelocity, AccelNone)  -- Stop if decel would overshoot
-     else (subVelocitySafe currentVel decel, AccelDecelerating)
+facingFromDir :: Int -> Word16
+facingFromDir dir
+  | dir < 0   = faceLeft
+  | otherwise = faceRight
 
--- | Subtract velocity safely for deceleration (magnitude-based).
-subVelocitySafe :: Velocity -> Velocity -> Velocity
-subVelocitySafe (Velocity p1 s1) (Velocity p2 s2) =
-  let total1 = abs (fromIntegral p1) * 65536 + fromIntegral (unSubpixel s1) :: Word32
-      total2 = abs (fromIntegral p2) * 65536 + fromIntegral (unSubpixel s2) :: Word32
-      result = if total1 >= total2 then total1 - total2 else 0
-      newPix = fromIntegral (result `div` 65536) :: Int16
-      newSub = Subpixel (fromIntegral (result `mod` 65536))
-  in Velocity newPix newSub
+accelerate :: SpeedEntry -> Int -> SamusState -> SamusState
+accelerate entry dir state =
+  let delta = if dir < 0 then negateVelocity (seAccel entry) else seAccel entry
+      stepped = addVelocity (stateXVel state) delta
+      capped = capTowardMax stepped (signedMax entry dir) dir
+  in state
+       { stateXVel = capped
+       , stateAccelMode = if capped == signedMax entry dir then AccelNone else AccelAccelerating
+       }
 
-velToWord32 :: Velocity -> Word32
-velToWord32 (Velocity p s) =
-  abs (fromIntegral p) * 65536 + fromIntegral (unSubpixel s)
+-- | Cap after adding accel. Direction-aware so we do not flip past max.
+capTowardMax :: Velocity -> Velocity -> Int -> Velocity
+capTowardMax stepped maxV dir =
+  let s = toSigned1616 stepped
+      m = toSigned1616 maxV
+  in if dir >= 0
+        then if s > m then maxV else stepped
+        else if s < m then maxV else stepped
 
--- | Accelerate rightward (positive X).
-accelerateRight :: PhysicsConfig -> Velocity -> (Velocity, AccelMode)
-accelerateRight cfg currentVel =
-  let maxSpeed = cfgRunMaxSpeed cfg
-      accel = cfgRunAccel cfg
-      newVel = addVelocity currentVel accel
-  in if velExceeds newVel maxSpeed
-     then (maxSpeed, AccelNone)  -- Capped at max
-     else (newVel, AccelAccelerating)
+decelerate :: SpeedEntry -> SamusState -> SamusState
+decelerate entry state =
+  let current = stateXVel state
+      mag = velocityMagnitude current
+      decelMag = velocityMagnitude (seDecel entry)
+  in if mag <= decelMag
+        then state { stateXVel = zeroVelocity, stateAccelMode = AccelNone }
+        else
+          let negative = toSigned1616 current < 0
+              stepped = addVelocity current (if negative then seDecel entry else negateVelocity (seDecel entry))
+          in state { stateXVel = stepped, stateAccelMode = AccelDecelerating }
 
--- | Accelerate leftward (negative X).
---
--- Subtracts acceleration to produce negative X velocity.
-accelerateLeft :: PhysicsConfig -> Velocity -> (Velocity, AccelMode)
-accelerateLeft cfg currentVel =
-  let maxSpeed = cfgRunMaxSpeed cfg  -- Velocity 3 (Subpixel 0)
-      accel = cfgRunAccel cfg          -- Velocity 0 (Subpixel 0x00a0)
-      -- Subtract acceleration (makes velocity more negative)
-      newVel = subVelocity currentVel accel
-      -- Max leftward speed is -3.0 (negative max)
-      maxNegPixel = negate (velPixel maxSpeed)
-  in if velPixel newVel < maxNegPixel
-     then (Velocity maxNegPixel (Subpixel 0), AccelNone)
-     else (newVel, AccelAccelerating)
-
--- | Check if velocity exceeds maximum (unsigned comparison).
-velExceeds :: Velocity -> Velocity -> Bool
-velExceeds (Velocity vp vs) (Velocity mp ms) =
-  vp > mp || (vp == mp && vs > ms)
+applyDisplacement :: SamusState -> SamusState
+applyDisplacement state =
+  let total = addVelocity (stateXVel state) (extraInFacingDir state)
+      newPos = applyVelocity (stateXPos state) total
+  in state { stateXPos = newPos }

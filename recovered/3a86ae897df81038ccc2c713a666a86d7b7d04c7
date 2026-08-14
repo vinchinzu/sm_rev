@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+"""
+Convert binary files to C array format for embedding.
+Usage: file2c.py <input_file> <output.c> [--name VAR_NAME]
+"""
+
+import sys
+import os
+
+def file_to_c_array(input_file, output_file, var_name=None):
+    # Determine variable name from input filename if not provided
+    if var_name is None:
+        base = os.path.splitext(os.path.basename(input_file))[0]
+        var_name = base.replace('.', '_').replace('-', '_')
+    
+    # Read input file
+    with open(input_file, 'rb') as f:
+        data = f.read()
+    
+    # Generate C array
+    lines = [
+        f"/* Auto-generated from {os.path.basename(input_file)} */",
+        f"#include <stddef.h>",
+        f"",
+        f"const unsigned char {var_name}_data[] = {{",
+    ]
+    
+    # Write data as hex array, 16 bytes per line
+    hex_bytes = [f"0x{b:02x}" for b in data]
+    for i in range(0, len(hex_bytes), 16):
+        line = ", ".join(hex_bytes[i:i+16])
+        lines.append(f"  {line},")
+    
+    lines.extend([
+        "};",
+        "",
+        f"const size_t {var_name}_size = {len(data)};",
+    ])
+    
+    # Write output
+    with open(output_file, 'w') as f:
+        f.write('\n'.join(lines))
+    
+    print(f"Generated {output_file}: {len(data)} bytes -> {var_name}_data[{len(data)}]")
+
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print(f"Usage: {sys.argv[0]} <input_file> <output.c> [VAR_NAME]")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+    var_name = sys.argv[3] if len(sys.argv) > 3 else None
+    
+    file_to_c_array(input_file, output_file, var_name)

@@ -17,6 +17,8 @@ typedef struct MiniOptions {
   const char *replay_in_path;
   const char *replay_out_path;
   const char *room_export_path;
+  const char *start_handle;
+  const char *trace_wram_path;
   MiniBackdropMode backdrop_mode;
 } MiniOptions;
 

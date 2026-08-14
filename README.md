@@ -78,6 +78,12 @@ The project has moved past the first mini bring-up milestone. The immediate work
    - add more rooms, systems, or gameplay slices only after rollback/replay validation is boring and reliable
    - continue full-build topical cleanup in parallel where it improves shared code without changing behavior
 
+6. **Keep `physics-hs` thin and subordinate**
+   - use it for pure rollouts, property tests, and type-safe residual-relevant state
+   - wire existing `MiniPredict` / `MiniStep` as the H↔M CI oracle; do not grow a second physics kernel
+   - measure Mini–emulator residual before expanding the approximate model
+   - if Mini ≠ emu, emu wins; do not paper over that in Haskell
+
 ## Validation
 
 Use the smallest test that matches the change:
@@ -92,4 +98,6 @@ Use the smallest test that matches the change:
 - Source layout: [docs/source_layout.md](docs/source_layout.md)
 - Mini build notes: [docs/mini_build.md](docs/mini_build.md)
 - Mini modability plan: [docs/mini_modability_plan.md](docs/mini_modability_plan.md)
+- Haskell posture: [docs/physics_haskell.md](docs/physics_haskell.md)
+- Mini prediction / residual stance: [docs/physics_predict.md](docs/physics_predict.md)
 - Refactor guide and standing instructions: [AGENTS.md](AGENTS.md)

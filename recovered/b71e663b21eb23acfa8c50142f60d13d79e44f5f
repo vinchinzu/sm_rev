@@ -1,0 +1,84 @@
+# Project Goals & Roadmap
+
+**Vision**: Build a **mostly faithful** (pretty close, gameplay-accurate) highly modifiable C implementation of Super Metroid. Prioritize development velocity and moddability over strict 100% pixel-perfect matching. Evolve from hybrid SNES emulation into a clean, data-driven "canvas" engine. Small memory/OAM/timer diffs are acceptable if core behavior matches. Every aspect (physics, entities, levels, AI) must be editable at runtime or via data files. Support modding for physics, adding players, multiplayer, new enemies, custom worlds, stories, battle arenas, and ROM-hacks. Work in small, testable, iterable baby steps. Hybrid C/assembly is explicitly allowed.
+
+## Architecture Target
+- **Emulation Core**: Keep PPU/sound accuracy; use as fallback.
+- **Game Logic**: All original code ported to clean C. Exposed via headers.
+- **Data-Driven**: Physics, enemy stats, level data, palettes in editable tables/files (JSON/C arrays with hot-reload).
+- **Entity System**: Modular for Samus (multi-instance), enemies, projectiles, tiles. Easy extension.
+- **Mod Canvas**: Live-editing overlay (ImGui?), script hooks (Lua?), "vibe edit" any param/behavior.
+- **Hooks**: Pre/post function patches, override tables.
+- **Output**: Play original, export ROM-hacks, standalone custom campaigns, RL environments.
+
+Hybrid mode: C implementations take precedence; unported sections dispatch to original assembly/ROM via CPU infra.
+
+## Status Tracker
+- [x] **Epic 0**: Mostly Faithful Baseline - Starting Area *(Close to done, core validation complete)*
+- [x] **Epic 1**: Extract & Mod Physics *(Complete)*
+- [~] **Epic 2**: Full Logic Port & Hybrid Dispatcher *(Logic 100% Ported, Dispatch 5%)*
+- [ ] **Epic 3**: Entity & Enemy Framework
+- [ ] **Epic 4**: Level/World Canvas & Editor
+- [ ] **Epic 5**: Multiplayer, Stories & Game Modes
+- [ ] **Epic 6**: Tooling, Polish & RL Integration
+- [ ] **Epic 7**: Multiplayer Setup & HUD Separation *(Deferred to Phase 7)*
+
+Iterative. Prioritize "good enough" match for modding speed over strict bit-perfect verification. Small acceptable diffs (temp RAM, OAM, animation timers) go in TODO rather than blocking progress.
+
+## Epic 0: Mostly Faithful Baseline - Starting Area
+Baby step to validate port with relaxed matching.
+- Port/verify Samus physics, collision, door transitions, basic enemies in Crateria/starting room using existing `sm_a*.c`, `sm_80.c` etc. (pretty close is acceptable)
+- Load save states from `custom_integrations/SuperMetroid-Snes/`.
+- Add automated tests: physics sim, collision cases. Screenshot regression optional.
+- Document function coverage (`grep -r "TODO\|UNIMPLEMENTED"`).
+- TODO: strict 100% frame-by-frame verification for all edge cases (lower priority).
+- Implement `make test` harness tied to Python tools.
+- Achieve solid gameplay match for 1-2 rooms.
+
+## Epic 1: Extract & Mod Physics
+Foundation for modding.
+- Refactor all Samus physics (subpixel, accel, jump tables, momentum, grapple, shinespark, etc.) into `PhysicsParams` struct with original defaults.
+- Add file-based config + live reload.
+- Expose to debug menu/editor for real-time tweaking (gravity, speed, etc.).
+- [x] Support multiple independent Samus instances.
+- [x] Unit tests for speedrun tech (walljumps, mock inputs).
+- [x] Add 2nd player controls.
+
+## Epic 2: Full Logic Port & Hybrid Dispatcher
+Complete reverse engineering.
+- Systematically port remaining banks (`sm_*.c` files) referencing external decomp and `../sm/`.
+- Build hybrid dispatcher in `sm_cpu_infra.c`: C func if available, else emulate original opcode/assembly chunk.
+- One bank per iteration (enemies, bosses, items, menu, etc.).
+- Comprehensive per-module tests.
+- Gradually reduce reliance on full emulation.
+
+## Epic 3: Entity & Enemy Framework
+Make enemies/players fully editable.
+- Data-driven enemy defs (sprites, hitboxes, AI states, behaviors as tables or scripts).
+- Refactor update/init routines to use data.
+- Editor/tools for adding new enemies, modifying stats/AI.
+- Multi-Samus support (different abilities per player).
+- Hooks for custom behaviors without touching core code.
+
+## Epic 4: Level/World Canvas & Editor
+"Vibe edit" everything.
+- Decouple levels from ROM; load from data files or editor.
+- In-game or external canvas/editor (build on Super Metroid editor + ImGui overlay) for tiles, entities, triggers, doors.
+- Support entirely new worlds/maps for same Samus.
+- Integration with `navigation/` graph tools and `platformer_common`.
+- Export to ROM-hack format or standalone.
+
+## Epic 5: Multiplayer, Stories & Game Modes
+- Local split-screen / co-op / vs.
+- Basic netcode for online multiplayer.
+- Data-driven cutscenes/stories for new campaigns.
+- Dedicated battle arena mode with custom rules/enemies.
+- New mechanics via mod hooks.
+
+## Epic 6: Tooling, Polish & RL Integration
+- Full ImGui debug/vibe-edit UI for all params.
+- Asset pipeline (new gfx, audio, levels).
+- ROM-hack exporter, mod loader.
+- Tight integration with RL harness (`retro_harness`, state observation for training).
+- Performance, modern renderer options, cross-platform.
+- Comprehensive docs, example mods (change physics, add enemy, new room).

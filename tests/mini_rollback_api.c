@@ -160,32 +160,9 @@ static uint64_t StepRomRoomFrames(MiniGameState *state, int frames) {
 }
 
 static void RequireTypedStateBoundary(const MiniGameState *state) {
-  Require(state->viewport.width == state->viewport_width,
-          "typed viewport width did not match compatibility field");
-  Require(state->viewport.height == state->viewport_height,
-          "typed viewport height did not match compatibility field");
-  Require(state->viewport.camera_x == state->camera_x,
-          "typed camera x did not match compatibility field");
-  Require(state->viewport.camera_y == state->camera_y,
-          "typed camera y did not match compatibility field");
-  Require(state->room.has_room == state->has_room,
-          "typed room availability did not match compatibility field");
-  Require(state->room.uses_rom_room == state->uses_rom_room,
-          "typed room source did not match compatibility field");
-  Require(state->room.room_source == state->room_source,
-          "typed room source enum did not match compatibility field");
-  Require(state->samus.screen_x == state->samus_x,
-          "typed Samus x did not match compatibility field");
-  Require(state->samus.screen_y == state->samus_y,
-          "typed Samus y did not match compatibility field");
-  Require(state->samus.pose == state->samus_pose_value,
-          "typed Samus pose did not match compatibility field");
-  Require(state->samus.movement_type == state->samus_movement_type_value,
-          "typed Samus movement type did not match compatibility field");
-  Require(state->controls.buttons == state->last_buttons,
-          "typed controls did not match compatibility field");
-  Require(state->projectile_state.count == state->projectile_count,
-          "typed projectile count did not match compatibility field");
+  Require(state->viewport.width > 0 && state->viewport.height > 0,
+          "typed viewport was not initialized");
+  Require(state->room.has_room, "typed room was not initialized");
   Require(state->collision_map.block_size == kMiniBlockSize,
           "typed collision map reported the wrong block size");
   Require(state->collision_map.width_blocks == state->room.room_width_blocks,
@@ -210,9 +187,9 @@ static uint64_t StepProjectileAdvanceFrames(MiniGameState *state) {
 
 static void RequireFallbackRoom(const MiniGameState *state) {
   RequireTypedStateBoundary(state);
-  Require(state->has_room, "fallback mini state did not configure a room");
-  Require(!state->uses_rom_room, "fallback mini test unexpectedly booted a ROM room");
-  Require(state->room_source == kMiniRoomSource_Fallback,
+  Require(state->room.has_room, "fallback mini state did not configure a room");
+  Require(!state->room.uses_rom_room, "fallback mini test unexpectedly booted a ROM room");
+  Require(state->room.room_source == kMiniRoomSource_Fallback,
           "fallback mini test did not use the fallback room");
   Require(MiniStubs_GetCollisionMaterial(-1, -1) == kBlockType_Solid,
           "typed collision material boundary did not treat out-of-room as solid");
@@ -1335,7 +1312,7 @@ static void RequirePoseTurnCarriedSpeed(const char *message) {
 static void TestPoseTurnTransitionTableContracts(void) {
   MiniGameState *state = MiniCreate(kMiniGameWidth, kMiniGameHeight);
   Require(state != NULL, "MiniCreate failed for pose turn-transition table test");
-  if (!state->uses_rom_room ||
+  if (!state->room.uses_rom_room ||
       *((uint8 *)RomFixedPtr(0x91f9c2)) != kPose_8B_FaceR_Turn_Stand_AimU) {
     MiniDestroy(state);
     return;
@@ -2161,21 +2138,21 @@ static void TestRomRoomDeterminismIfAvailable(void) {
   TestPoseTurnTransitionTableContracts();
   MiniGameState *first = MiniCreate(kMiniGameWidth, kMiniGameHeight);
   Require(first != NULL, "MiniCreate failed for ROM room determinism test");
-  if (!first->uses_rom_room) {
+  if (!first->room.uses_rom_room) {
     MiniDestroy(first);
     return;
   }
-  Require(first->uses_original_gameplay_runtime,
+  Require(first->room.uses_original_gameplay_runtime,
           "ROM room path did not enable original gameplay runtime");
-  char first_room_handle[sizeof(first->room_handle)];
-  memcpy(first_room_handle, first->room_handle, sizeof(first_room_handle));
+  char first_room_handle[sizeof(first->room.room_handle)];
+  memcpy(first_room_handle, first->room.room_handle, sizeof(first_room_handle));
   uint64_t first_hash = StepRomRoomFrames(first, kRomRoomFrameCount);
   MiniDestroy(first);
 
   MiniGameState *second = MiniCreate(kMiniGameWidth, kMiniGameHeight);
   Require(second != NULL, "MiniCreate failed for second ROM room determinism test");
-  Require(second->uses_rom_room, "second ROM room boot did not use a ROM room");
-  Require(memcmp(first_room_handle, second->room_handle, sizeof(first_room_handle)) == 0,
+  Require(second->room.uses_rom_room, "second ROM room boot did not use a ROM room");
+  Require(memcmp(first_room_handle, second->room.room_handle, sizeof(first_room_handle)) == 0,
           "ROM room boot selected different room handles");
 
   uint64_t second_hash = StepRomRoomFrames(second, kRomRoomFrameCount);

@@ -1,0 +1,10 @@
+src/cinematics.o: src/cinematics.c src/sm_rtl.h src/types.h \
+ src/ida_types.h src/enemy_config.h src/funcs.h src/variables.h \
+ src/variables_extra.h
+src/sm_rtl.h:
+src/types.h:
+src/ida_types.h:
+src/enemy_config.h:
+src/funcs.h:
+src/variables.h:
+src/variables_extra.h:

@@ -17,7 +17,8 @@ Current scope:
 - `make moddable` builds `sm_rev_moddable`, the user-facing authored movement
   sandbox variant compiled with `CURRENT_BUILD=BUILD_MODDABLE`.
 - `sm_rev_mini` now defaults to the ROM-backed Landing Site slice when a ROM
-  and compatible save/demo entry are available.
+  and compatible save/demo entry are available, and accepts `--start ceres`
+  to boot the Ceres Elevator load station.
 - `sm_rev_mini --players 2` keeps the ROM-backed Landing Site runtime when it is
   available and enables the shared MultiSamus two-actor path.
 - `sm_rev_mini --multiplayer-demo` enables two players and drives a built-in
@@ -33,7 +34,8 @@ Current scope:
 - The editor/authored path can opt into the generated background with
   `--background generated` or `--ai-background`; the default remains `game`.
 - The build is compiled with `CURRENT_BUILD=BUILD_MINI`, which now means
-  "Landing Site content scope" rather than broad compile-time subtraction.
+  "Ceres content scope" (Ceres Station plus Landing Site) rather than broad
+  compile-time subtraction.
 - Desktop OpenGL/GLSL host code lives under [`src/host/`](../src/host) and is
   intentionally outside the mini source set.
 - The runtime supports `--headless --frames N` for smoke testing and a small SDL window for manual inspection.
@@ -50,7 +52,8 @@ The mini target is now split into clearer responsibilities under [`src/mini/`](.
 - [mini_ppu_stub.c](../src/mini/mini_ppu_stub.c): mini-owned VRAM/CGRAM/DMA register emulation for rendering and asset uploads
 - [mini_game.c](../src/mini/mini_game.c): gameplay-state setup and per-frame update
 - [mini_net_bridge.c](../src/mini/mini_net_bridge.c): narrow C ABI for local browser multiplayer host snapshots, inputs, and per-player cameras
-- [mini_content_scope.c](../src/mini/mini_content_scope.c): allowed mini content boundary, currently Landing Site only
+- [mini_content_scope.c](../src/mini/mini_content_scope.c): allowed mini content boundary, currently Ceres Station plus Landing Site
+- [mini_door_transition.c](../src/mini/mini_door_transition.c): original-runtime door game states 9-11, out-of-scope door rejection, and authored doorway apply
 - [mini_room_adapter.c](../src/mini/mini_room_adapter.c): editor/ROM/fallback room selection, collision-map setup, and room-boundary metadata
 - [mini_system.c](../src/mini/mini_system.c): mini reset orchestration across WRAM, PPU, assets, and ROM bootstrap state
 - [mini_platform_stubs.c](../src/mini/mini_platform_stubs.c): mini low-level platform, RTL, SRAM/audio no-op, and error shims
@@ -111,13 +114,20 @@ reveals actual delayed input later, rewinds to the changed frame, re-simulates
 to the current frame, and compares the final per-frame hashes with a clean
 reference run. A hash mismatch is reported as a desync and exits non-zero.
 
-## Landing Site Parity Shape
+## Ceres Parity Shape
 
 Mini has moved past the first negative-only shell. The target is now:
 
 - link the shared C gameplay engine
 - default to the original ROM-backed Landing Site runtime when available
-- reject or fall back from non-Landing Site room data
+- boot Ceres Elevator with `--start ceres` when a ROM is available
+- allow the six Ceres Station rooms plus Landing Site
+- run original door-transition game states 9-11 and Ceres escape states
+  32-37 (elevator ride, time-up, Ceres boom)
+- keep Ceres Ridley, the escape countdown, and falling debris on the shared
+  C engine; they arm from `ceres_status` / `timer_status` after Ridley, not
+  from a Mini-only port
+- reject or fall back from rooms outside that Ceres boundary
 - keep SDL/headless/editor host code separate from gameplay code
 - keep audio disabled for now with `NO_SOUND`
 
@@ -129,8 +139,11 @@ lane. `sm_rev_moddable` makes that authoring lane explicit by reporting
 Current deterministic coverage includes editor/authored-room state hashes,
 authored slope/door/morph-tunnel/wall-jump/bomb-jump/doorway-transition
 traversal checks, authored camera-follow target checks, rollback save/load
-checks, and non-Landing editor-export rejection checks. ROM-backed Landing Site
-frame-progression hash contracts run when a local ROM is available.
+checks, Ceres authored-room acceptance, and non-Ceres editor-export rejection
+checks. ROM-backed Landing Site and `--start ceres` frame-progression hash
+contracts run when a local ROM is available. The Ceres contract now also
+covers vanilla elevator setup (`SamusCode_08` plus the pad eproj drop to
+`y=72`) and the published retro_rl walk `$DF45` → `$DF8D` → `$E0B5`.
 
 ## Forward Plan
 
@@ -138,5 +151,5 @@ frame-progression hash contracts run when a local ROM is available.
 2. Keep new mini seams in named modules instead of reintroducing catch-all facade files.
 3. Move remaining mini-only rendering substitutions toward shared original OAM/VRAM paths before expanding beyond Landing Site.
 4. Keep full-build behavior authoritative: shared modules must continue to build and run in `sm_rev`.
-5. Keep non-Landing Site content blocked until each dependency has an intentional parity boundary.
-6. Broaden ROM-backed Landing Site assertions toward transition and room-state semantics once those contracts are stable enough.
+5. Keep rooms outside Ceres and Landing Site blocked until each dependency has an intentional parity boundary.
+6. Broaden ROM-backed Ceres door-transition assertions toward residual agreement with the emulator once corresponding starts are stable.

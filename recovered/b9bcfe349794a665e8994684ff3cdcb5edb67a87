@@ -1,0 +1,40 @@
+# Agent Instructions
+
+**GET TO THE POINT**: As your very first action in any session, run `bd ready` to find your next task. Do not waste time on repo exploration unless `bd ready` is empty.
+
+## Quick Reference
+```bash
+bd ready              # START HERE: Find next available task
+bd show <id>          # View issue details (acceptance criteria, context)
+bd update <id> --status in_progress  # CLAIM WORK BEFORE STARTING
+bd close <id>         # Mark as complete
+bd sync               # Keep beads in sync with git
+```
+
+## Landing the Plane (Session Completion)
+
+**When ending a work session**, you MUST complete ALL steps below.
+
+**MANDATORY WORKFLOW:**
+
+1. **File issues for remaining work** - Create issues for anything that needs follow-up
+2. **Run quality gates** (if code changed) - Tests, linters, builds
+3. **Update issue status** - Close finished work, update in-progress items
+4. **Clean up** - Clear stashes, prune remote branches
+5. **Verify** - All changes committed
+6. **Hand off** - Provide context for next session
+
+**CRITICAL RULES:**
+- Work is NOT complete until all changes are committed and beads are synced
+- NEVER say "ready to commit when you are" - YOU must commit your work
+
+## SM-specific Norms (updated)
+- **Verification slack**: Strict 100% match between C reimpl and original SNES no longer required. "Pretty close" (gameplay accurate, moddable) is the target. Small diffs in temp RAM, OAM, timers, animation counters are acceptable noise — document in TODO rather than fixing immediately.
+- Prioritize dev speed and mod canvas work over pixel-perfect verification.
+- Update `sm_rev/README.md` TODO when new divergences appear (e.g. the frame ~1774 case).
+- Keep using `bd` workflow; file issues for remaining strict-matching work.
+- **Status Tracker**: Actively maintain the "Status Tracker" section in `README.md`. As you progress on epics and complete related beads, ensure you check off or update the statuses there to provide a highly visible and reviewable summary of project state.
+- **Port Status**: When converting assembly stubs (`TODO: UNIMPLEMENTED()`) into actual C code, you MUST update the percentage in `docs/PORT_STATUS.md`.
+- **Editor Boundaries**: See `docs/EDITOR_BRIDGE.md` before implementing hot-reload systems. Do not build an in-engine GUI for things the external editor can do.
+
+

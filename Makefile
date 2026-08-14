@@ -38,7 +38,7 @@ HOST_SRCS := $(wildcard src/host/*.c)
 SNES_SRCS := $(wildcard src/snes/*.c)
 FULL_THIRD_PARTY_SRCS := third_party/gl_core/gl_core_3_1.c third_party/cJSON.c
 
-FULL_SRCS := $(CORE_SRCS) \
+FULL_SRCS := $(filter-out src/predict_cli.c,$(CORE_SRCS)) \
              $(HOST_SRCS) \
              $(SNES_SRCS) \
              $(FULL_THIRD_PARTY_SRCS) \
@@ -47,7 +47,7 @@ OBJS := $(FULL_SRCS:%.c=%.o)
 
 MINI_RUNTIME_SRCS := $(wildcard src/mini/*.c)
 # Mini now links the shared gameplay engine and constrains content at runtime to
-# Landing Site. Keep only the full host and emulator bridge out.
+# Ceres plus Landing Site. Keep only the full host and emulator bridge out.
 # Also exclude predict_cli.c which has its own main()
 MINI_SHARED_ENGINE_SRCS := $(filter-out src/main.c src/sm_cpu_infra.c src/sm_rtl.c src/predict_cli.c,$(CORE_SRCS))
 MINI_EXTRA_SRCS := third_party/cJSON.c
@@ -94,7 +94,11 @@ else
     SDLFLAGS := $(shell sdl2-config --libs) -lm
 endif
 
+<<<<<<< HEAD
 .PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-predict-test mini-predict-golden mini-wram-peek-test mini-predict-cli mini-rust-host mini-browser-lib mini-browser-server moddable moddable-test mini-enemy-obs-test mini-enemy-hookup-test mini-cli-enemy-test
+=======
+.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-predict-test mini-predict-golden mini-predict-cli mini-rust-host mini-browser-lib mini-browser-server moddable moddable-test mini-enemy-obs-test mini-enemy-hookup-test mini-cli-enemy-test mini-emu-residual hm-test
+>>>>>>> df90bf5 (wip)
 
 all: $(TARGET_EXEC)
 
@@ -180,6 +184,12 @@ run: all
 mini-test: mini mini-rollback-test mini-predict-golden mini-wram-peek-test mini-predict-cli
 	./$(MINI_TARGET_EXEC) --headless --frames 3
 	python3 tests/test_load_state_cli.py
+
+mini-emu-residual: all mini
+	$(PYTHON) tools/residual_profile.py
+
+hm-test: mini-predict-cli
+	cd physics-hs && cabal test --test-show-details=direct
 
 moddable-test: moddable
 	./$(MODDABLE_TARGET_EXEC) --headless --frames 3

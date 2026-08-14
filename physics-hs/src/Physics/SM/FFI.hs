@@ -23,6 +23,7 @@ import Data.Aeson
 import Data.Int (Int16)
 import Data.Word (Word16)
 import GHC.Generics (Generic)
+import Physics.SM.Constants (faceRight, isFacingRight)
 import Physics.SM.Types
 
 -- | FrameInput from retro_rl: {"buttons": int} with 12-bit mask.
@@ -153,14 +154,13 @@ fromFrameInput (FrameInput btns) prev =
     , inputPrevButtons = inputButtons prev
     }
 
--- | Convert internal SamusState to retro_rl SimState.
---
--- NOTE: Many fields not yet in SamusState (momentum, speed_counter, etc.)
--- This is a PARTIAL conversion until full state is implemented.
+-- Residual-relevant fields must round-trip. Extra run is momentum_x.
+-- Speed-booster counter is exposed; shinespark stays zero until Mini
+-- has an M–E budget for it.
 toSimState :: SamusState -> SimState
 toSimState state = SimState
-  { frame = 0  -- TODO: add frame counter to SamusState
-  , room_id = 0x91F8  -- TODO: Landing Site default
+  { frame = stateFrame state
+  , room_id = 0x91F8
   , samus_x = unPixel (posPixel (stateXPos state))
   , samus_y = unPixel (posPixel (stateYPos state))
   , samus_x_sub = unSubpixel (posSubpixel (stateXPos state))
@@ -169,30 +169,50 @@ toSimState state = SimState
   , velocity_y = velPixel (stateYVel state)
   , velocity_x_sub = unSubpixel (velSubpixel (stateXVel state))
   , velocity_y_sub = unSubpixel (velSubpixel (stateYVel state))
-  , momentum_x = 0  -- TODO: momentum not yet tracked
-  , momentum_x_sub = 0
+  , momentum_x = velPixel extraSigned
+  , momentum_x_sub = unSubpixel (velSubpixel extraSigned)
   , pose = unPose (statePose state)
-  , facing = 0x08  -- TODO: derive from pose (RIGHT default)
+  , facing = stateFacing state
   , movement_type = unMovementType (stateMovementType state)
-  , speed_counter = 0  -- TODO: not yet tracked
-  , speed_flag = 0     -- TODO: not yet tracked
-  , shinespark_timer = 0  -- TODO: not yet tracked
+  , speed_counter = stateSpeedBoostCounter state
+  , speed_flag = if stateHasMomentum state then 1 else 0
+  , shinespark_timer = 0
   }
+  where
+    extraSigned
+      | isFacingRight (stateFacing state) = stateXExtra state
+      | otherwise = negateVelocity (stateXExtra state)
 
--- | Convert retro_rl SimState to internal SamusState.
---
--- PARTIAL: Only uses subset of SimState fields.
+-- Residual-relevant fields come from SimState. Previous buttons are not on
+-- the wire; callers that have a tape must thread them via fromFrameInput.
 fromSimState :: SimState -> SamusState
 fromSimState st = SamusState
   { stateXPos = Position (Pixel (samus_x st)) (Subpixel (samus_x_sub st))
   , stateYPos = Position (Pixel (samus_y st)) (Subpixel (samus_y_sub st))
   , stateXVel = Velocity (velocity_x st) (Subpixel (velocity_x_sub st))
   , stateYVel = Velocity (velocity_y st) (Subpixel (velocity_y_sub st))
+  , stateXExtra = extra
+  , stateHasMomentum = speed_flag st /= 0 || extra /= zeroVelocity
+  , stateSpeedBoostCounter = speed_counter st
   , statePose = SamusPose (pose st)
   , stateMovementType = MovementType (movement_type st)
-  , stateVerticalDir = VDirStationary  -- TODO: derive from velocity_y
+  , stateVerticalDir = dir
   , stateAccelMode = AccelNone
-  , stateOnGround = False  -- TODO: derive from movement_type
+  , stateOnGround = onGround
+  , stateFacing = if facing st == 0 then faceRight else facing st
+  , stateFrame = frame st
+  , statePrevButtons = ButtonMask 0
   , stateJumpHeld = False
   , stateJumpSquatFrames = 0
+  , stateEnvironment = EnvAir
+  , stateEquipment = defaultEquipment
   }
+  where
+    mt = movement_type st
+    onGround = mt == 0x00 || mt == 0x01 || mt == 0x04 || mt == 0x05 || mt == 0x10
+    extraMag = fromSigned1616 (abs (toSigned1616 (Velocity (momentum_x st) (Subpixel (momentum_x_sub st)))))
+    extra = extraMag
+    dir
+      | velocity_y st < 0 = VDirRising
+      | velocity_y st > 0 = VDirFalling
+      | otherwise = VDirStationary

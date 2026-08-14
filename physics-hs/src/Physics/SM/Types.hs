@@ -18,6 +18,13 @@ module Physics.SM.Types
   , applyVelocity
   , zeroPosition
   , zeroVelocity
+  , toSigned1616
+  , fromSigned1616
+  , negateVelocity
+  , velocityMagnitude
+  , cmpMagnitude
+  , capMagnitude
+  , scaleVelocity
     -- * Core state
   , SamusState (..)
   , ControllerInput (..)
@@ -27,6 +34,8 @@ module Physics.SM.Types
   , VerticalDirection (..)
   , AccelMode (..)
   , Environment (..)
+  , Equipment (..)
+  , defaultEquipment
     -- * Config
   , PhysicsConfig (..)
   , defaultConfig
@@ -64,6 +73,7 @@ data Position = Position
 --
 -- Matches C kernel: negative = upward/leftward, positive = downward/rightward.
 -- Y: negative velocity moves up (Y decreases), positive moves down (Y increases).
+-- Encoding: Velocity (-5, 0x2000) = -5 + 0x2000/65536 = -4.875.
 data Velocity = Velocity
   { velPixel :: !Int16      -- SIGNED pixel component
   , velSubpixel :: !Subpixel -- Unsigned subpixel (0x0000-0xFFFF)
@@ -90,52 +100,63 @@ subPosition (Position p1 s1) (Position p2 s2) =
       newPix = p1 - p2 - borrow
   in Position newPix newSub
 
+-- | Signed 16.16 as a single Int32. Velocity (-5, 0x2000) = -4.875.
+toSigned1616 :: Velocity -> Int32
+toSigned1616 (Velocity p s) =
+  fromIntegral p * 65536 + fromIntegral (unSubpixel s)
+
+-- | Inverse of 'toSigned1616'. Uses toward-(-inf) division so negative
+-- values keep the Haskell (pixel, subpixel) encoding.
+fromSigned1616 :: Int32 -> Velocity
+fromSigned1616 n =
+  Velocity (fromIntegral (n `div` 65536)) (Subpixel (fromIntegral (n `mod` 65536)))
+
+negateVelocity :: Velocity -> Velocity
+negateVelocity = fromSigned1616 . negate . toSigned1616
+
+-- | Unsigned 16.16 magnitude of a signed velocity.
+velocityMagnitude :: Velocity -> Word32
+velocityMagnitude v = fromIntegral (abs (toSigned1616 v))
+
+cmpMagnitude :: Velocity -> Velocity -> Ordering
+cmpMagnitude a b = compare (velocityMagnitude a) (velocityMagnitude b)
+
+-- | Cap |v| to |limit|. Preserves sign of v. Limit should be non-negative.
+capMagnitude :: Velocity -> Velocity -> Velocity
+capMagnitude v limit =
+  if velocityMagnitude v > velocityMagnitude limit
+     then if toSigned1616 v < 0 then negateVelocity limit else limit
+     else v
+
+-- | Multiply a non-negative velocity by an integer (used for extra-run halves).
+scaleVelocity :: Velocity -> Int32 -> Velocity
+scaleVelocity v n = fromSigned1616 (toSigned1616 v * n)
+
 -- | Add two velocities with signed pixel carry.
 addVelocity :: Velocity -> Velocity -> Velocity
-addVelocity (Velocity p1 s1) (Velocity p2 s2) =
-  let subSum = fromIntegral (unSubpixel s1) + fromIntegral (unSubpixel s2) :: Word32
-      carry = fromIntegral (subSum `div` 65536) :: Int16
-      newSub = Subpixel (fromIntegral subSum)
-      newPix = p1 + p2 + carry
-  in Velocity newPix newSub
+addVelocity a b = fromSigned1616 (toSigned1616 a + toSigned1616 b)
 
 -- | Subtract velocity (v1 - v2) with signed arithmetic.
 subVelocity :: Velocity -> Velocity -> Velocity
-subVelocity (Velocity p1 s1) (Velocity p2 s2) =
-  let sub1 = fromIntegral (unSubpixel s1) :: Int32
-      sub2 = fromIntegral (unSubpixel s2) :: Int32
-      subDiff = sub1 - sub2
-      (borrow, newSub) = if subDiff < 0
-                         then (1 :: Int16, Subpixel (fromIntegral (65536 + subDiff)))
-                         else (0, Subpixel (fromIntegral subDiff))
-      newPix = p1 - p2 - borrow
-  in Velocity newPix newSub
+subVelocity a b = fromSigned1616 (toSigned1616 a - toSigned1616 b)
 
 -- | Apply velocity to position (signed 16.16 velocity, unsigned position).
 --
 -- Signed 16.16: pixel (Int16) + subpixel (Word16 fraction).
--- Velocity (-5, 0x8000) = -5 + 0.5 = -4.5, NOT -(5 + 0.5).
---
--- Y: negative velocity = upward (Y decreases), positive = downward (Y increases).
--- X: negative velocity = leftward (X decreases), positive = rightward (X increases).
+-- Velocity (-5, 0x2000) = -5 + 0.125 = -4.875, NOT -(5 + 0.125).
 applyVelocity :: Position -> Velocity -> Position
 applyVelocity (Position pp ps) (Velocity vp vs)
   | vp < 0 && unSubpixel vs /= 0 =
-      -- Negative velocity with fractional part: pixel=-5, sub=0x8000 means -4.5
-      -- Magnitude is (abs(vp) - 1) pixels + (0x10000 - vs) subpixels
-      -- Example: Velocity (-5, 0x8000) = -4.5 → subtract (4, 0x8000)
       let mag_pixel = fromIntegral (abs vp - 1) :: Word16
           mag_sub_val = (0x10000 :: Word32) - fromIntegral (unSubpixel vs)
           mag_sub = Subpixel (fromIntegral mag_sub_val :: Word16)
           absPos = Position (Pixel mag_pixel) mag_sub
       in subPosition (Position pp ps) absPos
   | vp < 0 =
-      -- Negative velocity, zero fractional part: -5.0
       let absP = fromIntegral (abs vp) :: Word16
           absPos = Position (Pixel absP) (Subpixel 0)
       in subPosition (Position pp ps) absPos
   | otherwise =
-      -- Positive velocity: add
       let posP = fromIntegral vp :: Word16
           posPos = Position (Pixel posP) vs
       in addPosition (Position pp ps) posPos
@@ -190,70 +211,95 @@ data Environment
   | EnvWater
   | EnvLavaAcid
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (FromJSON, ToJSON)
+    deriving anyclass (FromJSON, ToJSON)
+
+-- | Equipment flags that change residual-relevant tables.
+data Equipment = Equipment
+  { equipHiJump :: !Bool
+  , equipSpeedBooster :: !Bool
+  , equipMorph :: !Bool
+  } deriving stock (Eq, Show, Generic)
+    deriving anyclass (FromJSON, ToJSON)
+
+defaultEquipment :: Equipment
+defaultEquipment = Equipment
+  { equipHiJump = False
+  , equipSpeedBooster = False
+  , equipMorph = False
+  }
 
 -- | Full Samus state for one frame.
 data SamusState = SamusState
   { -- Position
     stateXPos :: !Position
   , stateYPos :: !Position
-    -- Velocity
+    -- Base X velocity (speed table). Extra run is stateXExtra.
   , stateXVel :: !Velocity
   , stateYVel :: !Velocity
+    -- Extra run / speed-booster residual (unsigned magnitude).
+  , stateXExtra :: !Velocity
+  , stateHasMomentum :: !Bool
+  , stateSpeedBoostCounter :: !Word16
     -- Movement state
   , statePose :: !SamusPose
   , stateMovementType :: !MovementType
   , stateVerticalDir :: !VerticalDirection
   , stateAccelMode :: !AccelMode
   , stateOnGround :: !Bool
+  , stateFacing :: !Word16
+  , stateFrame :: !Word16
+  , statePrevButtons :: !ButtonMask
     -- Jump state
   , stateJumpHeld :: !Bool
   , stateJumpSquatFrames :: !Word16
+    -- Environment / equipment (selected tables)
+  , stateEnvironment :: !Environment
+  , stateEquipment :: !Equipment
   } deriving stock (Eq, Show, Generic)
     deriving anyclass (FromJSON, ToJSON)
 
--- | Physics configuration (constants from physics_config.c).
+-- | Physics configuration. Jump / gravity / extra-run numbers match
+-- physics_config.c and the ROM extra-run table at $90:9F07.
 data PhysicsConfig = PhysicsConfig
-  { -- Jump initial speeds [air, water, lava]
-    cfgJumpInitialSpeed :: ![Velocity]
+  { cfgJumpInitialSpeed :: ![Velocity]
   , cfgJumpHiInitialSpeed :: ![Velocity]
-    -- Gravity [air, water, lava]
   , cfgGravityAccel :: ![Velocity]
-    -- Run acceleration
-  , cfgRunAccel :: !Velocity
-  , cfgRunDecel :: !Velocity
-  , cfgRunMaxSpeed :: !Velocity
-    -- Terminal velocity
   , cfgTerminalSpeed :: !Pixel
-    -- Jump squat duration (frames)
   , cfgJumpSquatDuration :: !Word16
-    -- Collision (v1: flat infinite floor)
-  , cfgGroundY :: !Pixel  -- Y coordinate of ground (flat floor for v1)
+  , cfgGroundY :: !Pixel
+  , cfgExtraRunAccel :: !Velocity
+  , cfgExtraRunCapNormal :: !Velocity
+  , cfgExtraRunCapBoost :: !Velocity
+  , cfgCrouchJumpYOffset :: !Pixel
   } deriving stock (Eq, Show, Generic)
     deriving anyclass (FromJSON, ToJSON)
 
 -- | Default config matching vanilla Super Metroid constants.
+--
+-- Jump impulses are the C unsigned {speed, sub} pairs stored as signed
+-- 16.16. Air 4.E000 = -4.875 = Velocity (-5, 0x2000).
 defaultConfig :: PhysicsConfig
 defaultConfig = PhysicsConfig
   { cfgJumpInitialSpeed =
-      [ Velocity (-5) (Subpixel 0x8000)  -- air: -4.5 pixels/frame (upward)
-      , Velocity (-2) (Subpixel 0x4000)  -- water
-      , Velocity (-3) (Subpixel 0x0000)  -- lava
+      [ Velocity (-5) (Subpixel 0x2000)  -- air: 4.E000 upward
+      , Velocity (-2) (Subpixel 0x4000)  -- water: 1.C000
+      , Velocity (-3) (Subpixel 0x4000)  -- lava: 2.C000
       ]
   , cfgJumpHiInitialSpeed =
-      [ Velocity (-6) (Subpixel 0x0000)  -- air: -6.0 pixels/frame (upward)
-      , Velocity (-3) (Subpixel 0x0000)  -- water
-      , Velocity (-4) (Subpixel 0x0000)  -- lava
+      [ Velocity (-6) (Subpixel 0x0000)  -- air: 6.0000
+      , Velocity (-3) (Subpixel 0x8000)  -- water: 2.8000
+      , Velocity (-4) (Subpixel 0x8000)  -- lava: 3.8000
       ]
   , cfgGravityAccel =
-      [ Velocity 0 (Subpixel 0x1c00)  -- air: +0.109 pixels/frame (downward)
+      [ Velocity 0 (Subpixel 0x1c00)  -- air
       , Velocity 0 (Subpixel 0x0800)  -- water
       , Velocity 0 (Subpixel 0x0900)  -- lava
       ]
-  , cfgRunAccel = Velocity 0 (Subpixel 0x00a0)  -- +0.0098 pixels/frame
-  , cfgRunDecel = Velocity 0 (Subpixel 0x0000)
-  , cfgRunMaxSpeed = Velocity 3 (Subpixel 0x0000)  -- +3.0 pixels/frame
-  , cfgTerminalSpeed = Pixel 5  -- Terminal Y velocity magnitude
+  , cfgTerminalSpeed = Pixel 5
   , cfgJumpSquatDuration = 4
   , cfgGroundY = Pixel 200
+  , cfgExtraRunAccel = Velocity 0 (Subpixel 0x1000)
+  , cfgExtraRunCapNormal = Velocity 2 (Subpixel 0)
+  , cfgExtraRunCapBoost = Velocity 7 (Subpixel 0)
+  , cfgCrouchJumpYOffset = Pixel 10
   }

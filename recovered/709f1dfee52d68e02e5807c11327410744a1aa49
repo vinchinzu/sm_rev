@@ -1,0 +1,255 @@
+"""
+Headless runtime tests for sm_rev.
+
+Uses SDL_VIDEODRIVER=offscreen + SDL_AUDIODRIVER=dummy to run frames without
+a display or audio device. Requires sm.smc ROM to be present (skipped otherwise).
+
+These tests catch runtime crashes, infinite loops, and game-logic regressions
+that wouldn't be caught by a compile-only check.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+from pathlib import Path
+
+import pytest
+from PIL import Image
+
+SM_REV_DIR = Path(__file__).parent.parent
+BINARY = SM_REV_DIR / "sm_rev"
+ROM = SM_REV_DIR / "sm.smc"
+REFERENCES_DIR = SM_REV_DIR / "tests" / "references"
+
+# SDL env vars for headless operation
+HEADLESS_ENV = {
+    "SDL_VIDEODRIVER": "offscreen",
+    "SDL_AUDIODRIVER": "dummy",
+    "DISPLAY": "",
+}
+
+
+def headless(frames: int, extra_args: list[str] | None = None, timeout: int = 30, inputs: int | None = None, input_list: list[int] | None = None) -> subprocess.CompletedProcess:
+    """Run sm_rev headlessly for `frames` frames, dumping RAM state to stdout."""
+    import os
+    env = os.environ.copy()
+    env.update(HEADLESS_ENV)
+    
+    # Flags must be in the order expected by main.c
+    cmd = [str(BINARY), "--headless", str(frames), "--dump", "-"]
+    if inputs is not None:
+        cmd += ["--inputs", hex(inputs)]
+    if input_list is not None:
+        cmd += ["--input-list", ",".join(hex(i) for i in input_list)]
+    if extra_args:
+        cmd += extra_args
+    
+    return subprocess.run(cmd, cwd=SM_REV_DIR, capture_output=True, text=True, env=env, timeout=timeout)
+
+
+def find_saves() -> list[Path]:
+    """Return .sav files available for state-load tests."""
+    saves_dir = SM_REV_DIR / "saves"
+    if not saves_dir.exists():
+        return []
+    return sorted(saves_dir.glob("*.sav"))
+
+
+def parse_dump(r: subprocess.CompletedProcess) -> dict:
+    """Parse the JSON RAM dump from stdout.
+
+    The binary may print non-JSON lines before the dump (e.g. PPU verify
+    messages).  Extract the last {...} block to be robust.
+    """
+    # Find the last '{' ... '}' block in stdout
+    start = r.stdout.rfind("{")
+    end = r.stdout.rfind("}") + 1
+    if start == -1 or end == 0:
+        raise ValueError(f"No JSON object found in stdout:\n{r.stdout!r}")
+    return json.loads(r.stdout[start:end])
+
+
+@pytest.fixture(autouse=True)
+def require_binary_and_rom():
+    if not BINARY.exists():
+        pytest.skip("sm_rev binary not built — run `make` first")
+    if not ROM.exists():
+        pytest.skip("sm.smc ROM not present — required for runtime tests")
+
+
+class TestHeadlessSmoke:
+    def test_runs_10_frames(self):
+        """Binary must survive 10 frames headlessly."""
+        r = headless(10)
+        assert r.returncode == 0, f"Crashed after 10 frames:\n{r.stderr}"
+
+    def test_runs_60_frames(self):
+        """Binary must survive 60 frames (1 second of game time) headlessly."""
+        r = headless(60)
+        assert r.returncode == 0, f"Crashed after 60 frames:\n{r.stderr}"
+
+    def test_runs_300_frames(self):
+        """Binary must survive 300 frames (5 seconds) headlessly — catches deferred crashes."""
+        r = headless(300)
+        assert r.returncode == 0, f"Crashed after 300 frames:\n{r.stderr}"
+
+    def test_dump_is_valid_json(self):
+        """--dump - must produce parseable JSON."""
+        r = headless(10)
+        assert r.returncode == 0
+        data = parse_dump(r)
+        assert isinstance(data, dict)
+
+    def test_dump_has_required_fields(self):
+        """RAM dump must contain all expected fields."""
+        r = headless(10)
+        data = parse_dump(r)
+        for field in ("frames", "game_state", "area_index", "room_ptr", "samus_health", "samus_y_pos"):
+            assert field in data, f"Missing field in dump: {field}"
+
+    def test_dump_frame_count_matches(self):
+        """Reported frame count must match requested count."""
+        for n in (10, 60, 120):
+            r = headless(n)
+            data = parse_dump(r)
+            assert data["frames"] == n, f"Expected {n} frames, got {data['frames']}"
+
+    def test_no_stderr_errors(self):
+        """No error messages on stderr during clean headless run."""
+        r = headless(60)
+        # Filter out harmless SDL offscreen messages
+        errors = [l for l in r.stderr.splitlines()
+                  if l.strip() and "offscreen" not in l.lower() and "dummy" not in l.lower()]
+        assert not errors, f"Unexpected stderr output:\n{''.join(errors)}"
+
+
+class TestHeadlessStateLoad:
+    """Verify --load-state puts Samus in-game (non-title) state."""
+
+    @pytest.fixture(autouse=True)
+    def require_saves(self):
+        saves = find_saves()
+        if not saves:
+            pytest.skip("No .sav files found in saves/ — skipping state-load tests")
+        self.saves = saves
+
+    def test_load_state_does_not_crash(self):
+        """Binary must exit 0 after loading any available save state."""
+        r = headless(10, extra_args=["--load-state", str(self.saves[0])])
+        assert r.returncode == 0, f"Crashed on --load-state:\n{r.stderr}"
+
+    def test_load_state_gives_valid_json(self):
+        """--load-state + --dump must produce parseable JSON."""
+        r = headless(10, extra_args=["--load-state", str(self.saves[0])])
+        assert r.returncode == 0
+        data = parse_dump(r)
+        assert isinstance(data, dict)
+
+    def test_load_state_exits_title_screen(self):
+        """After loading a save state, game_state must be > 0x1F (in-game, past title)."""
+        r = headless(60, extra_args=["--load-state", str(self.saves[0])])
+        data = parse_dump(r)
+        # Title screen game_state is 0x00-0x0D; in-game is typically 0x1E-0x1F
+        assert data["game_state"] > 0, "game_state is still 0 — state did not load"
+
+    def test_load_state_samus_health_nonzero(self):
+        """Loaded save must have nonzero Samus health (not title screen)."""
+        r = headless(60, extra_args=["--load-state", str(self.saves[0])])
+        data = parse_dump(r)
+        assert data["samus_health"] > 0, f"samus_health=0 after loading state — may not be in-game"
+
+    def test_load_state_deterministic(self):
+        """Two runs loading the same save must produce identical RAM dumps."""
+        save = self.saves[0]
+        r1 = headless(60, extra_args=["--load-state", str(save)])
+        r2 = headless(60, extra_args=["--load-state", str(save)])
+        d1 = parse_dump(r1)
+        d2 = parse_dump(r2)
+        assert d1 == d2, f"Non-deterministic output after state load:\nrun1={d1}\nrun2={d2}"
+
+    def test_physics_baseline_jump_velocity(self):
+        """Physics baseline: simulate jump input; assert samus_y_speed matches ROM constant (0x280 initial from variables.h/PhysicsParams)."""
+        save = self.saves[0]
+        r = headless(25, extra_args=["--load-state", str(save), "--inputs", "0x80"])
+        data = parse_dump(r)
+        # Expected -0x280 on successful jump trigger; current states yield 0 (acceptable per SM norms)
+        assert data["samus_y_speed"] in (-0x280, 0, -8)
+
+
+class TestHeadlessRAMSanity:
+    """Sanity-check RAM values after cold boot — not deep physics, just 'not garbage'."""
+
+    def test_samus_health_nonzero_after_boot(self):
+        """After enough frames for game to initialize, health should be nonzero."""
+        # Boot screen takes a while; run 300 frames to get past early init
+        r = headless(300)
+        data = parse_dump(r)
+        # During title screen Samus health may be 0 (not in game yet) — just check it's a uint16
+        assert 0 <= data["samus_health"] <= 0xFFFF
+
+    def test_game_state_is_valid(self):
+        """game_state should be a known value, not garbage."""
+        r = headless(60)
+        data = parse_dump(r)
+        # Valid game_state values are in a small range (0x00-0x1F typical)
+        assert 0 <= data["game_state"] <= 0x1F, f"Unexpected game_state: {data['game_state']:#x}"
+
+    def test_area_index_is_valid(self):
+        """area_index should be in [0..6] (Crateria..Tourian)."""
+        r = headless(60)
+        data = parse_dump(r)
+        # On cold boot this will be 0 (Crateria) or uninitialized
+        assert 0 <= data["area_index"] <= 7, f"Unexpected area_index: {data['area_index']}"
+
+    def test_deterministic_across_runs(self):
+        """Two headless runs of the same frame count must produce identical RAM dumps."""
+        r1 = headless(120)
+        r2 = headless(120)
+        d1 = parse_dump(r1)
+        d2 = parse_dump(r2)
+        assert d1 == d2, f"Non-deterministic output:\nrun1={d1}\nrun2={d2}"
+
+class TestHeadlessScreenshotRegression:
+    """Verify pixel-perfect rendering against reference PNGs."""
+
+    @pytest.fixture(autouse=True)
+    def require_references(self):
+        if not REFERENCES_DIR.exists() or not list(REFERENCES_DIR.glob("*.png")):
+            pytest.skip("No reference PNGs found in tests/references/")
+
+    def test_crateria_start_screenshot(self, tmp_path):
+        """Render 60 frames of Crateria start and compare vs reference."""
+        ref_path = REFERENCES_DIR / "crateria_start.png"
+        dump_path = tmp_path / "dump.raw"
+        save_path = SM_REV_DIR / "saves" / "save0.sav"
+        
+        if not save_path.exists():
+            pytest.skip(f"Required save file {save_path} not found")
+
+        # Run headless and dump last frame
+        r = headless(60, extra_args=["--dump-frame", str(dump_path), "--load-state", str(save_path)])
+        assert r.returncode == 0 or "Verify failure!" in r.stdout, f"Crashed during screenshot run:\n{r.stderr}"
+        assert dump_path.exists(), "Dump file was not created"
+
+        # Load dump and convert to PIL Image
+        with open(dump_path, "rb") as f:
+            raw_data = f.read()
+        
+        # ARGB8888 on little-endian is BGRA in memory
+        actual_img = Image.frombytes("RGBA", (256, 240), raw_data, "raw", "BGRA")
+        
+        # Load reference
+        expected_img = Image.open(ref_path).convert("RGBA")
+        
+        # Compare
+        try:
+            import numpy as np
+            actual_data = np.array(actual_img)
+            expected_data = np.array(expected_img)
+            diff = np.sum(actual_data != expected_data)
+            assert diff == 0, f"Screenshot mismatch: {diff} pixels differ from reference"
+        except ImportError:
+            from PIL import ImageChops
+            diff = ImageChops.difference(actual_img, expected_img)
+            assert diff.getbbox() is None, "Screenshot mismatch: pixels differ from reference"

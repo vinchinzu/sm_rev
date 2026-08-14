@@ -176,10 +176,10 @@ static void MiniRenderEditorRoomTiles(uint32_t *pixels, int pitch_pixels, const 
   if (!view.loaded)
     return;
 
-  int first_block_x = state->camera_x / kMiniBlockSize;
-  int first_block_y = state->camera_y / kMiniBlockSize;
-  int last_block_x = (state->camera_x + kMiniGameWidth + kMiniBlockSize - 1) / kMiniBlockSize;
-  int last_block_y = (state->camera_y + kMiniGameHeight + kMiniBlockSize - 1) / kMiniBlockSize;
+  int first_block_x = state->viewport.camera_x / kMiniBlockSize;
+  int first_block_y = state->viewport.camera_y / kMiniBlockSize;
+  int last_block_x = (state->viewport.camera_x + kMiniGameWidth + kMiniBlockSize - 1) / kMiniBlockSize;
+  int last_block_y = (state->viewport.camera_y + kMiniGameHeight + kMiniBlockSize - 1) / kMiniBlockSize;
   for (int block_y = first_block_y; block_y <= last_block_y; block_y++) {
     for (int block_x = first_block_x; block_x <= last_block_x; block_x++) {
       uint16 level = MiniStubs_GetLevelBlock(block_x, block_y);
@@ -191,8 +191,8 @@ static void MiniRenderEditorRoomTiles(uint32_t *pixels, int pitch_pixels, const 
       bool metatile_hflip = BlockTileHasHFlip(level);
       bool metatile_vflip = BlockTileHasVFlip(level);
       const uint16 *metatile = view.metatile_words + metatile_index * 4;
-      int screen_left = block_x * kMiniBlockSize - state->camera_x;
-      int screen_top = block_y * kMiniBlockSize - state->camera_y;
+      int screen_left = block_x * kMiniBlockSize - state->viewport.camera_x;
+      int screen_top = block_y * kMiniBlockSize - state->viewport.camera_y;
       for (int quadrant = 0; quadrant < 4; quadrant++) {
         int src_quadrant = quadrant;
         if (metatile_hflip)
@@ -286,8 +286,8 @@ static void MiniRenderEditorRoomSprites(uint32_t *pixels, int pitch_pixels, cons
       continue;
     for (int j = 0; j < sprite->entry_count; j++) {
       const MiniEditorRoomSpriteOamView *entry = &sprite->entries[j];
-      int base_x = sprite->x_pos - state->camera_x + entry->x_offset;
-      int base_y = sprite->y_pos - state->camera_y + entry->y_offset;
+      int base_x = sprite->x_pos - state->viewport.camera_x + entry->x_offset;
+      int base_y = sprite->y_pos - state->viewport.camera_y + entry->y_offset;
       int tile_index = (entry->tile_num & 0x1FF) - kMiniEditorRoomSpriteTileBase;
       if (tile_index < 0)
         continue;
@@ -317,7 +317,7 @@ static void MiniRenderEditorRoomSprites(uint32_t *pixels, int pitch_pixels, cons
 
 static void MiniRenderRoom(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
   bool use_generated_backdrop = g_backdrop_mode == kMiniBackdropMode_Generated;
-  if (!state->uses_rom_room) {
+  if (!state->room.uses_rom_room) {
     MiniEditorTilesetView tileset_view;
     MiniAssetBootstrap_GetEditorTilesetView(&tileset_view);
     if (use_generated_backdrop) {
@@ -336,7 +336,7 @@ static void MiniRenderRoom(uint32_t *pixels, int pitch_pixels, const MiniGameSta
       MiniRenderEditorBg2(pixels, pitch_pixels, state, &tileset_view);
     MiniRoomFx_RenderEditorOverlay(pixels, pitch_pixels, state);
 
-    if (state->has_editor_room_visuals) {
+    if (state->room.has_editor_room_visuals) {
       MiniRenderEditorRoomTiles(pixels, pitch_pixels, state);
       return;
     }
@@ -347,10 +347,10 @@ static void MiniRenderRoom(uint32_t *pixels, int pitch_pixels, const MiniGameSta
       0x5F5A, 0x03FF, 0x0010, 0x2D6B,
       0x001F, 0x03FF, 0x7C1F, 0x4631,
     };
-    int first_block_x = state->camera_x / kMiniBlockSize;
-    int first_block_y = state->camera_y / kMiniBlockSize;
-    int last_block_x = (state->camera_x + kMiniGameWidth + kMiniBlockSize - 1) / kMiniBlockSize;
-    int last_block_y = (state->camera_y + kMiniGameHeight + kMiniBlockSize - 1) / kMiniBlockSize;
+    int first_block_x = state->viewport.camera_x / kMiniBlockSize;
+    int first_block_y = state->viewport.camera_y / kMiniBlockSize;
+    int last_block_x = (state->viewport.camera_x + kMiniGameWidth + kMiniBlockSize - 1) / kMiniBlockSize;
+    int last_block_y = (state->viewport.camera_y + kMiniGameHeight + kMiniBlockSize - 1) / kMiniBlockSize;
     for (int block_y = first_block_y; block_y <= last_block_y; block_y++) {
       for (int block_x = first_block_x; block_x <= last_block_x; block_x++) {
         BlockType block_type = MiniStubs_GetCollisionMaterial(block_x, block_y);
@@ -360,8 +360,8 @@ static void MiniRenderRoom(uint32_t *pixels, int pitch_pixels, const MiniGameSta
         uint32_t color = MiniConvertBgr555(kCollisionPalette[BlockTypeIndexFromTile((uint16)block_type)]);
         uint32_t shade = MiniBlendColor(color, 0xFF000000u, 1, 4);
         uint32_t hilite = MiniBlendColor(color, 0xFFFFFFFFu, 1, 5);
-        int screen_left = block_x * kMiniBlockSize - state->camera_x;
-        int screen_top = block_y * kMiniBlockSize - state->camera_y;
+        int screen_left = block_x * kMiniBlockSize - state->viewport.camera_x;
+        int screen_top = block_y * kMiniBlockSize - state->viewport.camera_y;
         MiniFillRect(pixels, pitch_pixels, screen_left, screen_top, kMiniBlockSize, kMiniBlockSize, color);
         MiniFillRect(pixels, pitch_pixels, screen_left, screen_top, kMiniBlockSize, 1, hilite);
         MiniFillRect(pixels, pitch_pixels, screen_left, screen_top + kMiniBlockSize - 1, kMiniBlockSize, 1, shade);
@@ -756,13 +756,13 @@ static void MiniRenderSamusPlayers(uint32_t *pixels, int pitch_pixels, const Min
 
 void MiniRenderFrameToPixels(uint32_t *pixels, int pitch_pixels, const MiniGameState *state) {
   MiniRenderRoom(pixels, pitch_pixels, state);
-  if (state->uses_original_gameplay_runtime) {
+  if (state->room.uses_original_gameplay_runtime) {
     MiniRenderCurrentOam(pixels, pitch_pixels, state->original_oam_next_ptr);
     if (state->player_count > 1)
       MiniRenderSamusPlayers(pixels, pitch_pixels, state, 1, true);
     return;
   }
-  if (state->uses_rom_room)
+  if (state->room.uses_rom_room)
     return;
   MiniRenderEditorRoomSprites(pixels, pitch_pixels, state);
   MiniRenderSamusPlayers(pixels, pitch_pixels, state, 0, false);
@@ -775,10 +775,6 @@ static void MiniRenderUpdateScreenPositionsForCamera(MiniGameState *state) {
     samus->screen_y = samus->world_y - state->viewport.camera_y - samus->y_radius;
   }
   state->samus = state->players[0].samus;
-  state->camera_x = state->viewport.camera_x;
-  state->camera_y = state->viewport.camera_y;
-  state->samus_x = state->samus.screen_x;
-  state->samus_y = state->samus.screen_y;
 }
 
 void MiniRenderFrameToPixelsWithCamera(uint32_t *pixels, int pitch_pixels,
@@ -793,7 +789,7 @@ void MiniRenderFrameToPixelsWithCamera(uint32_t *pixels, int pitch_pixels,
   uint16 saved_bg2_vofs = reg_BG2VOFS;
   int delta_x = camera_x - state->viewport.camera_x;
   int delta_y = camera_y - state->viewport.camera_y;
-  bool preserve_native_room = state->uses_original_gameplay_runtime && (delta_x != 0 || delta_y != 0);
+  bool preserve_native_room = state->room.uses_original_gameplay_runtime && (delta_x != 0 || delta_y != 0);
 
   render_state.viewport.camera_x = camera_x;
   render_state.viewport.camera_y = camera_y;
@@ -811,12 +807,12 @@ void MiniRenderFrameToPixelsWithCamera(uint32_t *pixels, int pitch_pixels,
 
   if (!preserve_native_room)
     MiniRenderRoom(pixels, pitch_pixels, &render_state);
-  if (render_state.uses_original_gameplay_runtime) {
+  if (render_state.room.uses_original_gameplay_runtime) {
     MiniRenderCurrentOamWithOffset(
         pixels, pitch_pixels, render_state.original_oam_next_ptr, -delta_x, -delta_y);
     if (render_state.player_count > 1)
       MiniRenderSamusPlayers(pixels, pitch_pixels, &render_state, 1, true);
-  } else if (!render_state.uses_rom_room) {
+  } else if (!render_state.room.uses_rom_room) {
     MiniRenderEditorRoomSprites(pixels, pitch_pixels, &render_state);
     MiniRenderSamusPlayers(pixels, pitch_pixels, &render_state, 0, false);
   }

@@ -8,10 +8,13 @@
 #include "mini_room_adapter.h"
 #include "mini_wram_peek.h"
 #include "variables.h"
+#include "wram_obs.h"
 
 MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state, int frame) {
   MiniTrajectoryFrame result = {0};
+  WramSamusObs obs = Wram_PeekSamus();
   result.frame = frame;
+<<<<<<< HEAD
   result.room_id = state->room.room_id;
   
   // Position: read from g_ram to ensure we get the authoritative post-MiniLoadState values
@@ -35,6 +38,22 @@ MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state, int f
   result.pose = samus_pose;                    // g_ram $0A1C
   result.facing = (state->samus.x_velocity < 0) ? 0x04 : 0x08;
   result.movement_type = state->samus.movement_type;
+=======
+  result.room_id = obs.room != 0 ? obs.room : state->room.room_id;
+  result.samus_x = obs.samus_x;
+  result.samus_y = obs.samus_y;
+  result.samus_x_sub = obs.samus_x_sub;
+  result.samus_y_sub = obs.samus_y_sub;
+  result.velocity_x = obs.velocity_x;
+  result.velocity_y = obs.velocity_y;
+  result.velocity_x_sub = (int16)obs.velocity_x_sub;
+  result.velocity_y_sub = (int16)obs.velocity_y_sub;
+  result.momentum_x = 0;
+  result.momentum_x_sub = 0;
+  result.pose = obs.pose;
+  result.facing = obs.facing != 0 ? obs.facing : 0x08;
+  result.movement_type = obs.movement_type;
+>>>>>>> df90bf5 (wip)
   
   // Speed booster state (not in mini)
   result.speed_counter = 0;

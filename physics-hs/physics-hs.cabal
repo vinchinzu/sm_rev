@@ -43,6 +43,9 @@ library
   exposed-modules:
     Physics.SM.Types
     Physics.SM.Constants
+    Physics.SM.SpeedTable
+    Physics.SM.Momentum
+    Physics.SM.Pose
     Physics.SM.Step
     Physics.SM.Run
     Physics.SM.Jump
@@ -65,6 +68,8 @@ test-suite physics-hs-test
     Test.Golden
     Test.HopRise
     Test.Properties
+    Test.MiniCompare
+    Test.Segments
   build-depends:
     base,
     physics-hs,

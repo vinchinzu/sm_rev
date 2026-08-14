@@ -1,4 +1,4 @@
--- | Unit tests for physics primitives (accel, friction, jump squat).
+-- | Unit tests for physics primitives (accel, extra-run, jump squat, gravity).
 module Test.Unit (tests) where
 
 import Data.Bits ((.|.))
@@ -12,18 +12,29 @@ tests = testGroup "Unit"
   , testFriction
   , testJumpSquat
   , testGravity
+  , testMomentum
   ]
 
 testAcceleration :: TestTree
 testAcceleration = testGroup "Horizontal Acceleration"
-  [ testCase "B+Right accelerates from zero" $ do
+  [ testCase "Right walks from zero without B" $ do
+      let cfg = defaultConfig
+          input = ControllerInput btnRight (ButtonMask 0)
+          state1 = step cfg input (initialState cfg)
+      velPixel (stateXVel state1) @?= 0
+      unSubpixel (velSubpixel (stateXVel state1)) @?= 0x3000
+      stateAccelMode state1 @?= AccelAccelerating
+      stateXExtra state1 @?= zeroVelocity
+      stateMovementType state1 @?= mvtRunning
+
+  , testCase "B+Right also builds extra run" $ do
       let cfg = defaultConfig
           input = ControllerInput (btnB .|. btnRight) (ButtonMask 0)
-          state0 = initialState cfg
-          state1 = step cfg input state0
+          state1 = step cfg input (initialState cfg)
       velPixel (stateXVel state1) @?= 0
-      unSubpixel (velSubpixel (stateXVel state1)) @?= 0x00a0  -- cfgRunAccel
-      stateAccelMode state1 @?= AccelAccelerating
+      unSubpixel (velSubpixel (stateXVel state1)) @?= 0x3000
+      stateXExtra state1 @?= Velocity 0 (Subpixel 0x1000)
+      stateHasMomentum state1 @?= True
 
   , testCase "B+Left accelerates to negative velocity" $ do
       let cfg = defaultConfig
@@ -31,40 +42,38 @@ testAcceleration = testGroup "Horizontal Acceleration"
           state0 = initialState cfg
           state1 = step cfg input state0
           state10 = iterate (step cfg input) state0 !! 10
-      -- After 1 step: velocity should be negative
-      velPixel (stateXVel state1) @?= (-1)  -- Borrowed from subpixel
-      -- After 10 steps: velocity more negative
+      velPixel (stateXVel state1) @?= (-1)
+      unSubpixel (velSubpixel (stateXVel state1)) @?= 0xD000
       velPixel (stateXVel state10) < 0 @?= True
       stateAccelMode state10 @?= AccelAccelerating
 
-  , testCase "B+Right reaches max speed after N frames" $ do
+  , testCase "Right reaches ROM run max 2.C000" $ do
       let cfg = defaultConfig
-          input = ControllerInput (btnB .|. btnRight) (btnB .|. btnRight)
+          input = ControllerInput btnRight btnRight
           state0 = initialState cfg
-          -- Accel is 0.00a0 per frame, max is 3.0000
-          -- Need ~49152 frames to reach max, run enough to saturate
-          states = take 50001 $ iterate (step cfg input) state0
-          finalState = last states
-      velPixel (stateXVel finalState) @?= 3  -- cfgRunMaxSpeed
-      velSubpixel (stateXVel finalState) @?= Subpixel 0x0000
+          -- 0x3000 * 15 = 0x2D000, cap 0x2C000
+          finalState = iterate (step cfg input) state0 !! 16
+      stateXVel finalState @?= Velocity 2 (Subpixel 0xC000)
 
-  , testCase "Releasing B applies deceleration" $ do
+  , testCase "Releasing direction applies table decel" $ do
       let cfg = defaultConfig
-          inputAccel = ControllerInput (btnB .|. btnRight) (ButtonMask 0)
-          inputCoast = ControllerInput btnRight btnRight
-          state0 = initialState cfg
-          state1 = step cfg inputAccel state0
-          state2 = step cfg inputCoast state1
-      -- cfgRunDecel is 0, so velocity is checked: currentMag (0x00a0) > decelMag (0)
-      -- Thus subVelocitySafe is called, subtracting 0, leaving velocity unchanged
-      stateAccelMode state2 @?= AccelDecelerating
-      stateXVel state2 @?= Velocity 0 (Subpixel 0x00a0)  -- Unchanged (decel is 0)
+          inputAccel = ControllerInput btnRight btnRight
+          inputCoast = ControllerInput (ButtonMask 0) btnRight
+          -- 4 frames → 0xC000, then decel 0x8000 → 0x4000
+          state4 = iterate (step cfg inputAccel) (initialState cfg) !! 4
+          state5 = step cfg inputCoast state4
+      stateAccelMode state5 @?= AccelDecelerating
+      stateXVel state5 @?= Velocity 0 (Subpixel 0x4000)
   ]
 
 testFriction :: TestTree
 testFriction = testGroup "Friction/Decel"
-  [ testCase "Vanilla config has zero decel" $ do
-      unSubpixel (velSubpixel (cfgRunDecel defaultConfig)) @?= 0x0000
+  [ testCase "Air run table decel is 0.8000" $ do
+      let entry = speedEntry EnvAir mvtRunning
+      seDecel entry @?= Velocity 0 (Subpixel 0x8000)
+  , testCase "Air run table max is 2.C000" $ do
+      let entry = speedEntry EnvAir mvtRunning
+      seMax entry @?= Velocity 2 (Subpixel 0xC000)
   ]
 
 testJumpSquat :: TestTree
@@ -72,15 +81,15 @@ testJumpSquat = testGroup "Jump Squat"
   [ testCase "Pressing A starts jump squat" $ do
       let cfg = defaultConfig
           input = ControllerInput btnA (ButtonMask 0)
-          state0 = (initialState cfg) { stateOnGround = True }
-          state1 = step cfg input state0
+          state1 = step cfg input (initialState cfg)
       stateJumpSquatFrames state1 @?= 1
+      statePose state1 @?= poseJumpTransRight
 
   , testCase "Jump squat lasts 4 frames" $ do
       let cfg = defaultConfig
           inputPress = ControllerInput btnA (ButtonMask 0)
           inputHold = ControllerInput btnA btnA
-          state0 = (initialState cfg) { stateOnGround = True }
+          state0 = initialState cfg
           state1 = step cfg inputPress state0
           state2 = step cfg inputHold state1
           state3 = step cfg inputHold state2
@@ -88,44 +97,39 @@ testJumpSquat = testGroup "Jump Squat"
       stateJumpSquatFrames state1 @?= 1
       stateJumpSquatFrames state2 @?= 2
       stateJumpSquatFrames state3 @?= 3
-      stateOnGround state3 @?= True  -- Still on ground
-      stateOnGround state4 @?= False  -- Jump fires on frame 4
+      stateOnGround state3 @?= True
+      stateOnGround state4 @?= False
 
-  , testCase "Jump fires with upward velocity" $ do
+  , testCase "Jump fires with vanilla 4.E000 impulse" $ do
       let cfg = defaultConfig
           inputPress = ControllerInput btnA (ButtonMask 0)
           inputHold = ControllerInput btnA btnA
-          state0 = (initialState cfg) { stateOnGround = True }
-          states = take 5 $ iterate (step cfg inputHold) (step cfg inputPress state0)
-          finalState = last states
-      stateVerticalDir finalState @?= VDirRising
-      -- Config: Velocity (-5) (Subpixel 0x8000) = -4.5 pixels/frame
-      -- After 4 frames: initJump gives -4.5, then 3 gravity applications
-      -- -4.5 + 0.109*3 ≈ -4.17, in 16.16: 0xFFFF_B800
-      velPixel (stateYVel finalState) @?= (-5)
-      unSubpixel (velSubpixel (stateYVel finalState)) @?= 0xb800
+          state0 = initialState cfg
+          state4 = iterate (step cfg inputHold) (step cfg inputPress state0) !! 3
+      stateVerticalDir state4 @?= VDirRising
+      -- Impulse -4.E000 then one same-frame gravity 0x1C00 → (-5, 0x3C00)
+      velPixel (stateYVel state4) @?= (-5)
+      unSubpixel (velSubpixel (stateYVel state4)) @?= 0x3C00
   ]
 
 testGravity :: TestTree
 testGravity = testGroup "Gravity"
   [ testCase "Gravity decelerates upward velocity" $ do
       let cfg = defaultConfig
-          input = ControllerInput btnA btnA  -- Hold A
+          input = ControllerInput btnA btnA
           state0 = (initialState cfg)
                { stateOnGround = False
                , stateVerticalDir = VDirRising
-               , stateYVel = Velocity (-2) (Subpixel 0)  -- Negative = upward
+               , stateYVel = Velocity (-2) (Subpixel 0)
                }
           state1 = step cfg input state0
-          -- Gravity adds positive velocity to negative (upward) velocity
           expectedVel = addVelocity (Velocity (-2) (Subpixel 0))
-                                    (Velocity 0 (Subpixel 0x1c00))  -- Gravity
+                                    (Velocity 0 (Subpixel 0x1c00))
       stateYVel state1 @?= expectedVel
 
   , testCase "Gravity accelerates downward velocity" $ do
       let cfg = defaultConfig
           input = ControllerInput (ButtonMask 0) (ButtonMask 0)
-          -- Start well above ground to avoid immediate landing
           airY = Pixel (unPixel (cfgGroundY cfg) - 50)
           state0 = (initialState cfg)
                { stateYPos = Position airY (Subpixel 0)
@@ -141,14 +145,55 @@ testGravity = testGroup "Gravity"
   , testCase "Terminal velocity caps falling speed" $ do
       let cfg = defaultConfig
           input = ControllerInput (ButtonMask 0) (ButtonMask 0)
-          -- Start well above ground to avoid immediate landing
           airY = Pixel (unPixel (cfgGroundY cfg) - 50)
           state0 = (initialState cfg)
                { stateYPos = Position airY (Subpixel 0)
                , stateOnGround = False
                , stateVerticalDir = VDirFalling
-               , stateYVel = Velocity 5 (Subpixel 0)  -- At terminal
+               , stateYVel = Velocity 5 (Subpixel 0)
                }
           state1 = step cfg input state0
-      stateYVel state1 @?= Velocity 5 (Subpixel 0)  -- Unchanged
+      stateYVel state1 @?= Velocity 5 (Subpixel 0)
+
+  , testCase "A-release snaps rising speed to falling 0" $ do
+      let cfg = defaultConfig
+          input = ControllerInput (ButtonMask 0) btnA
+          airY = Pixel (unPixel (cfgGroundY cfg) - 50)
+          state0 = (initialState cfg)
+               { stateYPos = Position airY (Subpixel 0)
+               , stateOnGround = False
+               , stateVerticalDir = VDirRising
+               , stateYVel = Velocity (-3) (Subpixel 0)
+               , stateJumpHeld = True
+               }
+          state1 = step cfg input state0
+      -- Release zeros Y, then the same falling frame applies gravity.
+      stateYVel state1 @?= Velocity 0 (Subpixel 0x1c00)
+      stateVerticalDir state1 @?= VDirFalling
+  ]
+
+testMomentum :: TestTree
+testMomentum = testGroup "Extra run"
+  [ testCase "Walk-jump does not keep extra run" $ do
+      let cfg = defaultConfig
+          right = ControllerInput btnRight btnRight
+          jumpPress = ControllerInput (btnRight .|. btnA) btnRight
+          jumpHold = ControllerInput (btnRight .|. btnA) (btnRight .|. btnA)
+          walked = iterate (step cfg right) (initialState cfg) !! 4
+          crouched = step cfg jumpPress walked
+          launched = iterate (step cfg jumpHold) crouched !! 3
+      stateOnGround launched @?= False
+      stateXExtra launched @?= zeroVelocity
+
+  , testCase "Run-jump keeps extra run in air" $ do
+      let cfg = defaultConfig
+          run = ControllerInput (btnB .|. btnRight) (btnB .|. btnRight)
+          jumpPress = ControllerInput (btnB .|. btnRight .|. btnA) (btnB .|. btnRight)
+          jumpHold = ControllerInput (btnB .|. btnRight .|. btnA)
+                                     (btnB .|. btnRight .|. btnA)
+          running = iterate (step cfg run) (initialState cfg) !! 4
+          launched = iterate (step cfg jumpHold) (step cfg jumpPress running) !! 3
+      stateOnGround launched @?= False
+      stateHasMomentum launched @?= True
+      stateXExtra launched /= zeroVelocity @?= True
   ]

@@ -19,6 +19,8 @@ enum {
   kMiniLandingSiteCameraY = 976,
   kMiniLandingSiteSamusX = 1153,
   kMiniLandingSiteSamusY = 1088,
+  kMiniCeresAreaIndex = 6,
+  kMiniCeresLoadStationIndex = 0,
   kMiniDemoRoomSetTable = 0x82876c,
   kMiniDemoBombs = 0x1000,
   kMiniDemoItems = kSamusEquip_MorphBall | kMiniDemoBombs,
@@ -219,6 +221,32 @@ bool MiniRomBootstrap_TryConfigureSaveSlotRoom(MiniRoomInfo *info) {
   MiniRomBootstrap_LoadRoomTilemaps();
   MiniRomBootstrap_FillRoomInfo(info, true, samus_x_pos, samus_y_pos);
   return true;
+}
+
+bool MiniRomBootstrap_TryConfigureCeresRoom(MiniRoomInfo *info) {
+  MiniAssetBootstrap_Reset();
+  if (!MiniRomBootstrap_LoadAnyRom())
+    return false;
+
+  loading_game_state = kLoadingGameState_1F_StartingAtCeres;
+  ClearTimerRam();
+  area_index = kMiniCeresAreaIndex;
+  load_station_index = kMiniCeresLoadStationIndex;
+  LoadFromLoadStation();
+  if (!MiniContentScope_AllowsRoom(room_ptr))
+    return false;
+  MiniAssetBootstrap_LoadCurrentRoomAssets();
+  MiniRomBootstrap_LoadRoomTilemaps();
+  MiniRomBootstrap_FillRoomInfo(info, false, samus_x_pos, samus_y_pos);
+  info->room_source = kMiniRoomSource_RomCeres;
+  return true;
+}
+
+void MiniRomBootstrap_RefreshRoomInfo(MiniRoomInfo *info) {
+  bool booted_from_save_slot = info->booted_from_save_slot;
+  MiniRoomSource source = info->room_source;
+  MiniRomBootstrap_FillRoomInfo(info, booted_from_save_slot, samus_x_pos, samus_y_pos);
+  info->room_source = source;
 }
 
 bool MiniRomBootstrap_TryConfigureDemoRoom(MiniRoomInfo *info) {

@@ -1,6 +1,14 @@
 # Signed Velocity Implementation - WIP
 
-## Status: Core architecture changed, build has remaining errors
+## Status: Done in the fragment. Do not reopen as a Haskell expansion track.
+
+Signed 16.16 is implemented and unit-tested. Remaining work is H↔M wiring
+and Mini–emulator residual, not more velocity architecture. See
+[docs/physics_haskell.md](../docs/physics_haskell.md).
+
+## Historical notes (build errors below were already fixed)
+
+## Status when this note was written: Core architecture changed, build has remaining errors
 
 ### Completed ✅
 

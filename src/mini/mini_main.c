@@ -12,7 +12,7 @@
 
 static void PrintUsage(const char *argv0) {
   fprintf(stderr,
-          "Usage: %s [--headless] [--record] [--frames N] [--players N] [--multiplayer-demo] [--screenshot PATH] [--input-script PATH] [--replay-in PATH] [--replay-out PATH] [--room-export PATH] [--background MODE] [--ai-background]\n"
+          "Usage: %s [--headless] [--record] [--frames N] [--players N] [--multiplayer-demo] [--screenshot PATH] [--input-script PATH] [--replay-in PATH] [--replay-out PATH] [--room-export PATH] [--start HANDLE] [--trace-wram PATH] [--background MODE] [--ai-background]\n"
           "  --headless   Run the mini runtime without SDL video.\n"
           "  --record   Save a low-resolution quick clip under out/mini_recording_YYYYMMDD_HHMMSS.mp4.\n"
           "  --frames N   Limit the run to N frames. Windowed mode runs until quit by default.\n"
@@ -23,6 +23,8 @@ static void PrintUsage(const char *argv0) {
           "  --replay-in PATH  Replay a mini artifact and verify its final state hash.\n"
           "  --replay-out PATH  Write a mini replay artifact for the completed run.\n"
           "  --room-export PATH  Load room collision data from a Super Metroid Editor export JSON file.\n"
+          "  --start HANDLE  Boot a scoped ROM start: ceres (Ceres Elevator) or landing-site.\n"
+          "  --trace-wram PATH  Write per-frame WRAM $0AF6/$0AFA/$0AF8/$0AFC JSONL.\n"
           "  --background MODE  Select mini backdrop mode: game or generated.\n"
           "  --ai-background  Alias for --background generated.\n",
           argv0);
@@ -49,6 +51,8 @@ static bool ParseArgs(int argc, char **argv, MiniOptions *options) {
   options->replay_in_path = NULL;
   options->replay_out_path = NULL;
   options->room_export_path = NULL;
+  options->start_handle = NULL;
+  options->trace_wram_path = NULL;
   options->backdrop_mode = kMiniBackdropMode_Game;
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--headless")) {
@@ -92,6 +96,18 @@ static bool ParseArgs(int argc, char **argv, MiniOptions *options) {
       if (i + 1 >= argc || argv[i + 1][0] == '\0')
         return false;
       options->room_export_path = argv[i + 1];
+      i++;
+    } else if (!strcmp(argv[i], "--start")) {
+      if (i + 1 >= argc || argv[i + 1][0] == '\0')
+        return false;
+      if (strcmp(argv[i + 1], "ceres") != 0 && strcmp(argv[i + 1], "landing-site") != 0)
+        return false;
+      options->start_handle = argv[i + 1];
+      i++;
+    } else if (!strcmp(argv[i], "--trace-wram")) {
+      if (i + 1 >= argc || argv[i + 1][0] == '\0')
+        return false;
+      options->trace_wram_path = argv[i + 1];
       i++;
     } else if (!strcmp(argv[i], "--background")) {
       if (i + 1 >= argc || !MiniBackdropMode_Parse(argv[i + 1], &options->backdrop_mode))

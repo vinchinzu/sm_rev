@@ -60,12 +60,19 @@ processRequest :: Trajectory -> Trajectory
 processRequest (Trajectory startSim _ _ inputFrames) =
   let cfg = defaultConfig
       startState = fromSimState startSim
-      inputs = map (\fi -> fromFrameInput fi (ControllerInput (ButtonMask 0) (ButtonMask 0))) inputFrames
-      states = runTape cfg startState inputs
+      inputs = threadInputs inputFrames
+      -- scanl includes the start state; MiniPredict emits post-step frames.
+      states = drop 1 (runTape cfg startState inputs)
       trajFrames = map (\s -> TrajectoryFrame (toSimState s) Nothing) states
   in Trajectory
-       { start = startSim
+       { start = toSimState startState
        , frames = trajFrames
-       , predictor = "haskell-v1-collision-flat-floor-y200"
+       , predictor = "haskell-v1"
        , inputs = inputFrames
        }
+  where
+    threadInputs = go (ControllerInput (ButtonMask 0) (ButtonMask 0))
+    go _ [] = []
+    go prev (fi:rest) =
+      let cur = fromFrameInput fi prev
+      in cur : go cur rest

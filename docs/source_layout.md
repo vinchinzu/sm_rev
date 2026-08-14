@@ -13,8 +13,10 @@ Keep file moves small and mechanical so full-build parity remains easy to verify
 - `src/host/`: desktop host-only rendering code. This is excluded from `mini`
   and is a safe place for SDL/OpenGL front-end code that should not leak into
   the gameplay kernel.
-- `src/mini/`: mini host, deterministic replay/rollback seams, Landing Site
+- `src/mini/`: mini host, deterministic replay/rollback seams, Ceres
   content scope, editor bridge, and mini-owned shims.
+- `physics-hs/`: thin subordinate Haskell model of the residual-relevant
+  Samus fragment. Pure rollouts and H↔M CI only; not a second kernel.
 - `src/snes/`: emulator hardware layer. Treat this as infrastructure unless a
   portability task directly targets it.
 - `third_party/`: vendored dependencies.
@@ -27,6 +29,7 @@ The Makefile mirrors those categories with `CORE_SRCS`, `HOST_SRCS`,
 - Samus behavior stays in `samus_*.c`.
 - Enemy behavior stays in `enemy_*.c`.
 - Room load, scrolling, and FX stay in `room_*.c`.
+- Door transition game states and door setup stay in `door_*.c`.
 - PLM behavior stays in `plm_*.c`.
 - Enemy projectiles stay in `eproj_*.c`.
 - HDMA runtime families use descriptive names such as `room_fx_hdma.c` and

@@ -43,6 +43,45 @@ def write_script(path: Path, lines: list[str]) -> Path:
     return path
 
 
+def expand_nav_string(nav: str, prefix_wait: int = 0) -> list[str]:
+    """Expand a retro_rl `BUTTONS:hold:wait` nav string into mini input-script lines."""
+    mapping = {
+        "WAIT": ".",
+        "RIGHT": "RIGHT",
+        "LEFT": "LEFT",
+        "RIGHT+A": "RIGHT JUMP",
+        "LEFT+A": "LEFT JUMP",
+        "RIGHT+B": "RIGHT RUN",
+        "LEFT+B": "LEFT RUN",
+        "RIGHT+B+A": "RIGHT RUN JUMP",
+        "LEFT+B+A": "LEFT RUN JUMP",
+    }
+    lines = ["."] * prefix_wait
+    for token in nav.split():
+        buttons, hold_text, wait_text = token.split(":")
+        hold = int(hold_text)
+        wait = int(wait_text)
+        if buttons == "WAIT":
+            lines.extend(["."] * wait)
+            continue
+        lines.extend([mapping[buttons]] * hold)
+        lines.extend(["."] * wait)
+    return lines
+
+
+# Vanilla Ceres pad eproj waits 60 frames, then lowers Samus to y=72 and unlocks
+# input via SamusCode_0E. Match that before replaying retro_rl shaft inputs.
+CERES_PAD_UNLOCK_FRAMES = 150
+CERES_ELEVATOR_TO_FALLING_TILE_NAV = "RIGHT+A:24:0 RIGHT:120:0 LEFT:120:0 RIGHT+B:240:60"
+CERES_START_TO_RIDLEY_NAV = (
+    "RIGHT+A:24:0 RIGHT:120:0 LEFT:120:0 RIGHT+B:240:60 "
+    "RIGHT:24:0 RIGHT+B:24:0 RIGHT+B+A:24:0 RIGHT+A:24:0 "
+    "RIGHT:24:0 RIGHT:24:0 RIGHT:24:0 RIGHT:24:0 RIGHT+B:24:12 RIGHT:24:0 "
+    "WAIT:0:140 RIGHT:160:0 LEFT:120:0 RIGHT+B:96:0 "
+    "WAIT:0:120 RIGHT+B:216:0 WAIT:0:150 RIGHT+B:240:0 WAIT:0:200"
+)
+
+
 class TestMiniStateHash:
     @pytest.fixture(autouse=True)
     def require_mini_binary(self):
@@ -126,3 +165,104 @@ class TestMiniStateHash:
             assert 0 <= state["camera_y"] <= state["room_height"] - 224
             assert 0 <= state["samus_world_x"] <= state["room_width"]
             assert 0 <= state["samus_world_y"] <= state["room_height"]
+
+    def test_rom_ceres_start_boots_elevator_and_is_deterministic(self, tmp_path: Path):
+        if not any(path.exists() for path in ROM_CANDIDATES):
+            pytest.skip("ROM-backed Ceres start requires a local ROM")
+
+        idle = tmp_path / "idle.script"
+        idle.write_text(".\n" * 8, encoding="utf-8")
+        walk = tmp_path / "walk.script"
+        walk.write_text("RIGHT\n" * 240, encoding="utf-8")
+
+        def run_ceres(frames: int, script: Path) -> dict:
+            result = run([
+                str(MINI_BINARY),
+                "--headless",
+                "--start",
+                "ceres",
+                "--input-script",
+                str(script),
+                "--frames",
+                str(frames),
+            ])
+            assert result.returncode == 0, (
+                f"Ceres mini run failed:\n{result.stderr}\n{result.stdout}"
+            )
+            return parse_json_payload(result.stdout)
+
+        idle_a = run_ceres(8, idle)
+        idle_b = run_ceres(8, idle)
+        walk_state = run_ceres(240, walk)
+
+        assert idle_a == idle_b
+        assert idle_a["content_scope"] == "ceres"
+        assert idle_a["room_source"] == "rom_ceres"
+        assert idle_a["room_handle"] == "ceresElevator"
+        assert idle_a["room_ptr"] == 0xDF45
+        assert idle_a["original_runtime"] is True
+        assert idle_a["game_state"] == 8
+        assert idle_a["ceres_status"] == 0
+        assert idle_a["timer_status"] == 0
+        assert idle_a["no_bosses"] is False
+        assert idle_a["original_enemies"] is True
+        assert walk_state["state_hash"] != idle_a["state_hash"]
+        assert walk_state["room_ptr"] in (0xDF45, 0xDF8D)
+        if walk_state["room_ptr"] == 0xDF45:
+            assert walk_state["samus_world_x"] > idle_a["samus_world_x"]
+
+    def _run_ceres_nav(self, tmp_path: Path, nav: str, name: str) -> dict:
+        script = write_script(
+            tmp_path / f"{name}.script",
+            expand_nav_string(nav, prefix_wait=CERES_PAD_UNLOCK_FRAMES),
+        )
+        frames = sum(1 for _ in script.read_text().splitlines() if _)
+        result = run([
+            str(MINI_BINARY),
+            "--headless",
+            "--start",
+            "ceres",
+            "--input-script",
+            str(script),
+            "--frames",
+            str(frames),
+        ])
+        assert result.returncode == 0, (
+            f"Ceres {name} run failed:\n{result.stderr}\n{result.stdout}"
+        )
+        return parse_json_payload(result.stdout)
+
+    def test_rom_ceres_elevator_reaches_falling_tile_door(self, tmp_path: Path):
+        if not any(path.exists() for path in ROM_CANDIDATES):
+            pytest.skip("ROM-backed Ceres start requires a local ROM")
+
+        # Door block (15, 39) and shaft collision come from
+        # super_metroid_editor/export/sm_nav/rooms/room_DF45.json.
+        # Inputs are the published retro_rl Start -> Falling Tile prefix.
+        state = self._run_ceres_nav(
+            tmp_path, CERES_ELEVATOR_TO_FALLING_TILE_NAV, "falling_tile"
+        )
+        assert state["room_source"] == "rom_ceres"
+        assert state["original_runtime"] is True
+        assert state["ceres_status"] == 0
+        assert state["timer_status"] == 0
+        assert state["room_ptr"] == 0xDF8D
+        assert state["room_handle"] == "ceresFallingTile"
+        assert state["game_state"] == 8
+
+    def test_rom_ceres_elevator_reaches_ridley_room(self, tmp_path: Path):
+        if not any(path.exists() for path in ROM_CANDIDATES):
+            pytest.skip("ROM-backed Ceres start requires a local ROM")
+
+        state = self._run_ceres_nav(
+            tmp_path, CERES_START_TO_RIDLEY_NAV, "ridley"
+        )
+        assert state["room_source"] == "rom_ceres"
+        assert state["original_runtime"] is True
+        assert state["original_enemies"] is True
+        assert state["no_bosses"] is False
+        assert state["room_ptr"] == 0xE0B5
+        assert state["room_handle"] == "ceresRidley"
+        assert state["game_state"] == 8
+        assert state["ceres_status"] == 0
+        assert state["timer_status"] == 0

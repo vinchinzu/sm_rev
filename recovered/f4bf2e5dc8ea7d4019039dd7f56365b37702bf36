@@ -1,0 +1,20 @@
+# C-Port Parity Status
+
+This document tracks the progression of completely migrating the 65c816 SNES assembly back into readable, modifiable C (`sm_rev`).
+
+As you modify `sm_a*.c`, `sm_80.c`, etc., please aggressively convert `TODO: UNIMPLEMENTED()` stubs into valid C that achieves the same functionality.
+
+Whenever a bank reaches a new milestone (e.g., 25%, 50%, 100%), update this tracker.
+
+| SNES Bank | Description / Sub-system      | C-Port Progress | Notes |
+|-----------|-------------------------------|-----------------|-------|
+| $80       | Core Engine / Game State      | 100% (Logic), 5% (Dispatch) | Logic ported via sm_80.c. Foundational utilities dispatched in sm_dispatcher.c. |
+| $82       | Room Loading & Initializer    | 0%              |       |
+| $84       | Plm & Item routines           | 0%              |       |
+| $86       | Enemy core AI / behaviors     | 0%              | Epic 3 |
+| $90       | Physics / Move logic routines | 100% (Logic)     | Logic ported. Verified with headless unit tests in tests/test_physics.py. |
+| $A0-$AF   | Enemy-specific logic          | 0%              |       |
+| $B4-$B8   | Samus animations and logic    | 0%              | Epic 1 |
+
+> [!NOTE]
+> Update this table as you close beads related to the porting epic. Agents are strictly instructed to consider work incomplete if this log isn't maintained.

@@ -30,6 +30,7 @@
 #include "torizo_config.h"
 #include "multi_samus.h"
 #include "sm_dispatcher.h"
+#include "wram_obs.h"
 
 #ifdef __SWITCH__
 #include "switch_impl.h"
@@ -428,6 +429,7 @@ int main(int argc, char** argv) {
   const char *g_headless_frame_dump = NULL;
   const char *g_headless_save_state = NULL;
   const char *g_load_state_path = NULL;
+  const char *g_trace_wram = NULL;
   int g_fixed_inputs = 0;
   uint16 *g_input_list = NULL;
   int g_input_list_size = 0;
@@ -459,6 +461,9 @@ int main(int argc, char** argv) {
       argc -= 2, argv += 2;
     } else if (strcmp(argv[0], "--load-state") == 0 && argc >= 2) {
       g_load_state_path = argv[1];
+      argc -= 2, argv += 2;
+    } else if (strcmp(argv[0], "--trace-wram") == 0 && argc >= 2) {
+      g_trace_wram = argv[1];
       argc -= 2, argv += 2;
     } else if (strcmp(argv[0], "--runmode") == 0 && argc >= 2) {
       if (!ParseRunMode(argv[1], &g_runmode)) {
@@ -650,6 +655,15 @@ int main(int argc, char** argv) {
   uint32 frameCtr = 0;
   uint8 audiopaused = true;
   bool has_bug_in_title = false;
+  FILE *trace_wram = NULL;
+  if (g_trace_wram != NULL) {
+    trace_wram = fopen(g_trace_wram, "w");
+    if (trace_wram == NULL) {
+      fprintf(stderr, "failed to open --trace-wram %s\n", g_trace_wram);
+      return 1;
+    }
+    Wram_WriteJsonl(trace_wram, 0, GetRunModeName(g_runmode));
+  }
 
   while (running) {
     SDL_Event event;
@@ -731,6 +745,8 @@ int main(int argc, char** argv) {
     TorizoConfig_TickSamusFreeze();
 
     frameCtr++;
+    if (trace_wram != NULL)
+      Wram_WriteJsonl(trace_wram, (int)frameCtr, GetRunModeName(g_runmode));
     if (g_headless_frames > 0 && (int)frameCtr >= g_headless_frames)
       running = false;
     g_snes->disableRender = (g_turbo ^ (is_replay & g_replay_turbo)) && (frameCtr & (g_turbo ? 0xf : 0x7f)) != 0;
@@ -775,6 +791,9 @@ int main(int argc, char** argv) {
       CheckTorizoConfigReload();
     }
   }
+
+  if (trace_wram != NULL)
+    fclose(trace_wram);
 
   if (g_config.autosave)
     HandleCommand(kKeys_Save + 0, true);
@@ -863,6 +882,8 @@ int main(int argc, char** argv) {
         "  \"collected_items\": %u,\n"
         "  \"samus_x_pos\": %u,\n"
         "  \"samus_y_pos\": %u,\n"
+        "  \"samus_x_sub\": %u,\n"
+        "  \"samus_y_sub\": %u,\n"
         "  \"layer1_x_pos\": %u,\n"
         "  \"layer1_y_pos\": %u,\n"
         "  \"bg1_x_offset\": %u,\n"
@@ -932,6 +953,8 @@ int main(int argc, char** argv) {
         (unsigned)(*(uint16 *)(g_ram + 0x9A4)),
         (unsigned)(*(uint16 *)(g_ram + 0xAF6)),
         (unsigned)(*(uint16 *)(g_ram + 0xAFA)),
+        (unsigned)(*(uint16 *)(g_ram + 0xAF8)),
+        (unsigned)(*(uint16 *)(g_ram + 0xAFC)),
         (unsigned)layer1_x_pos,
         (unsigned)layer1_y_pos,
         (unsigned)bg1_x_offset,

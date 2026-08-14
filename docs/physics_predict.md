@@ -291,9 +291,9 @@ Ensures full game behavioral parity (no regressions).
 ## Future Work
 
 - **State hydration**: Load arbitrary `SimState` JSON (requires mapping to `MiniGameState`)
-- **Enemy tracking**: Populate `enemies[]` array when Mini enemy AI is linked
-- **Damage boost**: Contact + knockback + i-frames for route optimization
-- **Haskell model**: Pure functional physics for lambda-calculus extraction (separate agent)
+- **Mini–emulator residual profiles**: first profile is [mini_emu_delta.md](mini_emu_delta.md) (`make mini-emu-residual`). C-port matches emu on residual words while idle from `save0`. Mini CLI boot zeros `$0AFC`. If Mini ≠ emu, emu wins.
+- **Damage boost**: Contact + knockback + i-frames for route optimization, in C Mini first
+- **Haskell model**: keep `physics-hs` as a subordinate spec and pure-rollout layer of the residual-relevant fragment (ROM tables, air X, extra run, land leftovers). Wire `MiniPredict` / `MiniStep` as an H↔M CI check. Do not treat Haskell as a separate agent or a second physics kernel.
 
 ## References
 

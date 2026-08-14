@@ -1,0 +1,166 @@
+{
+    "name": "black_samus_highlight",
+    "type": "sm_rev_mini_samus_asset_pack",
+    "samusAssets": {
+        "bank92Path": "samus_bank92.bin",
+        "dataPath": "samus_data.bin",
+        "ranges": [
+            {
+                "snesAddress": 10146304,
+                "size": 11776,
+                "dataOffset": 0
+            },
+            {
+                "snesAddress": 10195968,
+                "size": 32,
+                "dataOffset": 11776
+            },
+            {
+                "snesAddress": 10197024,
+                "size": 32,
+                "dataOffset": 11808
+            },
+            {
+                "snesAddress": 10198080,
+                "size": 32,
+                "dataOffset": 11840
+            },
+            {
+                "snesAddress": 10215424,
+                "size": 32,
+                "dataOffset": 11872
+            },
+            {
+                "snesAddress": 10215488,
+                "size": 864,
+                "dataOffset": 11904
+            },
+            {
+                "snesAddress": 10217984,
+                "size": 1024,
+                "dataOffset": 12768
+            },
+            {
+                "snesAddress": 10219040,
+                "size": 3968,
+                "dataOffset": 13792
+            },
+            {
+                "snesAddress": 10256384,
+                "size": 12672,
+                "dataOffset": 17760
+            },
+            {
+                "snesAddress": 10269376,
+                "size": 7712,
+                "dataOffset": 30432
+            },
+            {
+                "snesAddress": 10277568,
+                "size": 10176,
+                "dataOffset": 38144
+            },
+            {
+                "snesAddress": 10321920,
+                "size": 14560,
+                "dataOffset": 48320
+            },
+            {
+                "snesAddress": 10336512,
+                "size": 3648,
+                "dataOffset": 62880
+            },
+            {
+                "snesAddress": 10340416,
+                "size": 6080,
+                "dataOffset": 66528
+            },
+            {
+                "snesAddress": 10346816,
+                "size": 5696,
+                "dataOffset": 72608
+            },
+            {
+                "snesAddress": 10387456,
+                "size": 9184,
+                "dataOffset": 78304
+            },
+            {
+                "snesAddress": 10397920,
+                "size": 864,
+                "dataOffset": 87488
+            },
+            {
+                "snesAddress": 10398816,
+                "size": 5184,
+                "dataOffset": 88352
+            },
+            {
+                "snesAddress": 10404064,
+                "size": 2304,
+                "dataOffset": 93536
+            },
+            {
+                "snesAddress": 10406688,
+                "size": 3872,
+                "dataOffset": 95840
+            },
+            {
+                "snesAddress": 10411840,
+                "size": 2688,
+                "dataOffset": 99712
+            },
+            {
+                "snesAddress": 10415040,
+                "size": 256,
+                "dataOffset": 102400
+            },
+            {
+                "snesAddress": 10452992,
+                "size": 2400,
+                "dataOffset": 102656
+            },
+            {
+                "snesAddress": 10456192,
+                "size": 2560,
+                "dataOffset": 105056
+            },
+            {
+                "snesAddress": 10459008,
+                "size": 2400,
+                "dataOffset": 107616
+            },
+            {
+                "snesAddress": 10462208,
+                "size": 2240,
+                "dataOffset": 110016
+            },
+            {
+                "snesAddress": 10464704,
+                "size": 2400,
+                "dataOffset": 112256
+            },
+            {
+                "snesAddress": 10467904,
+                "size": 2560,
+                "dataOffset": 114656
+            },
+            {
+                "snesAddress": 10470720,
+                "size": 2400,
+                "dataOffset": 117216
+            },
+            {
+                "snesAddress": 10473920,
+                "size": 9120,
+                "dataOffset": 119616
+            }
+        ],
+        "initialSuit": "power",
+        "paletteAssets": {
+            "powerPath": "samus_power_palette.bin",
+            "variaPath": "samus_varia_palette.bin",
+            "gravityPath": "samus_gravity_palette.bin"
+        }
+    }
+}

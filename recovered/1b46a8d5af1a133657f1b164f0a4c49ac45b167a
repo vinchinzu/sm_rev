@@ -1,0 +1,67 @@
+# sm_rev
+
+Moddable C reimplementation of Super Metroid, built from disassembly. Runs the original game with a real SNES core (CPU/PPU/APU/DMA), while progressively replacing game logic with clean, hackable C. Physics, enemies, and level data are exposed as editable runtime structs — the goal is a "mod canvas" where any behavior can be tweaked without touching assembly.
+
+## Features
+
+- Full SNES core (`src/snes/`) — CPU, PPU, APU, DMA, SPC
+- Game logic ported bank-by-bank from disassembly (`src/sm_*.c`)
+- Hybrid dispatch: C takes over where ported, falls back to original ROM otherwise
+- Hot-reload physics params via `sm.ini` — no recompile needed
+- Multiple Samus instances, 2-player controls
+- Python test harness with headless playback
+
+## Build
+
+### Linux
+
+Requires SDL2.
+
+```bash
+make
+make run
+```
+
+### macOS
+
+Install SDL2 as a framework (download from [libsdl.org](https://libsdl.org) and drag to `/Library/Frameworks`), then:
+
+```bash
+make NATIVE_MAC=1
+./sm_rev
+```
+
+`NATIVE_MAC=1` links against `SDL2.framework` directly and bundles the ROM into the binary — no separate asset files needed at runtime. It checks both `/Library/Frameworks` and `~/Library/Frameworks`.
+
+### Bundle ROM into binary (any platform)
+
+```bash
+make BUNDLE_ASSETS=1 ROM_FILE=sm.smc CONFIG_FILE=sm.ini
+```
+
+### Windows
+
+```bash
+make  # uses sdl2-config --static-libs
+```
+
+## Sharing a macOS binary
+
+Cross-compiling for macOS from Linux isn't practical. The standard approach is a GitHub Actions workflow with a `macos-latest` runner — it builds natively and uploads the result as a release artifact. See `.github/workflows/` if one exists, or open an issue.
+
+## ROM
+
+You need a Super Metroid ROM (`sm.smc`, US version). Not included. Place it in the project root before building, or use `BUNDLE_ASSETS=1` to embed it at compile time.
+
+## Test
+
+```bash
+make test       # full suite
+make test-fast  # fast subset
+```
+
+## Docs
+
+- [`docs/GOALS.md`](docs/GOALS.md) — vision, architecture, full epic roadmap
+- [`docs/PORT_STATUS.md`](docs/PORT_STATUS.md) — per-bank porting progress
+- [`AGENTS.md`](AGENTS.md) — dev workflow and agent instructions

@@ -122,44 +122,15 @@ typedef struct MiniGameState {
   uint8 player_runtime_pre_projectile[kMiniMaxPlayers][kMiniPlayerRuntimePreProjectileSize];
   uint8 player_runtime_post_projectile[kMiniMaxPlayers][kMiniPlayerRuntimePostProjectileSize];
 
-  // Compatibility fields for existing mini callers. Prefer the typed views above
-  // for new mini-facing code.
   int frame;
-  int viewport_width;
-  int viewport_height;
-  uint16 room_id;
-  int room_width_blocks;
-  int room_height_blocks;
-  int room_left;
-  int room_top;
-  int room_right;
-  int room_bottom;
-  int camera_x;
-  int camera_y;
-  int samus_x;
-  int samus_y;
-  uint16 samus_pose_value;
-  uint16 samus_movement_type_value;
   int original_oam_next_ptr;
-  int projectile_count;
-  SamusProjectileView projectiles[kMiniProjectileViewCapacity];
-  int ground_y;
-  uint16 last_buttons;
-  bool has_room;
-  bool uses_rom_room;
-  bool has_editor_room_visuals;
-  bool uses_original_gameplay_runtime;
-  bool has_original_enemies;
-  bool has_original_plms;
-  bool quit_requested;
-  MiniSamusSuit samus_suit;
-  MiniRoomSource room_source;
-  char room_handle[32];
-  char room_name[64];
 } MiniGameState;
 
 void MiniGameState_Init(MiniGameState *state, int viewport_width, int viewport_height);
+void MiniApplyRoomInfo(MiniGameState *state, const MiniRoomInfo *room);
 void MiniUpdate(MiniGameState *state, const MiniInputState *input);
+void MiniRefreshProjectileState(MiniGameState *state);
+void MiniSyncPublicViews(MiniGameState *state);
 uint64_t MiniGameState_ComputeHash(const MiniGameState *state);
 
 void MiniInit(MiniGameState *state, int viewport_width, int viewport_height);

@@ -4,11 +4,13 @@ module Physics.SM
   , module Physics.SM.Constants
   , module Physics.SM.Step
   , module Physics.SM.FFI
+  , module Physics.SM.SpeedTable
   , runTape
   ) where
 
 import Physics.SM.Constants
 import Physics.SM.FFI
+import Physics.SM.SpeedTable
 import Physics.SM.Step
 import Physics.SM.Types
 

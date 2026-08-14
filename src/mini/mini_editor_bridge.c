@@ -1,15 +1,13 @@
 #include "mini_editor_bridge.h"
 
-#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <SDL.h>
-
 #include "third_party/cJSON.h"
 
 #include "block_reaction.h"
+#include "mini_editor_path.h"
 
 enum {
   kMiniLandingSiteCameraX = 1024,
@@ -18,172 +16,8 @@ enum {
   kMiniLandingSiteSamusY = 1088,
 };
 
-static const char *g_room_export_path;
-static char g_resolved_room_export_path[512];
-static char g_base_path[512];
-static char g_git_common_base_path[512];
-
-static const char *const kDefaultRoomExportCandidates[] = {
-  "assets/mini/landing_site.room.json",
-  "assets/local_mini/room_91F8.json",
-  "../super_metroid_editor/export/sm_nav/rooms/room_91F8.json",
-};
-
 static void MiniEditorRoom_Reset(MiniEditorRoom *room) {
   memset(room, 0, sizeof(*room));
-}
-
-static bool MiniPathExists(const char *path) {
-  FILE *f = fopen(path, "rb");
-  if (f == NULL)
-    return false;
-  fclose(f);
-  return true;
-}
-
-static bool MiniPathIsAbsolute(const char *path) {
-  return path != NULL && path[0] == '/';
-}
-
-static void MiniTrimTrailingSlashes(char *path) {
-  size_t len = strlen(path);
-  while (len > 1 && path[len - 1] == '/') {
-    path[len - 1] = '\0';
-    len--;
-  }
-}
-
-static void MiniJoinPath(char *dst, size_t dst_size, const char *base, const char *path) {
-  if (dst_size == 0)
-    return;
-  if (path == NULL || path[0] == '\0') {
-    dst[0] = '\0';
-  } else if (MiniPathIsAbsolute(path) || base == NULL || base[0] == '\0') {
-    snprintf(dst, dst_size, "%s", path);
-  } else {
-    snprintf(dst, dst_size, "%s/%s", base, path);
-  }
-}
-
-static void MiniStripLineEnd(char *line) {
-  size_t len = strlen(line);
-  while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r')) {
-    line[len - 1] = '\0';
-    len--;
-  }
-}
-
-static bool MiniReadFirstLine(const char *path, char *dst, size_t dst_size) {
-  if (dst_size == 0)
-    return false;
-  dst[0] = '\0';
-  FILE *f = fopen(path, "r");
-  if (f == NULL)
-    return false;
-  bool ok = fgets(dst, (int)dst_size, f) != NULL;
-  fclose(f);
-  if (ok)
-    MiniStripLineEnd(dst);
-  return ok;
-}
-
-static void MiniCopyDirname(char *dst, size_t dst_size, const char *path) {
-  const char *slash = strrchr(path, '/');
-  if (slash == NULL) {
-    snprintf(dst, dst_size, ".");
-    return;
-  }
-  snprintf(dst, dst_size, "%.*s", (int)(slash - path), path);
-}
-
-static const char *MiniSkipGitdirPrefix(const char *line) {
-  static const char kGitdirPrefix[] = "gitdir:";
-  size_t prefix_len = sizeof(kGitdirPrefix) - 1;
-  if (strncmp(line, kGitdirPrefix, prefix_len) != 0)
-    return NULL;
-  line += prefix_len;
-  while (*line == ' ' || *line == '\t')
-    line++;
-  return *line != '\0' ? line : NULL;
-}
-
-static bool MiniReadCheckoutGitDir(const char *checkout_path, char *dst, size_t dst_size) {
-  char dot_git[512];
-  char dot_git_head[512];
-  char git_file_line[512];
-  MiniJoinPath(dot_git, sizeof(dot_git), checkout_path, ".git");
-  MiniJoinPath(dot_git_head, sizeof(dot_git_head), dot_git, "HEAD");
-  if (MiniPathExists(dot_git_head)) {
-    snprintf(dst, dst_size, "%s", dot_git);
-    return true;
-  }
-
-  if (!MiniReadFirstLine(dot_git, git_file_line, sizeof(git_file_line)))
-    return false;
-  const char *gitdir = MiniSkipGitdirPrefix(git_file_line);
-  if (gitdir == NULL)
-    return false;
-  MiniJoinPath(dst, dst_size, checkout_path, gitdir);
-  return dst[0] != '\0';
-}
-
-static bool MiniCanonicalizeExistingPath(const char *path, char *dst, size_t dst_size) {
-#ifdef PATH_MAX
-  char canonical[PATH_MAX];
-#else
-  char canonical[4096];
-#endif
-  if (realpath(path, canonical) == NULL)
-    return false;
-  snprintf(dst, dst_size, "%s", canonical);
-  return dst[0] != '\0';
-}
-
-static bool MiniDeriveGitCommonBasePath(const char *checkout_path, char *dst, size_t dst_size) {
-  char git_dir[512];
-  char common_dir_file[512];
-  char common_dir[512];
-  char common_dir_line[512];
-  char canonical_common_dir[512];
-  if (!MiniReadCheckoutGitDir(checkout_path, git_dir, sizeof(git_dir)))
-    return false;
-
-  MiniJoinPath(common_dir_file, sizeof(common_dir_file), git_dir, "commondir");
-  if (MiniReadFirstLine(common_dir_file, common_dir_line, sizeof(common_dir_line))) {
-    MiniJoinPath(common_dir, sizeof(common_dir), git_dir, common_dir_line);
-  } else {
-    snprintf(common_dir, sizeof(common_dir), "%s", git_dir);
-  }
-
-  if (!MiniCanonicalizeExistingPath(common_dir, canonical_common_dir, sizeof(canonical_common_dir)))
-    return false;
-  MiniCopyDirname(dst, dst_size, canonical_common_dir);
-  MiniTrimTrailingSlashes(dst);
-  return dst[0] != '\0';
-}
-
-static bool MiniResolveSearchCandidate(const char *candidate, char *dst, size_t dst_size) {
-  if (candidate == NULL || candidate[0] == '\0' || dst_size == 0)
-    return false;
-  if (MiniPathIsAbsolute(candidate)) {
-    snprintf(dst, dst_size, "%s", candidate);
-    return true;
-  }
-  if (MiniPathExists(candidate)) {
-    snprintf(dst, dst_size, "%s", candidate);
-    return true;
-  }
-  if (g_base_path[0] != '\0') {
-    snprintf(dst, dst_size, "%s/%s", g_base_path, candidate);
-    if (MiniPathExists(dst))
-      return true;
-  }
-  if (g_git_common_base_path[0] != '\0') {
-    snprintf(dst, dst_size, "%s/%s", g_git_common_base_path, candidate);
-    if (MiniPathExists(dst))
-      return true;
-  }
-  return false;
 }
 
 static bool MiniReadFile(const char *path, char **out_data) {
@@ -471,24 +305,6 @@ static bool MiniParseDoorwayTransitions(cJSON *doorways, int width_blocks, int h
   return true;
 }
 
-static bool MiniResolveRelativePath(const char *base_path, const char *asset_path,
-                                    char *dst, size_t dst_size) {
-  if (asset_path == NULL || asset_path[0] == '\0' || dst_size == 0)
-    return false;
-  if (asset_path[0] == '/') {
-    snprintf(dst, dst_size, "%s", asset_path);
-    return true;
-  }
-  const char *slash = strrchr(base_path, '/');
-  if (slash == NULL) {
-    snprintf(dst, dst_size, "%s", asset_path);
-    return true;
-  }
-  size_t base_len = (size_t)(slash - base_path);
-  snprintf(dst, dst_size, "%.*s/%s", (int)base_len, base_path, asset_path);
-  return true;
-}
-
 static bool MiniLoadWordFile(const char *path, uint16 *dst, size_t count) {
   uint8 *bytes = (uint8 *)malloc(count * 2);
   if (bytes == NULL)
@@ -523,9 +339,9 @@ static bool MiniMaybeLoadTilesetAssets(const char *room_path, cJSON *tileset_met
   }
 
   char resolved_tiles[512], resolved_metatiles[512], resolved_palette[512];
-  if (!MiniResolveRelativePath(room_path, tiles_path, resolved_tiles, sizeof(resolved_tiles)) ||
-      !MiniResolveRelativePath(room_path, metatile_path, resolved_metatiles, sizeof(resolved_metatiles)) ||
-      !MiniResolveRelativePath(room_path, palette_path, resolved_palette, sizeof(resolved_palette))) {
+  if (!MiniEditorPath_ResolveRelative(room_path, tiles_path, resolved_tiles, sizeof(resolved_tiles)) ||
+      !MiniEditorPath_ResolveRelative(room_path, metatile_path, resolved_metatiles, sizeof(resolved_metatiles)) ||
+      !MiniEditorPath_ResolveRelative(room_path, palette_path, resolved_palette, sizeof(resolved_palette))) {
     return false;
   }
 
@@ -584,7 +400,7 @@ static bool MiniMaybeLoadBackgroundAssets(const char *room_path, cJSON *backgrou
   }
 
   char resolved_tilemap[512];
-  if (!MiniResolveRelativePath(room_path, tilemap_path, resolved_tilemap, sizeof(resolved_tilemap)))
+  if (!MiniEditorPath_ResolveRelative(room_path, tilemap_path, resolved_tilemap, sizeof(resolved_tilemap)))
     return false;
 
   room->bg2_tilemap_words = (uint16 *)malloc(sizeof(uint16) * kMiniEditorBridgeBg2TilemapWordCount);
@@ -615,9 +431,9 @@ static bool MiniMaybeLoadSamusPaletteAssets(const char *room_path, cJSON *samus_
   }
 
   char resolved_power[512], resolved_varia[512], resolved_gravity[512];
-  if (!MiniResolveRelativePath(room_path, power_path, resolved_power, sizeof(resolved_power)) ||
-      !MiniResolveRelativePath(room_path, varia_path, resolved_varia, sizeof(resolved_varia)) ||
-      !MiniResolveRelativePath(room_path, gravity_path, resolved_gravity, sizeof(resolved_gravity))) {
+  if (!MiniEditorPath_ResolveRelative(room_path, power_path, resolved_power, sizeof(resolved_power)) ||
+      !MiniEditorPath_ResolveRelative(room_path, varia_path, resolved_varia, sizeof(resolved_varia)) ||
+      !MiniEditorPath_ResolveRelative(room_path, gravity_path, resolved_gravity, sizeof(resolved_gravity))) {
     return false;
   }
 
@@ -654,7 +470,7 @@ static bool MiniMaybeLoadSamusRenderedSprites(const char *room_path, cJSON *samu
     return false;
 
   char resolved_rgba[512];
-  if (!MiniResolveRelativePath(room_path, rgba_path, resolved_rgba, sizeof(resolved_rgba)))
+  if (!MiniEditorPath_ResolveRelative(room_path, rgba_path, resolved_rgba, sizeof(resolved_rgba)))
     return false;
   if (!MiniReadWholeBinaryFile(resolved_rgba, &room->samus_rendered_sprite_rgba,
                                &room->samus_rendered_sprite_rgba_size)) {
@@ -721,8 +537,8 @@ static bool MiniMaybeLoadSamusAssets(const char *room_path, cJSON *samus_assets,
     return false;
 
   char resolved_bank92[512], resolved_data[512];
-  if (!MiniResolveRelativePath(room_path, bank92_path, resolved_bank92, sizeof(resolved_bank92)) ||
-      !MiniResolveRelativePath(room_path, data_path, resolved_data, sizeof(resolved_data))) {
+  if (!MiniEditorPath_ResolveRelative(room_path, bank92_path, resolved_bank92, sizeof(resolved_bank92)) ||
+      !MiniEditorPath_ResolveRelative(room_path, data_path, resolved_data, sizeof(resolved_data))) {
     return false;
   }
 
@@ -833,8 +649,8 @@ static bool MiniMaybeLoadRoomSprites(const char *room_path, cJSON *room_sprites,
     sprite->y_pos = pixel_y;
 
     char resolved_tiles[512], resolved_palette[512];
-    if (!MiniResolveRelativePath(room_path, tile_path, resolved_tiles, sizeof(resolved_tiles)) ||
-        !MiniResolveRelativePath(room_path, palette_path, resolved_palette, sizeof(resolved_palette))) {
+    if (!MiniEditorPath_ResolveRelative(room_path, tile_path, resolved_tiles, sizeof(resolved_tiles)) ||
+        !MiniEditorPath_ResolveRelative(room_path, palette_path, resolved_palette, sizeof(resolved_palette))) {
       return false;
     }
     if (!MiniReadWholeBinaryFile(resolved_tiles, &sprite->tile_data, &sprite->tile_data_size) ||
@@ -995,52 +811,35 @@ static bool MiniParseRoomJson(const char *path, MiniEditorRoom *room) {
     return false;
   }
 
-  snprintf(g_resolved_room_export_path, sizeof(g_resolved_room_export_path), "%s", path);
+  MiniEditorPath_SetResolvedPath(path);
   return true;
 }
 
 void MiniEditorBridge_SetRoomExportPath(const char *path) {
-  g_room_export_path = (path != NULL && path[0] != '\0') ? path : NULL;
-  g_resolved_room_export_path[0] = '\0';
+  MiniEditorPath_SetRoomExportPath(path);
 }
 
 void MiniEditorBridge_SetBasePath(const char *path) {
-  char *sdl_base = NULL;
-
-  g_base_path[0] = '\0';
-  g_git_common_base_path[0] = '\0';
-  if (path != NULL && path[0] != '\0')
-    MiniCopyDirname(g_base_path, sizeof(g_base_path), path);
-
-  sdl_base = SDL_GetBasePath();
-  if (sdl_base != NULL && sdl_base[0] != '\0')
-    snprintf(g_base_path, sizeof(g_base_path), "%s", sdl_base);
-  SDL_free(sdl_base);
-
-  MiniTrimTrailingSlashes(g_base_path);
-  if (g_base_path[0] != '\0')
-    MiniDeriveGitCommonBasePath(g_base_path, g_git_common_base_path, sizeof(g_git_common_base_path));
+  MiniEditorPath_SetBasePath(path);
 }
 
 const char *MiniEditorBridge_GetResolvedPath(void) {
-  return g_resolved_room_export_path[0] != '\0' ? g_resolved_room_export_path : NULL;
+  return MiniEditorPath_GetResolvedPath();
 }
 
 bool MiniEditorBridge_LoadRoom(MiniEditorRoom *room) {
   char resolved_path[512];
   MiniEditorRoom_Reset(room);
-  if (g_room_export_path != NULL) {
-    const char *path = g_room_export_path;
-    if (MiniResolveSearchCandidate(g_room_export_path, resolved_path, sizeof(resolved_path)))
+  if (MiniEditorPath_ExportPath() != NULL) {
+    const char *path = MiniEditorPath_ExportPath();
+    if (MiniEditorPath_ResolveSearchCandidate(path, resolved_path, sizeof(resolved_path)))
       path = resolved_path;
     return MiniParseRoomJson(path, room);
   }
 
-  for (size_t i = 0; i < sizeof(kDefaultRoomExportCandidates) / sizeof(kDefaultRoomExportCandidates[0]); i++) {
-    if (MiniResolveSearchCandidate(kDefaultRoomExportCandidates[i], resolved_path, sizeof(resolved_path)) &&
-        MiniParseRoomJson(resolved_path, room)) {
-      return true;
-    }
+  if (MiniEditorPath_ResolveDefaultRoom(resolved_path, sizeof(resolved_path)) &&
+      MiniParseRoomJson(resolved_path, room)) {
+    return true;
   }
   return false;
 }

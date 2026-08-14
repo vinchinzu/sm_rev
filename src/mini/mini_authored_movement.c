@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "ida_types.h"
+#include "mini_door_transition.h"
 #include "physics_config.h"
 #include "variables.h"
 
@@ -344,46 +345,12 @@ static void MiniAuthoredFollowCamera(const MiniGameState *state) {
   layer1_y_subpos = 0;
 }
 
-static void MiniAuthoredSetCameraForDoorway(const MiniGameState *state,
-                                            const MiniDoorwayTransition *doorway) {
-  int max_x = state->room.room_width_blocks * kMiniBlockSize - state->viewport.width;
-  int max_y = state->room.room_height_blocks * kMiniBlockSize - state->viewport.height;
-  layer1_x_pos = MiniAuthoredClampInt(doorway->camera_x, 0, max_x > 0 ? max_x : 0);
-  layer1_y_pos = MiniAuthoredClampInt(doorway->camera_y, 0, max_y > 0 ? max_y : 0);
-  layer1_x_subpos = 0;
-  layer1_y_subpos = 0;
-}
-
 static bool MiniAuthoredTryDoorwayTransition(MiniGameState *state) {
-  int block_x = state->samus.world_x >> kBlockPixelShift;
-  int y_radius = state->samus.y_radius != 0 ? state->samus.y_radius : kMiniAuthoredSamusYRadius;
-  int foot_y = state->samus.world_y + y_radius - 1;
-  int block_y = foot_y >> kBlockPixelShift;
-
-  if (MiniStubs_GetCollisionMaterial(block_x, block_y) != kBlockType_Door)
+  if (!MiniDoorTransition_TryAuthored(state, kMiniAuthoredSamusYRadius))
     return false;
-
-  int doorway_count = state->room.doorway_count;
-  if (doorway_count > kMiniDoorwayTransitionCapacity)
-    doorway_count = kMiniDoorwayTransitionCapacity;
-  for (int i = 0; i < doorway_count; i++) {
-    const MiniDoorwayTransition *doorway = &state->room.doorways[i];
-    if (!doorway->active ||
-        doorway->source_block_x != block_x ||
-        doorway->source_block_y != block_y) {
-      continue;
-    }
-
-    state->samus.world_x = doorway->destination_x;
-    state->samus.world_y = doorway->destination_y;
-    state->samus.x_velocity = 0;
-    state->samus.y_velocity = 0;
-    state->samus.on_ground = MiniAuthoredSamusIsGrounded(state, state->samus.world_x,
-                                                         state->samus.world_y);
-    MiniAuthoredSetCameraForDoorway(state, doorway);
-    return true;
-  }
-  return false;
+  state->samus.on_ground = MiniAuthoredSamusIsGrounded(state, state->samus.world_x,
+                                                       state->samus.world_y);
+  return true;
 }
 
 void MiniAuthoredMovement_InitializeSamusGlobals(void) {

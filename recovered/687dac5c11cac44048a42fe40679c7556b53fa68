@@ -1,0 +1,29 @@
+"""
+Unit tests for Super Metroid physics and speedrun tech.
+"""
+
+import pytest
+from tests.test_headless import headless, parse_dump
+
+def test_spinjump_pose():
+    """Verify that spinjumping (input 0x180) from save0.sav results in spinjump pose (81)."""
+    # save0.sav starts Samus on the ground. 0x180 (Jump+Right) triggers spinjump.
+    r = headless(30, extra_args=["--load-state", "saves/save0.sav"], inputs=0x180)
+    assert r.returncode == 0
+    data = parse_dump(r)
+    
+    # 81 = FaceR_SpinJump
+    # On the ground at frame 0, she should have jumped and be in the air.
+    assert data["samus_pose"] == 81
+    assert data["samus_y_pos"] < 667
+    assert data["samus_x_pos"] > 1158
+
+def test_horizontal_movement():
+    """Verify that holding Right results in horizontal movement."""
+    # 0x100 = Right
+    r = headless(20, extra_args=["--load-state", "saves/save0.sav"], inputs=0x100)
+    assert r.returncode == 0
+    data = parse_dump(r)
+    
+    assert data["samus_x_pos"] > 1158
+    assert data["samus_pose"] in (1, 3, 4, 5, 23, 24) # Various running/walking poses

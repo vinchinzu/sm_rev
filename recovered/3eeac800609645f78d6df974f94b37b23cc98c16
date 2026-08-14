@@ -1,0 +1,18 @@
+#ifndef SM_PHYSICS_H
+#define SM_PHYSICS_H
+
+#include "types.h"
+
+// Core movement functions extracted from Bank 90
+void Samus_MovementHandler_Normal(void);
+void Samus_Movement_00_Standing(void);
+void Samus_Movement_01_Running(void);
+void Samus_Movement_02_NormalJumping(void);
+void Samus_Movement_03_SpinJumping(void);
+void Samus_Movement_04_MorphBallOnGround(void);
+void Samus_Movement_05_Crouching(void);
+void Samus_Movement_06_Falling(void);
+void Samus_Movement_08_MorphBallFalling(void);
+void Samus_Movement_14_WallJumping(void);
+
+#endif // SM_PHYSICS_H

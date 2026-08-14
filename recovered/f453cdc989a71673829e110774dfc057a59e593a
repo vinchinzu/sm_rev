@@ -1,0 +1,54 @@
+# PhysicsParams Audit
+
+The current `PhysicsParams` struct in `src/variables_extra.h` is partially populated:
+
+```c
+typedef struct {
+    uint16 jump_initial_speed;
+    uint16 run_acceleration;
+    uint16 gravity_accel;
+    uint16 gravity_subaccel;
+    uint16 max_run_speed;
+} PhysicsParams;
+```
+
+## Missing Variables and Constants
+
+Based on an audit of `src/sm_90.c`, `src/sm_91.c`, and `src/variables.h`, the following physics-related parameters are hardcoded and should be considered for inclusion in `PhysicsParams`:
+
+### 1. Vertical Movement (Gravity & Jumping)
+- **Gravity Variations**:
+    - Underwater gravity subacceleration (currently hardcoded to `0x0800` in `Samus_DetermineAccel_Y`).
+    - Lava/Acid gravity subacceleration (currently hardcoded to `0x0900` in `Samus_DetermineAccel_Y`).
+- **Jump Speeds**:
+    - Wall jump initial speeds (tables `kSamus_InitWallJump_0`, `kSamus_InitWallJump_2`).
+    - Bomb jump initial speeds (table `kSamus_InitBombJump_Speed`).
+    - Springball jump speeds.
+    - Fall speed caps (currently hardcoded in various places).
+
+### 2. Horizontal Movement (Running & Walking)
+- **Speed Tables**:
+    - The `SamusSpeedTableEntry` struct defines `accel`, `decel`, and `max_speed` (with sub-pixel precision).
+    - Multiple tables exist: `Normal`, `Underwater`, `Moonwalk`, etc.
+    - Currently, `PhysicsParams` only has `run_acceleration` and `max_run_speed`, but these are not applied to the tables.
+- **Specific Constants**:
+    - Speed boost acceleration and caps.
+    - Shinespark velocities (horizontal, vertical, diagonal).
+    - Knockback velocities (horizontal and vertical).
+
+### 3. Interaction & Environment
+- **Friction**:
+    - Friction coefficients for different surfaces or liquid types.
+- **Grapple Physics**:
+    - Grapple beam extension/retraction speeds and swing physics constants.
+
+### 4. RAM Variables (State)
+The following RAM variables track current physics state and are influenced by these parameters:
+- `samus_x_speed`, `samus_x_subspeed`
+- `samus_y_speed`, `samus_y_subspeed`
+- `samus_x_base_speed`, `samus_x_base_subspeed`
+- `samus_y_accel`, `samus_y_subaccel`
+- `samus_x_extra_run_speed`, `samus_x_extra_run_subspeed`
+
+## Recommendation
+Expand `PhysicsParams` to include the specific gravity and jump constants identified above, and transition the `SamusSpeedTableEntry` defaults into the `PhysicsParams` struct to allow full data-driven control of Samus's movement.

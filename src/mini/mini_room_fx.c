@@ -6,7 +6,7 @@
 #include "variables.h"
 
 static bool MiniRoomFx_IsLandingSite(const MiniGameState *state) {
-  return state != NULL && state->room_id == kMiniEditorBridgeRoomId_LandingSite;
+  return state != NULL && state->room.room_id == kMiniEditorBridgeRoomId_LandingSite;
 }
 
 static uint32_t MiniRoomFx_ConvertBgr555(uint16 color) {
@@ -88,7 +88,7 @@ static void MiniRoomFx_RenderLiquidOverlay(uint32_t *pixels, int pitch_pixels, c
   if (fx_type != 2 && fx_type != 4 && fx_type != 6)
     return;
 
-  int surface_y = (int)fx_y_pos - (state != NULL ? state->camera_y : layer1_y_pos);
+  int surface_y = (int)fx_y_pos - (state != NULL ? state->viewport.camera_y : layer1_y_pos);
   if (surface_y < 0)
     surface_y = 0;
   if (surface_y >= kMiniGameHeight)

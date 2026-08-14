@@ -1,0 +1,2 @@
+[physics] mods active: gravity=100% run=100% jump=101%
+{"build":"mini","headless":true,"frames":1,"no_enemies":true,"no_bosses":true,"no_rooms":false,"room_ptr":37368,"room_width":2304,"room_height":1280,"room_source":"rom_save","room_visuals":"rom","room_handle":"landingSite","samus_suit":"power","recording":false,"record_path":"","rom_room":true,"samus_x":124,"samus_y":88,"samus_pose":0,"samus_movement_type":0,"state_hash":"0x2bfc04dd73b8b866"}

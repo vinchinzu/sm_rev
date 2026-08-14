@@ -26,6 +26,7 @@ static int g_mini_world_right;
 static int g_mini_world_ceiling;
 static int g_mini_world_floor;
 static bool g_mini_explicit_room_export_path;
+static bool g_mini_start_ceres;
 static MiniRoomInfo g_mini_room_info;
 
 static void MiniClampCamera(void);
@@ -227,12 +228,33 @@ void MiniStubs_SetRoomExportPath(const char *path) {
   MiniEditorBridge_SetRoomExportPath(path);
 }
 
+void MiniStubs_SetStartHandle(const char *handle) {
+  g_mini_start_ceres = handle != NULL && strcmp(handle, "ceres") == 0;
+}
+
+static bool MiniTryConfigureCeresRoom(void) {
+  if (!MiniRomBootstrap_TryConfigureCeresRoom(&g_mini_room_info))
+    return false;
+  MiniApplyRoomInfoWorld();
+  return true;
+}
+
+void MiniStubs_RefreshRomRoomFromGlobals(void) {
+  if (!g_mini_room_info.uses_rom_room)
+    return;
+  MiniRomBootstrap_RefreshRoomInfo(&g_mini_room_info);
+  MiniApplyRoomInfoWorld();
+}
+
 void MiniStubs_ConfigureWorld(int viewport_width, int viewport_height) {
   if (BUILD_IS_MODDABLE) {
     if (MiniTryConfigureEditorRoom())
       return;
   } else if (g_mini_explicit_room_export_path) {
     if (MiniTryConfigureEditorRoom() || MiniTryConfigureSaveSlotRoom() || MiniTryConfigureDemoRoom())
+      return;
+  } else if (g_mini_start_ceres) {
+    if (MiniTryConfigureCeresRoom() || MiniTryConfigureEditorRoom())
       return;
   } else if (MiniTryConfigureSaveSlotRoom() || MiniTryConfigureDemoRoom() || MiniTryConfigureEditorRoom()) {
     return;
@@ -340,6 +362,8 @@ const char *MiniStubs_RoomSourceName(MiniRoomSource source) {
     return "rom_save";
   case kMiniRoomSource_RomDemo:
     return "rom_demo";
+  case kMiniRoomSource_RomCeres:
+    return "rom_ceres";
   case kMiniRoomSource_Fallback:
   default:
     return "fallback";

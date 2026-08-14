@@ -20,6 +20,7 @@ typedef enum MiniRoomSource {
   kMiniRoomSource_EditorExport = 1,
   kMiniRoomSource_RomSave = 2,
   kMiniRoomSource_RomDemo = 3,
+  kMiniRoomSource_RomCeres = 4,
 } MiniRoomSource;
 
 typedef enum MiniSamusSuit {
@@ -87,7 +88,9 @@ typedef struct MiniStubsSnapshot {
 } MiniStubsSnapshot;
 
 void MiniStubs_SetRoomExportPath(const char *path);
+void MiniStubs_SetStartHandle(const char *handle);
 void MiniStubs_ConfigureWorld(int viewport_width, int viewport_height);
+void MiniStubs_RefreshRomRoomFromGlobals(void);
 void MiniStubs_GetRoomInfo(MiniRoomInfo *info);
 void MiniStubs_GetCollisionMapView(MiniCollisionMapView *view);
 void MiniStubs_SaveSnapshot(MiniStubsSnapshot *snapshot);

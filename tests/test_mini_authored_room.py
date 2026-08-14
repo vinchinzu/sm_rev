@@ -141,10 +141,35 @@ class TestMiniAuthoredRoom:
 
         assert r.returncode == 0, f"mini non-Landing scope run failed:\n{r.stderr}\n{r.stdout}"
         payload = parse_json_payload(r.stdout)
-        assert payload["content_scope"] == "landing_site_only"
+        assert payload["content_scope"] == "ceres"
         assert payload["room_source"] != "editor_export"
         assert payload["room_handle"] != "nonLanding"
         assert payload["room_ptr"] != 0x92B3
+
+    def test_ceres_material_room_is_allowed_by_content_scope(self, tmp_path: Path):
+        room_path = write_room(
+            tmp_path / "ceres_elevator.json",
+            make_room_materials(),
+            room_id=0xDF45,
+            handle="ceresElevator",
+            name="Authored Ceres Elevator",
+        )
+
+        r = run([
+            str(MINI_BINARY),
+            "--headless",
+            "--frames",
+            "1",
+            "--room-export",
+            str(room_path),
+        ], cwd=tmp_path)
+
+        assert r.returncode == 0, f"mini Ceres scope run failed:\n{r.stderr}\n{r.stdout}"
+        payload = parse_json_payload(r.stdout)
+        assert payload["content_scope"] == "ceres"
+        assert payload["room_source"] == "editor_export"
+        assert payload["room_handle"] == "ceresElevator"
+        assert payload["room_ptr"] == 0xDF45
 
     def test_named_material_room_traversal_is_deterministic(self, tmp_path: Path):
         room_path = write_authored_room(tmp_path / "authored_room.json")

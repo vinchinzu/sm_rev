@@ -9,5 +9,7 @@ bool MiniRomBootstrap_LoadAnyRom(void);
 void MiniRomBootstrap_TryLoadRoomHeaderMetadata(uint16 room_id);
 bool MiniRomBootstrap_TryConfigureSaveSlotRoom(MiniRoomInfo *info);
 bool MiniRomBootstrap_TryConfigureDemoRoom(MiniRoomInfo *info);
+bool MiniRomBootstrap_TryConfigureCeresRoom(MiniRoomInfo *info);
+void MiniRomBootstrap_RefreshRoomInfo(MiniRoomInfo *info);
 
 #endif  // SM_MINI_ROM_BOOTSTRAP_H_

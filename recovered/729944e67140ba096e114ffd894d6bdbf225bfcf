@@ -1,0 +1,15 @@
+# bv (beads viewer) local config and caches
+.bv/
+.beads/
+
+# Generated embedded assets (contain ROM data - don't commit)
+src/embedded/
+
+# Build output
+sm_rev
+*.o
+*.smc
+*.sfc
+test_out.txt
+scratch.patch
+.gemini/

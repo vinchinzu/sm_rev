@@ -20,6 +20,21 @@
     } \
   } while (0)
 
+static bool FramesMatch(const MiniTrajectoryFrame *pred, const MiniGameState *oracle, size_t i) {
+  MiniTrajectoryFrame captured = MiniCaptureTrajectoryFrame(oracle, (int)i);
+  ASSERT_EQ(pred->samus_x, captured.samus_x, "samus_x");
+  ASSERT_EQ(pred->samus_x_sub, captured.samus_x_sub, "samus_x_sub");
+  ASSERT_EQ(pred->samus_y, captured.samus_y, "samus_y");
+  ASSERT_EQ(pred->samus_y_sub, captured.samus_y_sub, "samus_y_sub");
+  ASSERT_EQ(pred->velocity_x, captured.velocity_x, "velocity_x");
+  ASSERT_EQ(pred->velocity_y, captured.velocity_y, "velocity_y");
+  ASSERT_EQ(pred->pose, captured.pose, "pose");
+  ASSERT_EQ(pred->movement_type, captured.movement_type, "movement_type");
+  if (captured.enemies)
+    free(captured.enemies);
+  return true;
+}
+
 static bool test_ground_run_golden(void) {
   printf("Running golden test: Ground run (hold RIGHT)\n");
   
@@ -105,15 +120,8 @@ static bool test_ground_run_golden(void) {
              oracle_state->samus.x_velocity, oracle_state->samus.on_ground);
     }
     
-    // Sub-pixel accuracy check (SNES RAM $0AF6/$0AF8 for x, $0AFA/$0AFC for y)
-    ASSERT_EQ(pred_frame->samus_x, oracle_state->samus.world_x, "samus_x");
-    ASSERT_EQ(pred_frame->samus_x_sub, samus_x_subpos, "samus_x_sub");
-    ASSERT_EQ(pred_frame->samus_y, oracle_state->samus.world_y, "samus_y");
-    ASSERT_EQ(pred_frame->samus_y_sub, samus_y_subpos, "samus_y_sub");
-    ASSERT_EQ(pred_frame->velocity_x, oracle_state->samus.x_velocity, "velocity_x");
-    ASSERT_EQ(pred_frame->velocity_y, oracle_state->samus.y_velocity, "velocity_y");
-    ASSERT_EQ(pred_frame->pose, oracle_state->samus.pose, "pose");
-    ASSERT_EQ(pred_frame->movement_type, oracle_state->samus.movement_type, "movement_type");
+    if (!FramesMatch(pred_frame, oracle_state, i))
+      return false;
     
     // Note: state_hash no longer in wire format frame
   }
@@ -338,13 +346,8 @@ static bool test_run_jump_platform_golden(void) {
     MiniStepButtons(oracle, inputs[i], false);
     const MiniTrajectoryFrame *frame = &prediction->frames[i + 1];  // Skip frame 0 (pre-step)
     
-    // Sub-pixel accuracy verification (SNES RAM $0AF6/$0AF8 for x, $0AFA/$0AFC for y)
-    ASSERT_EQ(frame->samus_x, oracle->samus.world_x, "combined_x");
-    ASSERT_EQ(frame->samus_x_sub, samus_x_subpos, "combined_x_sub");
-    ASSERT_EQ(frame->samus_y, oracle->samus.world_y, "combined_y");
-    ASSERT_EQ(frame->samus_y_sub, samus_y_subpos, "combined_y_sub");
-    ASSERT_EQ(frame->velocity_x, oracle->samus.x_velocity, "combined_vx");
-    ASSERT_EQ(frame->velocity_y, oracle->samus.y_velocity, "combined_vy");
+    if (!FramesMatch(frame, oracle, i))
+      return false;
     
     // Track jump phases (infer from velocity_y: negative = rising, positive = falling, zero on ground)
     bool is_grounded = (frame->velocity_y == 0 && i > 0 && prediction->frames[i].velocity_y >= 0);

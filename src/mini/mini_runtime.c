@@ -17,6 +17,7 @@
 #include "mini_renderer.h"
 #include "mini_room_adapter.h"
 #include "variables.h"
+#include "wram_obs.h"
 
 #if !BUILD_IS_MINI && !BUILD_IS_MODDABLE
 #error "mini_runtime.c must be compiled with CURRENT_BUILD=BUILD_MINI or BUILD_MODDABLE"
@@ -28,6 +29,7 @@ static const char *MiniRuntime_BuildName(void) {
 
 static void PrintResult(const MiniOptions *options, const MiniGameState *state,
                         const char *record_path, bool replay_verified) {
+  WramSamusObs wram = Wram_PeekSamus();
   uint64_t state_hash = MiniStateHash(state);
   const SamusProjectileView *first_projectile =
       state->projectile_state.count > 0 ? &state->projectile_state.views[0] : NULL;
@@ -39,7 +41,9 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
   printf("{\"build\":\"%s\",\"headless\":%s,\"frames\":%d,"
          "\"player_count\":%d,"
          "\"content_scope\":\"%s\","
-         "\"no_enemies\":%s,\"no_bosses\":true,\"no_rooms\":%s,"
+         "\"no_enemies\":%s,\"no_bosses\":%s,\"no_rooms\":%s,"
+         "\"game_state\":%u,\"ceres_status\":%u,\"timer_status\":%u,"
+         "\"timer_minutes\":%u,\"timer_seconds\":%u,"
          "\"room_ptr\":%u,\"room_width\":%d,\"room_height\":%d,"
          "\"room_source\":\"%s\",\"room_visuals\":\"%s\",\"room_handle\":\"%s\","
          "\"background\":\"%s\","
@@ -51,6 +55,8 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          "\"camera_x\":%d,\"camera_y\":%d,"
          "\"camera_target_x_percent\":%d,\"camera_target_y_percent\":%d,"
          "\"samus_x\":%d,\"samus_y\":%d,"
+         "\"samus_x_wram\":%u,\"samus_y_wram\":%u,"
+         "\"samus_x_sub\":%u,\"samus_y_sub\":%u,"
          "\"samus_world_x\":%d,\"samus_world_y\":%d,\"samus_on_ground\":%s,"
          "\"player1_world_x\":%d,\"player1_world_y\":%d,"
          "\"player1_screen_x\":%d,\"player1_screen_y\":%d,"
@@ -70,7 +76,13 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          state->player_count,
          MiniContentScope_Name(),
          state->room.has_original_enemies ? "false" : "true",
+         state->room.uses_original_gameplay_runtime ? "false" : "true",
          state->room.has_room ? "false" : "true",
+         game_state,
+         (unsigned)ceres_status,
+         (unsigned)timer_status,
+         (unsigned)timer_minutes,
+         (unsigned)timer_seconds,
          state->room.room_id,
          state->room.room_width_blocks * kMiniBlockSize,
          state->room.room_height_blocks * kMiniBlockSize,
@@ -93,6 +105,8 @@ static void PrintResult(const MiniOptions *options, const MiniGameState *state,
          state->viewport.camera_x, state->viewport.camera_y,
          state->room.camera_target_x_percent, state->room.camera_target_y_percent,
          state->samus.screen_x, state->samus.screen_y,
+         (unsigned)wram.samus_x, (unsigned)wram.samus_y,
+         (unsigned)wram.samus_x_sub, (unsigned)wram.samus_y_sub,
          state->samus.world_x, state->samus.world_y,
          state->samus.on_ground ? "true" : "false",
          p1->samus.world_x, p1->samus.world_y,
@@ -228,6 +242,7 @@ static int PlayerCountForRun(const MiniOptions *options, const MiniReplayArtifac
 
 static void ConfigureRoomSelectionForRun(const MiniOptions *options,
                                          const MiniReplayArtifact *replay) {
+  MiniStubs_SetStartHandle(options->start_handle);
   MiniStubs_SetRoomExportPath(RoomExportPathForRun(options, replay));
 }
 
@@ -314,8 +329,18 @@ static bool RunFrames(MiniGameState *state, const MiniOptions *options, SDL_Rend
   int frame_limit = replay != NULL
                         ? replay->frames
                         : ((options->headless || options->frames_explicit) ? options->frames : INT_MAX);
+  FILE *trace_wram = NULL;
+  if (options->trace_wram_path != NULL) {
+    trace_wram = fopen(options->trace_wram_path, "w");
+    if (trace_wram == NULL) {
+      fprintf(stderr, "mini: could not open --trace-wram %s\n", options->trace_wram_path);
+      MiniInputScript_Clear(&script);
+      return false;
+    }
+    Wram_WriteJsonl(trace_wram, 0, "mini");
+  }
   bool ok = true;
-  for (int i = 0; i < frame_limit && !state->quit_requested; i++) {
+  for (int i = 0; i < frame_limit && !state->controls.quit_requested; i++) {
     MiniInputState input = {
       .player_count = state->player_count,
     };
@@ -356,6 +381,8 @@ static bool RunFrames(MiniGameState *state, const MiniOptions *options, SDL_Rend
     }
 
     MiniStep(state, &input);
+    if (trace_wram != NULL)
+      Wram_WriteJsonl(trace_wram, i + 1, "mini");
 
     if (renderer != NULL || (recorder != NULL && recorder->pipe != NULL && !recorder->closed_early)) {
       MiniRenderFrameToPixels(frame_pixels, kMiniGameWidth, state);
@@ -369,6 +396,8 @@ static bool RunFrames(MiniGameState *state, const MiniOptions *options, SDL_Rend
     }
   }
 
+  if (trace_wram != NULL)
+    fclose(trace_wram);
   MiniInputScript_Clear(&script);
   return ok;
 }

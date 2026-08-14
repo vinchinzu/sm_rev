@@ -20,8 +20,8 @@ enum {
 
 #if CURRENT_BUILD == BUILD_MINI || CURRENT_BUILD == BUILD_MODDABLE
 // Mini-family builds link shared game systems and constrain content/runtime
-// entry to the Landing Site slice instead of compiling broad systems out.
-#define MINI_LANDING_SITE_ONLY 1
+// entry to the Ceres station plus Landing Site instead of compiling systems out.
+#define MINI_CERES_SCOPE 1
 #define NO_SOUND 1
 #endif
 

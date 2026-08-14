@@ -94,7 +94,7 @@ Completed work:
 
 - `src/mini/mini_runtime.c` remains the host/runtime shell and delegates gameplay
   work to `src/mini/mini_game.c`
-- mini boots a named `landing_site_only` content scope and can use the
+- mini boots a named `ceres` content scope and can use the
   ROM-backed Landing Site path when no explicit editor export is requested
 - Samus projectile reset/fire/view behavior is shared with the full build
   through topical `samus_projectile_*` modules
@@ -128,7 +128,7 @@ Near-term work:
 
 Current visual boundary for mini:
 
-- `mini` now has a named `landing_site_only` content scope
+- `mini` now has a named `ceres` content scope
 - when no explicit editor export is requested and a ROM-backed Landing Site path is available, mini boots that original room path first
 - the ROM-backed path steps the shared original gameplay loop and renders the generated original OAM buffer instead of mini-only Samus/enemy sprites
 - `mini` now has a larger windowed shell while keeping the same internal logical gameplay resolution
@@ -136,7 +136,7 @@ Current visual boundary for mini:
 - the first Landing Site background pass now uses original runtime-driven state to render visible scanline-varied sky/cloud bands
 - editor BG2 rendering now asks `src/mini/mini_room_fx.c` for per-scanline layer scrolls instead of baking Landing Site-only drift into the renderer
 - `src/mini/mini_room_fx.c` now owns renderer-side FX families for the current sky/cloud pass plus first liquid, rain, and haze overlays
-- this is still a scoped renderer bridge for mini, not permission to widen the `landing_site_only` content boundary without a parity plan
+- this is still a scoped renderer bridge for mini, not permission to widen the `ceres` content boundary without a parity plan
 
 Current weapon boundary for mini:
 

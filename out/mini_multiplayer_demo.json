@@ -1,0 +1,3 @@
+make: Nothing to be done for 'mini-browser-lib'.
+{"dropped_hit_events": 0, "frames": 600, "missile_explosion_seen": true, "missile_flight_seen": true, "output": "/home/v/01_projects/11_games/speedrun/retro_rl/super_metroid_rl/sm_rev/out/mini_multiplayer_demo.mp4", "player1_damage_taken": 220, "player1_hits_taken": 7, "player2_damage_taken": 220, "player2_hits_taken": 7, "reciprocal_hits": true, "seconds": 10.0, "state_hash": "0x027696042295b119"}
+[physics] mods active: gravity=100% run=100% jump=101%

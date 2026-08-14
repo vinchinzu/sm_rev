@@ -1,0 +1,98 @@
+#include "physics.h"
+#include "ida_types.h"
+#include "variables.h"
+#include "funcs.h"
+#include "sm_rtl.h"
+
+typedef void HandlerFunc(void);
+
+
+
+static HandlerFunc *const kSamusMovementHandlers[28] = {
+  &Samus_Movement_00_Standing,
+  &Samus_Movement_01_Running,
+  &Samus_Movement_02_NormalJumping,
+  &Samus_Movement_03_SpinJumping,
+  &Samus_Movement_04_MorphBallOnGround,
+  &Samus_Movement_05_Crouching,
+  &Samus_Movement_06_Falling,
+  &Samus_Movement_07_Unused,
+  &Samus_Movement_08_MorphBallFalling,
+  &Samus_Movement_09_Unused,
+  &Samus_Movement_0A_KnockbackOrCrystalFlashEnding,
+  &Samus_Movement_0B_Unused,
+  &Samus_Movement_0C_Unused,
+  &Samus_Movement_0D_Unused,
+  &Samus_Movement_0E_TurningAroundOnGround,
+  &Samus_Movement_0F_CrouchingEtcTransition,
+  &Samus_Movement_10_Moonwalking,
+  &Samus_Movement_11_SpringBallOnGround,
+  &Samus_Movement_12_SpringBallInAir,
+  &Samus_Movement_13_SpringBallFalling,
+  &Samus_Movement_14_WallJumping,
+  &Samus_Movement_15_RanIntoWall,
+  &Samus_Movement_16_Grappling,
+  &Samus_Movement_17_TurningAroundJumping,
+  &Samus_Movement_18_TurningAroundFalling,
+  &Samus_Movement_19_DamageBoost,
+  &Samus_Movement_1A_GrabbedByDraygon,
+  &Samus_Movement_1B_ShinesparkEtc,
+};
+
+void Samus_UpdateSpeedEchoPos(void) {  // 0x90EEE7
+  if ((speed_boost_counter & 0xFF00) == 1024 && (speed_echoes_index & 0x8000) == 0 && (game_time_frames & 3) == 0) {
+    uint16 v0 = speed_echoes_index;
+    int v1 = speed_echoes_index >> 1;
+    speed_echo_xpos[v1] = samus_x_pos;
+    speed_echo_ypos[v1] = samus_y_pos;
+    uint16 v2 = v0 + 2;
+    if ((int16)(v2 - 4) >= 0)
+      v2 = 0;
+    speed_echoes_index = v2;
+  }
+}
+
+void Samus_MovementHandler_Normal(void) {
+  if (!time_is_frozen_flag) {
+    kSamusMovementHandlers[samus_movement_type]();
+    Samus_UpdateSpeedEchoPos();
+  }
+}
+
+// TODO: Implement handlers
+void Samus_Movement_00_Standing(void) {
+  if (samus_pose && samus_pose != kPose_9B_FaceF_VariaGravitySuit) {
+    if ((samus_pose == kPose_01_FaceR_Normal || samus_pose == kPose_02_FaceL_Normal)
+        && (button_config_shoot_x & joypad1_lastkeys) != 0) {
+      samus_anim_frame_timer = 16;
+      samus_anim_frame = 0;
+    }
+    Samus_Move_NoBaseSpeed_X();
+    Samus_Move_NoSpeedCalc_Y();
+    Samus_CancelSpeedBoost();
+    samus_x_extra_run_speed = 0;
+    samus_x_extra_run_subspeed = 0;
+    samus_x_base_speed = 0;
+    samus_x_base_subspeed = 0;
+    samus_x_accel_mode = 0;
+  } else {
+    if (elevator_status) {
+      samus_collision_direction = 2;
+      Samus_MoveDown_NoSolidColl(INT16_SHL16(1));
+    }
+    input_to_pose_calc = 0;
+  }
+}
+
+void Samus_Movement_01_Running(void) { printf("Running called\n");
+  static const uint8 kSamusFootstepFrame[10] = { 0, 0, 1, 0, 0, 0, 0, 1, 0, 0 };
+  Samus_HandleMovement_X();
+  Samus_Move_NoSpeedCalc_Y();
+  if (samus_anim_frame_timer == 1) {
+    if (kSamusFootstepFrame[samus_anim_frame]) {
+      Samus_FootstepGraphics();
+      if (!cinematic_function && !boss_id && !samus_shine_timer && (speed_boost_counter & 0x400) == 0)
+        QueueSfx3_Max6(6);
+    }
+  }
+}

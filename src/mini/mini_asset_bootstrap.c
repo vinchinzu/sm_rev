@@ -265,6 +265,8 @@ static void MiniCopyMetatileWordsFromTileTable(uint16 *dst) {
 
 static void MiniLoadRoomFxStateFromRom(void) {
   InitializeSpecialEffectsForNewRoom();
+  if (door_def_ptr)
+    LoadDoorHeader();
   LoadRoomHeader();
   LoadStateHeader();
   LoadFXHeader();

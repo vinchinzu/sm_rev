@@ -11,7 +11,11 @@ There are now two compatible tracks:
 
 The mini path is intentionally **negative-first**:
 - Keep core Samus / physics files as the long-term mini target.
-- Exclude enemies, bosses, room systems, demos, save flow, pause/map/equipment screens, and audio until needed.
+- The current content boundary is Ceres Station plus Landing Site, so doors,
+  room transitions, and the Ceres elevator/Ridley slice can be measured.
+  `--start ceres` uses the vanilla elevator pad drop; the shared Ridley,
+  countdown, and debris code run once those rooms/flags are reached.
+- Exclude later-area rooms, pause/map/equipment screens, and audio until needed.
 - Prefer build-level subtraction and narrow stubs over spraying `#ifdef` logic through unrelated code.
 
 When doing refactor work, ask:
@@ -88,10 +92,19 @@ The current repo plan for `make mini` is:
 4. **Link Samus/physics in slices**:
    - first slice: `physics.c`, `physics_config.c`, `samus_input.c`, `samus_motion.c`, `samus_jump.c`, `samus_collision.c`
    - second slice: `samus_pose.c`, `samus_runtime.c`, `samus_draw.c`, `samus_speed.c`, `samus_transition.c`
-5. **Keep heavy systems out**: `sm_*.c`, room code, enemy AI, bosses, demos, and audio stay excluded from mini until cleanly split.
+5. **Keep later-area content out**: Ceres plus Landing Site is the current
+   mini content boundary. Pause/map/equipment screens and audio stay excluded
+   until they have an intentional parity seam.
 6. **Promote tests with runtime growth**: once mini has real state, add deterministic headless assertions beyond shell smoke.
 
 If a file mixes Samus and heavy full-game logic, the preferred move is to split the Samus cluster into a topical file before trying to link it into mini.
+
+`physics-hs/` is a subordinate pure model of the residual-relevant Samus
+fragment. It may grow that fragment when the extra state is useful for
+rollouts or residual CI — the same lesson as `retro_rl/nes/smb/approx.py`
+(walk/run tables, air X, A-release, land leftovers, extra-run/momentum).
+Do not grow it into a second Super Metroid: doors, enemies, full lag,
+slopes, and knockback stay Mini / emulator work. If Mini ≠ emu, emu wins.
 
 ## 5. Naming and Topic Selection
 
