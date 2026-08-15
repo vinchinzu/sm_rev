@@ -63,16 +63,10 @@ processRequest (Trajectory startSim _ _ inputFrames) =
       inputs = threadInputs inputFrames
       -- scanl includes the start state; MiniPredict emits post-step frames.
       states = drop 1 (runTape cfg startState inputs)
-      trajFrames = map (\s -> TrajectoryFrame (toSimState s) Nothing) states
+      trajFrames = map (TrajectoryFrame . toSimState) states
   in Trajectory
        { start = toSimState startState
        , frames = trajFrames
        , predictor = "haskell-v1"
        , inputs = inputFrames
        }
-  where
-    threadInputs = go (ControllerInput (ButtonMask 0) (ButtonMask 0))
-    go _ [] = []
-    go prev (fi:rest) =
-      let cur = fromFrameInput fi prev
-      in cur : go cur rest

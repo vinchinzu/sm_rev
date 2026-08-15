@@ -5,12 +5,11 @@
 -- grounded walk/run: do not hold X velocity in air.
 module Physics.SM.Run
   ( updateHorizontalMovement
-  , applyRunAcceleration
   ) where
 
-import Data.Word (Word16)
 import Physics.SM.Constants
 import Physics.SM.Momentum (extraInFacingDir)
+import Physics.SM.Pose (facingFromDir)
 import Physics.SM.SpeedTable
 import Physics.SM.Types
 
@@ -19,35 +18,6 @@ updateHorizontalMovement :: PhysicsConfig -> ControllerInput -> SamusState -> Sa
 updateHorizontalMovement _cfg input state
   | stateOnGround state = applyDisplacement (updateGroundX input state)
   | otherwise           = applyDisplacement (updateAirX input state)
-
--- | Public helper used by unit tests: ground accel only, no extra run.
-applyRunAcceleration :: PhysicsConfig -> ControllerInput -> Velocity -> (Velocity, AccelMode)
-applyRunAcceleration _cfg input currentVel =
-  let dummy = (initialDummy currentVel)
-      stepped = updateGroundX input dummy
-  in (stateXVel stepped, stateAccelMode stepped)
-  where
-    initialDummy vel = SamusState
-      { stateXPos = zeroPosition
-      , stateYPos = zeroPosition
-      , stateXVel = vel
-      , stateYVel = zeroVelocity
-      , stateXExtra = zeroVelocity
-      , stateHasMomentum = False
-      , stateSpeedBoostCounter = 0
-      , statePose = poseStandRight
-      , stateMovementType = mvtRunning
-      , stateVerticalDir = VDirStationary
-      , stateAccelMode = AccelNone
-      , stateOnGround = True
-      , stateFacing = faceRight
-      , stateFrame = 0
-      , statePrevButtons = ButtonMask 0
-      , stateJumpHeld = False
-      , stateJumpSquatFrames = 0
-      , stateEnvironment = EnvAir
-      , stateEquipment = defaultEquipment
-      }
 
 updateGroundX :: ControllerInput -> SamusState -> SamusState
 updateGroundX input state =
@@ -73,11 +43,6 @@ updateAirX input state =
          state { stateXVel = zeroVelocity, stateAccelMode = AccelNone }
        _ ->
          accelerate entry dir state { stateFacing = facingFromDir dir }
-
-facingFromDir :: Int -> Word16
-facingFromDir dir
-  | dir < 0   = faceLeft
-  | otherwise = faceRight
 
 accelerate :: SpeedEntry -> Int -> SamusState -> SamusState
 accelerate entry dir state =

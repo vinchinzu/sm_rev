@@ -8,6 +8,9 @@ module Physics.SM.Jump
   , initJump
   ) where
 
+import Data.Bits (shiftR)
+import Data.Int (Int32)
+import Data.Word (Word16)
 import Physics.SM.Constants
 import Physics.SM.Types
 
@@ -25,11 +28,10 @@ handleJumpInput cfg input state
         }
   | stateJumpSquatFrames state > 0 =
       let newSquat = stateJumpSquatFrames state + 1
-      in if not (buttonDown btnA input)
-            then state { stateJumpSquatFrames = 0, stateJumpHeld = False }
-            else if newSquat >= cfgJumpSquatDuration cfg
-                    then initJump cfg state
-                    else state { stateJumpSquatFrames = newSquat }
+      in if newSquat >= cfgJumpSquatDuration cfg
+            then initJump cfg state
+            else state { stateJumpSquatFrames = newSquat
+                       , stateJumpHeld = buttonDown btnA input }
   | otherwise = state
 
 -- | Initialize jump: set upward velocity, change pose, leave ground.
@@ -75,20 +77,20 @@ jumpPose spinning right
 selectJumpVel :: PhysicsConfig -> Environment -> Bool -> Velocity
 selectJumpVel cfg env hasHiJump =
   let table = if hasHiJump then cfgJumpHiInitialSpeed cfg else cfgJumpInitialSpeed cfg
-  in table !! envToIndex env
+  in selectEnv env table
 
-envToIndex :: Environment -> Int
-envToIndex EnvAir = 0
-envToIndex EnvWater = 1
-envToIndex EnvLavaAcid = 2
-
--- | Speed booster adds extra-run/2 to the jump impulse (Samus_AddSpeedBoosterJumpMomentum).
+-- C: y_sub += extra_sub (uint16 wrap, no carry); y_speed += extra_speed >> 1.
 addSpeedBoosterJumpMomentum :: SamusState -> Velocity -> Velocity
 addSpeedBoosterJumpMomentum state jumpVel =
-  let extra = stateXExtra state
-      -- extra is unsigned magnitude. C: y_speed += extra_speed >> 1; y_sub += extra_sub.
-      half = fromSigned1616 (toSigned1616 extra `div` 2)
-  in addVelocity jumpVel (negateVelocity half)
+  let mag = abs (toSigned1616 jumpVel)
+      ySpeed = fromIntegral (mag `shiftR` 16) :: Word16
+      ySub   = fromIntegral mag :: Word16
+      extraS = fromIntegral (velPixel (stateXExtra state)) :: Word16
+      extraSub = unSubpixel (velSubpixel (stateXExtra state))
+      newSub = ySub + extraSub
+      newS   = ySpeed + (extraS `shiftR` 1)
+      unsigned = fromIntegral newS * 65536 + fromIntegral newSub :: Int32
+  in negateVelocity (fromSigned1616 unsigned)
 
 signOf :: Velocity -> Int
 signOf v = if toSigned1616 v < 0 then -1 else 1

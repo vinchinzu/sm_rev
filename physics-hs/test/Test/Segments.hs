@@ -6,6 +6,7 @@
 module Test.Segments (tests) where
 
 import Data.Bits ((.|.))
+import Data.Word (Word16)
 import Physics.SM
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (assertBool, testCase, (@?=))
@@ -32,7 +33,7 @@ play inputs = tapeEnd (initialState defaultConfig)
 
 tapeEnd :: SamusState -> [SamusState] -> SamusState
 tapeEnd fallback [] = fallback
-tapeEnd _ (x:xs) = foldl (\_ y -> y) x xs
+tapeEnd _ xs = last xs
 
 testIdle :: TestTree
 testIdle = testCase "idle holds position" $ do
@@ -92,7 +93,10 @@ testLandLeftover = testCase "land keeps Y subpixel leftover" $ do
       landed = tapeEnd (initialState defaultConfig) states
   stateOnGround landed @?= True
   unPixel (posPixel (stateYPos landed)) @?= unPixel (cfgGroundY defaultConfig)
-  -- Not forced to 0: leftover from the last pre-snap applyVelocity.
-  -- A perfectly aligned land can still be 0; just assert the field is present
-  -- and X leftovers are not wiped.
   stateYVel landed @?= zeroVelocity
+  -- Pixel snap on land keeps the post-apply subpixel. Hardcoded from this tape.
+  unSubpixel (posSubpixel (stateYPos landed)) @?= landLeftoverSub
+
+-- Standing jump (press A + 3 hold A + 50 idle). Pixel snap keeps 0x0C00.
+landLeftoverSub :: Word16
+landLeftoverSub = 0x0C00

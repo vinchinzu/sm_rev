@@ -14,50 +14,22 @@ MiniTrajectoryFrame MiniCaptureTrajectoryFrame(const MiniGameState *state, int f
   MiniTrajectoryFrame result = {0};
   WramSamusObs obs = Wram_PeekSamus();
   result.frame = frame;
-<<<<<<< HEAD
-  result.room_id = state->room.room_id;
-  
-  // Position: read from g_ram to ensure we get the authoritative post-MiniLoadState values
-  // These include subpixels that public Mini fields don't expose
-  result.samus_x = samus_x_pos;           // g_ram $0AF6
-  result.samus_y = samus_y_pos;           // g_ram $0AFA
-  result.samus_x_sub = samus_x_subpos;    // g_ram $0AF8
-  result.samus_y_sub = samus_y_subpos;    // g_ram $0AFC
-  
-  // Velocity (mini tracks pixel velocity, subpixel always zero for authored movement)
-  result.velocity_x = state->samus.x_velocity;
-  result.velocity_y = state->samus.y_velocity;
-  result.velocity_x_sub = 0;  // Authored movement doesn't track subpixel velocity
-  result.velocity_y_sub = 0;
-  
-  // Momentum (speed booster - not in mini authored movement)
-  result.momentum_x = 0;
-  result.momentum_x_sub = 0;
-  
-  // Pose and movement: read from g_ram for post-MiniLoadState correctness
-  result.pose = samus_pose;                    // g_ram $0A1C
-  result.facing = (state->samus.x_velocity < 0) ? 0x04 : 0x08;
-  result.movement_type = state->samus.movement_type;
-=======
   result.room_id = obs.room != 0 ? obs.room : state->room.room_id;
-  result.samus_x = obs.samus_x;
-  result.samus_y = obs.samus_y;
-  result.samus_x_sub = obs.samus_x_sub;
-  result.samus_y_sub = obs.samus_y_sub;
-  result.velocity_x = obs.velocity_x;
-  result.velocity_y = obs.velocity_y;
-  result.velocity_x_sub = (int16)obs.velocity_x_sub;
-  result.velocity_y_sub = (int16)obs.velocity_y_sub;
-  result.momentum_x = 0;
-  result.momentum_x_sub = 0;
-  result.pose = obs.pose;
+  result.samus_x = samus_x_pos;
+  result.samus_y = samus_y_pos;
+  result.samus_x_sub = samus_x_subpos;
+  result.samus_y_sub = samus_y_subpos;
+  result.velocity_x = (int16)samus_x_base_speed;
+  result.velocity_y = (int16)samus_y_speed;
+  result.velocity_x_sub = (int16)samus_x_base_subspeed;
+  result.velocity_y_sub = (int16)samus_y_subspeed;
+  result.momentum_x = (int16)samus_x_extra_run_speed;
+  result.momentum_x_sub = (int16)samus_x_extra_run_subspeed;
+  result.pose = samus_pose;
   result.facing = obs.facing != 0 ? obs.facing : 0x08;
-  result.movement_type = obs.movement_type;
->>>>>>> df90bf5 (wip)
-  
-  // Speed booster state (not in mini)
-  result.speed_counter = 0;
-  result.speed_flag = 0;
+  result.movement_type = samus_movement_type;
+  result.speed_counter = speed_boost_counter;
+  result.speed_flag = samus_has_momentum_flag ? 1 : 0;
   result.shinespark_timer = 0;
   
   // Energy: read from g_ram $09C2

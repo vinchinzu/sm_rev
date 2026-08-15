@@ -80,12 +80,6 @@ updateMorph input state facing' right down
         , stateMovementType = mvtStanding
         , statePose = if right then poseStandRight else poseStandLeft
         }
-  | xDirection input /= 0 =
-      state
-        { stateFacing = facing'
-        , stateMovementType = mvtMorphBallGround
-        , statePose = if right then poseMorphRight else poseMorphLeft
-        }
   | otherwise =
       state
         { stateFacing = facing'

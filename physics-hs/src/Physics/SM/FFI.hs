@@ -14,16 +14,17 @@ module Physics.SM.FFI
   , fromFrameInput
   , toSimState
   , fromSimState
+  , threadInputs
+  , threadInputsFrom
   ) where
 
 import Data.Aeson
-  ( FromJSON, ToJSON, Value(Object), object, parseJSON, toJSON, withObject
-  , (.:?), (.=)
+  ( FromJSON, ToJSON, Value(Object), parseJSON, toJSON, withObject
   )
 import Data.Int (Int16)
 import Data.Word (Word16)
 import GHC.Generics (Generic)
-import Physics.SM.Constants (faceRight, isFacingRight)
+import Physics.SM.Constants (faceLeft, faceRight, isFacingRight, isGroundMovement)
 import Physics.SM.Types
 
 -- | FrameInput from retro_rl: {"buttons": int} with 12-bit mask.
@@ -66,70 +67,16 @@ data SimState = SimState
   } deriving stock (Eq, Show, Generic)
     deriving anyclass (FromJSON, ToJSON)
 
--- | TrajectoryFrame: SimState + optional enemies.
---
--- Manual FromJSON/ToJSON to omit enemies field when Nothing.
 data TrajectoryFrame = TrajectoryFrame
   { frameState :: !SimState
-  , enemies :: !(Maybe [Enemy])
   } deriving stock (Eq, Show, Generic)
 
 instance FromJSON TrajectoryFrame where
-  parseJSON = withObject "TrajectoryFrame" $ \o -> do
-    st <- parseJSON (Object o)
-    maybeEnemies <- o .:? "enemies"
-    return (TrajectoryFrame st maybeEnemies)
+  parseJSON = withObject "TrajectoryFrame" $ \o ->
+    TrajectoryFrame <$> parseJSON (Object o)
 
 instance ToJSON TrajectoryFrame where
-  toJSON (TrajectoryFrame st Nothing) = object
-    [ "frame" .= frame st
-    , "room_id" .= room_id st
-    , "samus_x" .= samus_x st
-    , "samus_y" .= samus_y st
-    , "samus_x_sub" .= samus_x_sub st
-    , "samus_y_sub" .= samus_y_sub st
-    , "velocity_x" .= velocity_x st
-    , "velocity_y" .= velocity_y st
-    , "velocity_x_sub" .= velocity_x_sub st
-    , "velocity_y_sub" .= velocity_y_sub st
-    , "momentum_x" .= momentum_x st
-    , "momentum_x_sub" .= momentum_x_sub st
-    , "pose" .= pose st
-    , "facing" .= facing st
-    , "movement_type" .= movement_type st
-    , "speed_counter" .= speed_counter st
-    , "speed_flag" .= speed_flag st
-    , "shinespark_timer" .= shinespark_timer st
-    ]
-  toJSON (TrajectoryFrame st (Just es)) = object
-    [ "frame" .= frame st
-    , "room_id" .= room_id st
-    , "samus_x" .= samus_x st
-    , "samus_y" .= samus_y st
-    , "samus_x_sub" .= samus_x_sub st
-    , "samus_y_sub" .= samus_y_sub st
-    , "velocity_x" .= velocity_x st
-    , "velocity_y" .= velocity_y st
-    , "velocity_x_sub" .= velocity_x_sub st
-    , "velocity_y_sub" .= velocity_y_sub st
-    , "momentum_x" .= momentum_x st
-    , "momentum_x_sub" .= momentum_x_sub st
-    , "pose" .= pose st
-    , "facing" .= facing st
-    , "movement_type" .= movement_type st
-    , "speed_counter" .= speed_counter st
-    , "speed_flag" .= speed_flag st
-    , "shinespark_timer" .= shinespark_timer st
-    , "enemies" .= es
-    ]
-
-data Enemy = Enemy
-  { enemy_x :: !Word16
-  , enemy_y :: !Word16
-  , enemy_type :: !Word16
-  , enemy_health :: !Word16
-  } deriving stock (Eq, Show, Generic)
-    deriving anyclass (FromJSON, ToJSON)
+  toJSON (TrajectoryFrame st) = toJSON st
 
 -- | Trajectory.to_dict() from retro_rl physics_sim.py.
 --
@@ -153,6 +100,17 @@ fromFrameInput (FrameInput btns) prev =
     { inputButtons = ButtonMask btns
     , inputPrevButtons = inputButtons prev
     }
+
+threadInputs :: [FrameInput] -> [ControllerInput]
+threadInputs = threadInputsFrom (ControllerInput (ButtonMask 0) (ButtonMask 0))
+
+threadInputsFrom :: ControllerInput -> [FrameInput] -> [ControllerInput]
+threadInputsFrom = go
+  where
+    go _ [] = []
+    go prev (fi:rest) =
+      let cur = fromFrameInput fi prev
+      in cur : go cur rest
 
 -- Residual-relevant fields must round-trip. Extra run is momentum_x.
 -- Speed-booster counter is exposed; shinespark stays zero until Mini
@@ -198,8 +156,8 @@ fromSimState st = SamusState
   , stateMovementType = MovementType (movement_type st)
   , stateVerticalDir = dir
   , stateAccelMode = AccelNone
-  , stateOnGround = onGround
-  , stateFacing = if facing st == 0 then faceRight else facing st
+  , stateOnGround = isGroundMovement (MovementType (movement_type st))
+  , stateFacing = if facing st == faceLeft then faceLeft else faceRight
   , stateFrame = frame st
   , statePrevButtons = ButtonMask 0
   , stateJumpHeld = False
@@ -208,8 +166,6 @@ fromSimState st = SamusState
   , stateEquipment = defaultEquipment
   }
   where
-    mt = movement_type st
-    onGround = mt == 0x00 || mt == 0x01 || mt == 0x04 || mt == 0x05 || mt == 0x10
     extraMag = fromSigned1616 (abs (toSigned1616 (Velocity (momentum_x st) (Subpixel (momentum_x_sub st)))))
     extra = extraMag
     dir

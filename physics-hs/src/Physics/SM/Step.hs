@@ -23,7 +23,8 @@ step cfg input state =
       jumped    = handleJumpInput cfg input posed
       momentumed = tickExtraRun cfg input jumped
       movedX    = updateHorizontalMovement cfg input momentumed
-      movedY    = updateVerticalMovement cfg input movedX
+      leftGround = stateOnGround posed && not (stateOnGround jumped)
+      movedY    = updateVerticalMovement cfg input leftGround movedX
   in movedY
        { stateFrame = stateFrame state + 1
        , statePrevButtons = inputButtons input

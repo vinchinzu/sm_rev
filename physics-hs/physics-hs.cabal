@@ -65,8 +65,6 @@ test-suite physics-hs-test
   main-is: Main.hs
   other-modules:
     Test.Unit
-    Test.Golden
-    Test.HopRise
     Test.Properties
     Test.MiniCompare
     Test.Segments

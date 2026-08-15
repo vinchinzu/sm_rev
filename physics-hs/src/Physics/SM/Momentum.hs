@@ -8,6 +8,7 @@ module Physics.SM.Momentum
   , extraInFacingDir
   ) where
 
+import Data.Int (Int16)
 import Physics.SM.Constants
 import Physics.SM.Types
 
@@ -33,14 +34,25 @@ canBuild input state =
     && stateMovementType state == mvtRunning
     && buttonDown btnB input
 
+-- C IsGreaterThanQuirked: equal is not greater. Signed (hi, lo) compare.
+isGreaterThanQuirked :: Velocity -> Velocity -> Bool
+isGreaterThanQuirked v cap =
+  let vhi = velPixel v
+      cmphi = velPixel cap
+      vlo = unSubpixel (velSubpixel v)
+      cmplo = unSubpixel (velSubpixel cap)
+  in (vhi - cmphi) >= 0
+     && (vhi /= cmphi || (fromIntegral (vlo - cmplo) >= (0 :: Int16) && vlo /= cmplo))
+
 buildExtra :: PhysicsConfig -> SamusState -> SamusState
 buildExtra cfg state =
   let cap = if equipSpeedBooster (stateEquipment state)
                then cfgExtraRunCapBoost cfg
                else cfgExtraRunCapNormal cfg
-      stepped = addVelocity (stateXExtra state) (cfgExtraRunAccel cfg)
-      capped = capMagnitude stepped cap
+      extra' = if isGreaterThanQuirked (stateXExtra state) cap
+                  then cap
+                  else addVelocity (stateXExtra state) (cfgExtraRunAccel cfg)
   in state
-       { stateXExtra = capped
+       { stateXExtra = extra'
        , stateHasMomentum = True
        }

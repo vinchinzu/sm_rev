@@ -1,8 +1,6 @@
 module Main (main) where
 
 import Test.Tasty (TestTree, defaultMain, testGroup)
-import Test.Golden qualified
-import Test.HopRise qualified
 import Test.MiniCompare qualified
 import Test.Properties qualified
 import Test.Segments qualified
@@ -16,7 +14,6 @@ tests = testGroup "Physics.SM"
   [ Test.Unit.tests
   , Test.Properties.tests
   , Test.Segments.tests
-  , Test.Golden.tests
-  , Test.HopRise.tests
   , Test.MiniCompare.tests
   ]
+

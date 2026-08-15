@@ -1,55 +1,20 @@
-# physics-hs — Residual-Complete Pure Model, Still Subordinate To Mini/Emu
+# physics-hs
 
-Haskell stays. It does not compete with Mini or the emulator. It is now
-allowed to grow the **residual-relevant Samus fragment** so pure rollouts
-are actually useful, the same way `retro_rl/nes/smb/approx.py` grew until
-idle / walk / jump / run-jump / land tapes held.
+Pure Haskell model of the residual-relevant Samus fragment. Mini is the
+fast baseline; the emulator is ground truth. If Mini ≠ emu, emu wins.
 
-Use it for:
-- side-effect-free rollouts (easy to parallelize from ML / RL / planning)
-- property tests that are painful in mutating C
-- type-safe residual-relevant state (`Pixel` / `Subpixel` / `Position` / `Velocity`)
-- a readable spec of the implemented motion fragment
-- cheap H↔M CI once `MiniPredict` / `MiniStep` is wired
-
-Do not use it as a second Super Metroid.
-
-## Architecture (Do Not Invert)
-
-```
-H  (pure fragment)  --observe-->  M  (MiniStep / MiniPredict)  --residual-->  E  (snes9x)
-```
-
-- Mini is the fast baseline, not TAS-correct.
-- Emulator is ground truth. If Mini ≠ emu, emu wins.
-- Haskell agrees with the *implemented* residual-relevant fragment, or it is wrong.
-- Mini–emulator residual profiles stay the acceptance check for TAS planning.
+Use it for side-effect-free rollouts, property tests, and a typed spec of
+the implemented motion fragment. Do not grow it into a second Super Metroid.
 
 ## What Works
 
-- Compiles with `-Wall -Werror`
-- Wire format matches retro_rl@66836f5 (`FrameInput`, `SimState`, `Trajectory`)
-- ROM X speed tables (`$90:9F55` / water / lava): walk, run, jump, spin, fall, morph, crouch
-- Walk without B; run with B builds extra-run / momentum
-- Air X on the leave-ground frame (not grounded leftovers)
-- Vanilla jump impulse `4.E000` (−4.875), A-release snaps to falling
-- Flat-floor landing keeps Y subpixel leftover
-- Segment tests: idle, walk, run, jump, run-jump, land
-- Determinism property: same tape → same states
-
-## What This Package Must Not Become
-
-- A dual implementation of doors, enemies, full lag, or slopes
-- A kernel that blocks C collision / knockback / M–E work
-- A planning oracle that is never called from `cabal test` or retro_rl
-
-## Gaps That Still Matter
-
-- No slopes, walls, ceilings, or knockback
-- Jump squat is a 4-frame timer, not the full pose-anim table
-- `run_right.json` is Haskell self-output, not a Mini tape
-- H↔M compare lives in `Test.MiniCompare` (`make hm-test`) and is optional
-- First Mini–emulator residual: [docs/mini_emu_delta.md](../docs/mini_emu_delta.md)
+- ROM walk / run / jump / spin / fall tables
+- Extra-run (including C overshoot-then-snap)
+- Air X on leave-ground, vanilla `4.E000` jump impulse, A-release
+- Flat-floor land keeps Y subpixel leftover
+- `cabal test`: unit, segment, determinism property
+- `Test.MiniCompare` calls `sm_rev_predict` when present (`make hm-test`
+  requires the CLI via `HM_REQUIRED=1`)
 
 ## Build
 
@@ -59,5 +24,4 @@ cabal build
 cabal test
 ```
 
-See [docs/physics_haskell.md](../docs/physics_haskell.md) and
-[docs/roadmap.md](../docs/roadmap.md) for the project-level path.
+See [docs/physics_haskell.md](../docs/physics_haskell.md).

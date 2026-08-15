@@ -20,6 +20,8 @@ module Physics.SM.Types
   , zeroVelocity
   , toSigned1616
   , fromSigned1616
+  , toUnsigned1616
+  , fromUnsigned1616
   , negateVelocity
   , velocityMagnitude
   , cmpMagnitude
@@ -37,6 +39,8 @@ module Physics.SM.Types
   , Equipment (..)
   , defaultEquipment
     -- * Config
+  , EnvTable (..)
+  , selectEnv
   , PhysicsConfig (..)
   , defaultConfig
   ) where
@@ -128,7 +132,7 @@ capMagnitude v limit =
      then if toSigned1616 v < 0 then negateVelocity limit else limit
      else v
 
--- | Multiply a non-negative velocity by an integer (used for extra-run halves).
+-- | Multiply a non-negative velocity by an integer.
 scaleVelocity :: Velocity -> Int32 -> Velocity
 scaleVelocity v n = fromSigned1616 (toSigned1616 v * n)
 
@@ -140,26 +144,22 @@ addVelocity a b = fromSigned1616 (toSigned1616 a + toSigned1616 b)
 subVelocity :: Velocity -> Velocity -> Velocity
 subVelocity a b = fromSigned1616 (toSigned1616 a - toSigned1616 b)
 
--- | Apply velocity to position (signed 16.16 velocity, unsigned position).
---
--- Signed 16.16: pixel (Int16) + subpixel (Word16 fraction).
--- Velocity (-5, 0x2000) = -5 + 0.125 = -4.875, NOT -(5 + 0.125).
+-- | Unsigned 16.16 position as a single Word32.
+toUnsigned1616 :: Position -> Word32
+toUnsigned1616 (Position (Pixel p) (Subpixel s)) =
+  fromIntegral p * 65536 + fromIntegral s
+
+-- | Inverse of 'toUnsigned1616'. Low 16 bits are the subpixel.
+fromUnsigned1616 :: Word32 -> Position
+fromUnsigned1616 n =
+  Position (Pixel (fromIntegral (n `shiftR` 16)))
+           (Subpixel (fromIntegral n))
+
+-- | Apply signed 16.16 velocity to unsigned position via 2^32 wrap.
+-- Negative Int32 -> Word32 is the intended wrap.
 applyVelocity :: Position -> Velocity -> Position
-applyVelocity (Position pp ps) (Velocity vp vs)
-  | vp < 0 && unSubpixel vs /= 0 =
-      let mag_pixel = fromIntegral (abs vp - 1) :: Word16
-          mag_sub_val = (0x10000 :: Word32) - fromIntegral (unSubpixel vs)
-          mag_sub = Subpixel (fromIntegral mag_sub_val :: Word16)
-          absPos = Position (Pixel mag_pixel) mag_sub
-      in subPosition (Position pp ps) absPos
-  | vp < 0 =
-      let absP = fromIntegral (abs vp) :: Word16
-          absPos = Position (Pixel absP) (Subpixel 0)
-      in subPosition (Position pp ps) absPos
-  | otherwise =
-      let posP = fromIntegral vp :: Word16
-          posPos = Position (Pixel posP) vs
-      in addPosition (Position pp ps) posPos
+applyVelocity pos vel =
+  fromUnsigned1616 (toUnsigned1616 pos + fromIntegral (toSigned1616 vel))
 
 zeroPosition :: Position
 zeroPosition = Position (Pixel 0) (Subpixel 0)
@@ -228,6 +228,19 @@ defaultEquipment = Equipment
   , equipMorph = False
   }
 
+-- | Per-environment table (air / water / lava-acid).
+data EnvTable a = EnvTable
+  { envAir :: !a
+  , envWater :: !a
+  , envLava :: !a
+  } deriving stock (Eq, Show, Generic)
+    deriving anyclass (FromJSON, ToJSON)
+
+selectEnv :: Environment -> EnvTable a -> a
+selectEnv EnvAir      = envAir
+selectEnv EnvWater    = envWater
+selectEnv EnvLavaAcid = envLava
+
 -- | Full Samus state for one frame.
 data SamusState = SamusState
   { -- Position
@@ -261,9 +274,9 @@ data SamusState = SamusState
 -- | Physics configuration. Jump / gravity / extra-run numbers match
 -- physics_config.c and the ROM extra-run table at $90:9F07.
 data PhysicsConfig = PhysicsConfig
-  { cfgJumpInitialSpeed :: ![Velocity]
-  , cfgJumpHiInitialSpeed :: ![Velocity]
-  , cfgGravityAccel :: ![Velocity]
+  { cfgJumpInitialSpeed :: !(EnvTable Velocity)
+  , cfgJumpHiInitialSpeed :: !(EnvTable Velocity)
+  , cfgGravityAccel :: !(EnvTable Velocity)
   , cfgTerminalSpeed :: !Pixel
   , cfgJumpSquatDuration :: !Word16
   , cfgGroundY :: !Pixel
@@ -280,21 +293,21 @@ data PhysicsConfig = PhysicsConfig
 -- 16.16. Air 4.E000 = -4.875 = Velocity (-5, 0x2000).
 defaultConfig :: PhysicsConfig
 defaultConfig = PhysicsConfig
-  { cfgJumpInitialSpeed =
-      [ Velocity (-5) (Subpixel 0x2000)  -- air: 4.E000 upward
-      , Velocity (-2) (Subpixel 0x4000)  -- water: 1.C000
-      , Velocity (-3) (Subpixel 0x4000)  -- lava: 2.C000
-      ]
-  , cfgJumpHiInitialSpeed =
-      [ Velocity (-6) (Subpixel 0x0000)  -- air: 6.0000
-      , Velocity (-3) (Subpixel 0x8000)  -- water: 2.8000
-      , Velocity (-4) (Subpixel 0x8000)  -- lava: 3.8000
-      ]
-  , cfgGravityAccel =
-      [ Velocity 0 (Subpixel 0x1c00)  -- air
-      , Velocity 0 (Subpixel 0x0800)  -- water
-      , Velocity 0 (Subpixel 0x0900)  -- lava
-      ]
+  { cfgJumpInitialSpeed = EnvTable
+      { envAir   = Velocity (-5) (Subpixel 0x2000)  -- air: 4.E000 upward
+      , envWater = Velocity (-2) (Subpixel 0x4000)  -- water: 1.C000
+      , envLava  = Velocity (-3) (Subpixel 0x4000)  -- lava: 2.C000
+      }
+  , cfgJumpHiInitialSpeed = EnvTable
+      { envAir   = Velocity (-6) (Subpixel 0x0000)  -- air: 6.0000
+      , envWater = Velocity (-3) (Subpixel 0x8000)  -- water: 2.8000
+      , envLava  = Velocity (-4) (Subpixel 0x8000)  -- lava: 3.8000
+      }
+  , cfgGravityAccel = EnvTable
+      { envAir   = Velocity 0 (Subpixel 0x1c00)
+      , envWater = Velocity 0 (Subpixel 0x0800)
+      , envLava  = Velocity 0 (Subpixel 0x0900)
+      }
   , cfgTerminalSpeed = Pixel 5
   , cfgJumpSquatDuration = 4
   , cfgGroundY = Pixel 200

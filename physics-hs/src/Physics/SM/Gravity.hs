@@ -5,22 +5,24 @@
 -- for the next frame. A-release and apex both snap to falling at 0
 -- (not a 0x0100 clip). Landing keeps leftover Y subpixel.
 module Physics.SM.Gravity
-  ( applyGravity
-  , updateVerticalMovement
+  ( updateVerticalMovement
   , checkLanding
   ) where
 
 import Data.Int (Int16)
-import Physics.SM.Constants
+import Physics.SM.Constants (btnA, buttonDown)
 import Physics.SM.Pose (poseForLanding)
 import Physics.SM.Types
 
 -- | Update vertical position and velocity.
-updateVerticalMovement :: PhysicsConfig -> ControllerInput -> SamusState -> SamusState
-updateVerticalMovement cfg input state
+--
+-- justLeftGround: skip A-release so the takeoff impulse still moves Y.
+-- Later airborne frames keep C order (release, then move).
+updateVerticalMovement :: PhysicsConfig -> ControllerInput -> Bool -> SamusState -> SamusState
+updateVerticalMovement cfg input justLeftGround state
   | stateOnGround state = state
   | otherwise =
-      let released = applyJumpRelease input state
+      let released = if justLeftGround then state else applyJumpRelease input state
           moved = released { stateYPos = applyVelocity (stateYPos released) (stateYVel released) }
           accelerated = updateYSpeed cfg moved
       in checkLanding cfg accelerated
@@ -38,11 +40,10 @@ applyJumpRelease input state
   | otherwise = state { stateJumpHeld = buttonDown btnA input }
 
 -- | Gravity after the position step. Rising subtracts until underflow,
--- then snaps to falling at 0. Falling adds until terminal 5.0.
+-- then snaps to falling at 0. Falling adds unless pixel speed is already 5.
 updateYSpeed :: PhysicsConfig -> SamusState -> SamusState
 updateYSpeed cfg state =
   let gravity = selectGravity cfg (stateEnvironment state)
-      term = fromIntegral (unPixel (cfgTerminalSpeed cfg)) :: Int16
   in case stateVerticalDir state of
        VDirRising ->
          let next = addVelocity (stateYVel state) gravity
@@ -50,16 +51,11 @@ updateYSpeed cfg state =
                then state { stateYVel = zeroVelocity, stateVerticalDir = VDirFalling }
                else state { stateYVel = next }
        VDirFalling ->
-         let vel = stateYVel state
-             atCap = velPixel vel > term
-                  || (velPixel vel == term && unSubpixel (velSubpixel vel) > 0)
-             next = addVelocity vel gravity
-         in if atCap || velPixel vel == term
-               then state { stateYVel = Velocity term (Subpixel 0) }
-               else if velPixel next > term
-                       || (velPixel next == term && unSubpixel (velSubpixel next) > 0)
-                       then state { stateYVel = Velocity term (Subpixel 0) }
-                       else state { stateYVel = next }
+         let term = fromIntegral (unPixel (cfgTerminalSpeed cfg)) :: Int16
+             vel = stateYVel state
+         in if velPixel vel == term
+               then state
+               else state { stateYVel = addVelocity vel gravity }
        VDirStationary ->
          state { stateVerticalDir = VDirFalling, stateYVel = gravity }
 
@@ -78,16 +74,5 @@ checkLanding cfg state =
                }
         else state
 
--- | Apply gravity to Y velocity (kept for unit tests that call it directly).
-applyGravity :: PhysicsConfig -> Environment -> SamusState -> SamusState
-applyGravity cfg env state =
-  let gravity = selectGravity cfg env
-  in state { stateYVel = addVelocity (stateYVel state) gravity }
-
 selectGravity :: PhysicsConfig -> Environment -> Velocity
-selectGravity cfg env =
-  let envIdx = case env of
-                 EnvAir -> 0
-                 EnvWater -> 1
-                 EnvLavaAcid -> 2
-  in cfgGravityAccel cfg !! envIdx
+selectGravity cfg env = selectEnv env (cfgGravityAccel cfg)

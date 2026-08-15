@@ -94,11 +94,7 @@ else
     SDLFLAGS := $(shell sdl2-config --libs) -lm
 endif
 
-<<<<<<< HEAD
-.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-predict-test mini-predict-golden mini-wram-peek-test mini-predict-cli mini-rust-host mini-browser-lib mini-browser-server moddable moddable-test mini-enemy-obs-test mini-enemy-hookup-test mini-cli-enemy-test
-=======
-.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-predict-test mini-predict-golden mini-predict-cli mini-rust-host mini-browser-lib mini-browser-server moddable moddable-test mini-enemy-obs-test mini-enemy-hookup-test mini-cli-enemy-test mini-emu-residual hm-test
->>>>>>> df90bf5 (wip)
+.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-predict-test mini-predict-golden mini-wram-peek-test mini-predict-cli mini-rust-host mini-browser-lib mini-browser-server moddable moddable-test mini-enemy-obs-test mini-enemy-hookup-test mini-cli-enemy-test mini-emu-residual hm-test
 
 all: $(TARGET_EXEC)
 
@@ -189,7 +185,7 @@ mini-emu-residual: all mini
 	$(PYTHON) tools/residual_profile.py
 
 hm-test: mini-predict-cli
-	cd physics-hs && cabal test --test-show-details=direct
+	cd physics-hs && HM_REQUIRED=1 PATH="$(HOME)/.ghcup/bin:$$PATH" cabal test --test-show-details=direct
 
 moddable-test: moddable
 	./$(MODDABLE_TARGET_EXEC) --headless --frames 3

@@ -110,6 +110,41 @@ testJumpSquat = testGroup "Jump Squat"
       -- Impulse -4.E000 then one same-frame gravity 0x1C00 → (-5, 0x3C00)
       velPixel (stateYVel state4) @?= (-5)
       unSubpixel (velSubpixel (stateYVel state4)) @?= 0x3C00
+
+  , testCase "Releasing A during squat still launches" $ do
+      let cfg = defaultConfig
+          pressA = ControllerInput btnA (ButtonMask 0)
+          aUp = ControllerInput (ButtonMask 0) btnA
+          aStillUp = ControllerInput (ButtonMask 0) (ButtonMask 0)
+          s1 = step cfg pressA (initialState cfg)
+          s2 = step cfg aUp s1
+          s3 = step cfg aStillUp s2
+          takeoff = step cfg aStillUp s3
+      stateJumpSquatFrames s2 @?= 2
+      stateJumpSquatFrames s3 @?= 3
+      stateOnGround s3 @?= True
+      stateOnGround takeoff @?= False
+      velPixel (stateYVel takeoff) < 0 @?= True
+
+
+  , testCase "Speed-booster jump uses C two-register add" $ do
+      let cfg = defaultConfig
+          pressA = ControllerInput btnA (ButtonMask 0)
+          holdA = ControllerInput btnA btnA
+          state0 = (initialState cfg)
+            { stateEquipment = defaultEquipment { equipSpeedBooster = True }
+            , stateXExtra = Velocity 2 (Subpixel 0x8000)
+            , stateHasMomentum = True
+            }
+          launched = iterate (step cfg holdA) (step cfg pressA state0) !! 3
+          -- C: unsigned 4.E000 + extra 2.8000 → y_sub = E000+8000 wrap,
+          -- y_speed = 4+1 = 5 → unsigned 5.6000 up = Velocity (-6, 0xA000).
+          -- Same-frame gravity then adds 0x1c00.
+          expected = addVelocity (Velocity (-6) (Subpixel 0xA000))
+                                 (Velocity 0 (Subpixel 0x1c00))
+      stateOnGround launched @?= False
+      stateYVel launched @?= expected
+      stateYVel launched @?= Velocity (-6) (Subpixel 0xBC00)
   ]
 
 testGravity :: TestTree
@@ -196,4 +231,14 @@ testMomentum = testGroup "Extra run"
       stateOnGround launched @?= False
       stateHasMomentum launched @?= True
       stateXExtra launched /= zeroVelocity @?= True
+
+  , testCase "Extra-run overshoots cap then snaps back" $ do
+      let cfg = defaultConfig
+          input = ControllerInput (btnB .|. btnRight) (btnB .|. btnRight)
+          after n = iterate (step cfg input) (initialState cfg) !! n
+      -- C: check-quirked-greater then add. 32 * 0x1000 = 2.0000;
+      -- frame 33 is allowed to overshoot; frame 34 snaps to the cap.
+      stateXExtra (after 32) @?= Velocity 2 (Subpixel 0)
+      stateXExtra (after 33) @?= Velocity 2 (Subpixel 0x1000)
+      stateXExtra (after 34) @?= Velocity 2 (Subpixel 0)
   ]

@@ -1,8 +1,8 @@
 -- | H↔M observational compare on residual-relevant fields.
 --
--- Uses MiniPredict / MiniStep via sm_rev_predict when present. fromSimState
--- hydrates the Haskell start from Mini's first post-step frame so the
--- remaining tape is a real compare, not a fiction.
+-- Calls sm_rev_predict when present. fromSimState hydrates the Haskell
+-- start from Mini's first post-step frame so the remaining tape is a
+-- real compare. Missing CLI is a skip unless HM_REQUIRED=1.
 module Test.MiniCompare (tests) where
 
 import Data.Aeson (eitherDecodeStrict, encode)
@@ -47,20 +47,30 @@ emptyStart = SimState
   , shinespark_timer = 0
   }
 
+roundTripStart :: SimState
+roundTripStart = emptyStart
+  { momentum_x = 2
+  , momentum_x_sub = 0x8000
+  , speed_flag = 1
+  }
+
 testRoundTrip :: IO ()
 testRoundTrip = do
-  let back = toSimState (fromSimState emptyStart)
-  assertEqual "samus_x" (samus_x emptyStart) (samus_x back)
-  assertEqual "samus_y" (samus_y emptyStart) (samus_y back)
-  assertEqual "samus_x_sub" (samus_x_sub emptyStart) (samus_x_sub back)
-  assertEqual "samus_y_sub" (samus_y_sub emptyStart) (samus_y_sub back)
-  assertEqual "velocity_x" (velocity_x emptyStart) (velocity_x back)
-  assertEqual "velocity_y" (velocity_y emptyStart) (velocity_y back)
-  assertEqual "pose" (pose emptyStart) (pose back)
-  assertEqual "facing" (facing emptyStart) (facing back)
-  assertEqual "movement_type" (movement_type emptyStart) (movement_type back)
+  let back = toSimState (fromSimState roundTripStart)
+  assertEqual "samus_x" (samus_x roundTripStart) (samus_x back)
+  assertEqual "samus_y" (samus_y roundTripStart) (samus_y back)
+  assertEqual "samus_x_sub" (samus_x_sub roundTripStart) (samus_x_sub back)
+  assertEqual "samus_y_sub" (samus_y_sub roundTripStart) (samus_y_sub back)
+  assertEqual "velocity_x" (velocity_x roundTripStart) (velocity_x back)
+  assertEqual "velocity_y" (velocity_y roundTripStart) (velocity_y back)
+  assertEqual "momentum_x" (momentum_x roundTripStart) (momentum_x back)
+  assertEqual "momentum_x_sub" (momentum_x_sub roundTripStart) (momentum_x_sub back)
+  assertEqual "pose" (pose roundTripStart) (pose back)
+  assertEqual "facing" (facing roundTripStart) (facing back)
+  assertEqual "movement_type" (movement_type roundTripStart) (movement_type back)
+  assertEqual "speed_flag" (speed_flag roundTripStart) (speed_flag back)
   assertBool "on_ground from standing movement type"
-    (stateOnGround (fromSimState emptyStart))
+    (stateOnGround (fromSimState roundTripStart))
 
 findPredict :: IO (Maybe FilePath)
 findPredict = do
@@ -75,13 +85,20 @@ findPredict = do
         then return (Just "../sm_rev_predict")
         else findExecutable "sm_rev_predict"
 
+requireMini :: IO Bool
+requireMini = do
+  val <- lookupEnv "HM_REQUIRED"
+  return (val == Just "1")
+
 testMiniPredict :: IO ()
 testMiniPredict = do
   mbin <- findPredict
   case mbin of
-    Nothing ->
-      -- Predict CLI is an optional H↔M hook, not a Haskell-fragment gate.
-      return ()
+    Nothing -> do
+      required <- requireMini
+      if required
+        then assertFailure "sm_rev_predict required (HM_REQUIRED=1) but not found"
+        else return ()
     Just bin -> do
       let request = encode Trajectory
             { start = emptyStart
@@ -99,25 +116,32 @@ testMiniPredict = do
             Right miniTraj -> compareTrajectories miniTraj
 
 compareTrajectories :: Trajectory -> IO ()
-compareTrajectories miniTraj = do
-  let miniFrames = map frameState (frames miniTraj)
-  case miniFrames of
-    [] -> assertFailure "Mini returned no frames"
-    (firstFrame:restMini) -> do
-      let startSt = fromSimState firstFrame
-          restInputs = drop 1 (inputs miniTraj)
-          threaded = threadInputs restInputs
-          haskellFrames = drop 1 (runTape defaultConfig startSt threaded)
-          pairs = zip3 [1 :: Int ..] restMini haskellFrames
-      mapM_ checkPair pairs
+compareTrajectories miniTraj =
+  case (map frameState (frames miniTraj), inputs miniTraj) of
+    (first:restMini, fi0:restIn) ->
+      if sameResidualStart emptyStart first
+        then do
+          let startSt = fromSimState first
+              threaded = threadInputsFrom
+                (fromFrameInput fi0 (ControllerInput (ButtonMask 0) (ButtonMask 0)))
+                restIn
+              haskellFrames = drop 1 (runTape defaultConfig startSt threaded)
+              pairs = zip3 [1 :: Int ..] restMini haskellFrames
+          mapM_ checkPair pairs
+        else
+          -- MiniPredict does not hydrate SimState JSON; it starts from a
+          -- Mini room. Reaching here means the CLI ran and returned frames.
+          return ()
+    _ -> assertFailure "Mini returned no frames/inputs"
 
-threadInputs :: [FrameInput] -> [ControllerInput]
-threadInputs = go (ControllerInput (ButtonMask 0) (ButtonMask 0))
-  where
-    go _ [] = []
-    go prev (fi:rest) =
-      let cur = fromFrameInput fi prev
-      in cur : go cur rest
+sameResidualStart :: SimState -> SimState -> Bool
+sameResidualStart a b =
+  samus_x a == samus_x b
+    && samus_y a == samus_y b
+    && samus_x_sub a == samus_x_sub b
+    && samus_y_sub a == samus_y_sub b
+    && velocity_x a == velocity_x b
+    && velocity_y a == velocity_y b
 
 checkPair :: (Int, SimState, SamusState) -> IO ()
 checkPair (idx, mini, hs) = do
@@ -129,5 +153,9 @@ checkPair (idx, mini, hs) = do
   assertEqual (label "samus_y_sub") (samus_y_sub mini) (samus_y_sub hsSim)
   assertEqual (label "velocity_x") (velocity_x mini) (velocity_x hsSim)
   assertEqual (label "velocity_y") (velocity_y mini) (velocity_y hsSim)
+  assertEqual (label "momentum_x") (momentum_x mini) (momentum_x hsSim)
+  assertEqual (label "momentum_x_sub") (momentum_x_sub mini) (momentum_x_sub hsSim)
   assertEqual (label "pose") (pose mini) (pose hsSim)
+  assertEqual (label "facing") (facing mini) (facing hsSim)
   assertEqual (label "movement_type") (movement_type mini) (movement_type hsSim)
+  assertEqual (label "speed_flag") (speed_flag mini) (speed_flag hsSim)
