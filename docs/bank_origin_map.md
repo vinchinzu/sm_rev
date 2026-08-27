@@ -106,11 +106,10 @@ answer: "where did this logic live before we split it?"
 | `src/enemy_torizo_projectiles.c` | `../sm/src/sm_86.c` | Bomb/Golden Torizo enemy-projectile handlers from Bank `$86`: Chozo orbs, finish explosions, sonic booms, Golden Torizo eggs, super missiles, eye beams, and related Torizo projectile instructions |
 | `src/enemy_chozo_shaktool.c` | `../sm/src/sm_aa.c` | Tourian Entrance Statue, Shaktool, and Chozo Statue runtimes peeled from Bank `$AA`; retires Bank `$AA` |
 | `src/enemy_crocomire.c` | `../sm/src/sm_a4.c` | Crocomire boss runtime lifted whole from Bank `$A4`; retires Bank `$A4` |
-| `src/enemy_draygon_spore.c` | `../sm/src/sm_a5.c` | Draygon and Spore Spawn boss runtimes lifted whole from Bank `$A5`; retires Bank `$A5` |
+| `src/enemy_draygon.c` | `../sm/src/sm_a5.c` | Draygon boss runtime peeled from Bank `$A5` |
+| `src/enemy_spore_spawn.c` | `../sm/src/sm_a5.c` | Spore Spawn boss runtime peeled from Bank `$A5`; retires Bank `$A5` |
 | `src/enemy_space_pirates.c` | `../sm/src/sm_b2.c` | Walking, Ninja, and Wall Space Pirate runtimes lifted whole from Bank `$B2`; retires Bank `$B2` |
 | `src/enemy_botwoon.c` | `../sm/src/sm_b3.c` | Botwoon boss runtime lifted whole from Bank `$B3`; retires Bank `$B3` |
-| `src/enemy_ridley_zebetite.c` | `../sm/src/sm_a6.c` | Ridley boss + zebetites lifted whole from Bank `$A6`; retires Bank `$A6` |
-| `src/enemy_a2_misc.c` | `../sm/src/sm_a2.c` | Bank `$A2` remainder after gunship was peeled out: shutters, Norfair/Maridia fauna, and small enemies; retires Bank `$A2` |
 | `src/enemy_ridley.c` | `../sm/src/sm_a6.c` | Ridley boss + RidleysExplosion + CallRidley* peeled from Bank `$A6`; Bank `$A6` stays retired |
 | `src/enemy_ceres_ridley.c` | `../sm/src/sm_a6.c` | CeresRidley + HandleCeresRidleyGetawayCutscene |
 | `src/enemy_zebetite.c` | `../sm/src/sm_a6.c` | Zebetites |
@@ -122,7 +121,8 @@ answer: "where did this logic live before we split it?"
 | `src/enemy_fake_kraid.c` | `../sm/src/sm_a6.c` | Fake Kraid / Mini-Kraid |
 | `src/enemy_boulder.c` | `../sm/src/sm_a6.c` | Boulder |
 | `src/enemy_fire_geyser.c` | `../sm/src/sm_a6.c` | Fire geyser |
-| `src/enemy_kraid_phantoon.c` | `../sm/src/sm_a7.c` | Kraid + Phantoon bosses lifted whole from Bank `$A7`; retires Bank `$A7` |
+| `src/enemy_kraid.c` | `../sm/src/sm_a7.c` | Kraid boss runtime peeled from Bank `$A7` |
+| `src/enemy_phantoon.c` | `../sm/src/sm_a7.c` | Phantoon boss runtime peeled from Bank `$A7`; retires Bank `$A7` |
 | `src/enemy_ki_hunter.c` | `../sm/src/sm_a8.c` | Ki-Hunter + Ki-Hunter Wings runtime peeled from Bank `$A8`; `CallKiHunter*` stays with this family |
 | `src/enemy_beetom.c` | `../sm/src/sm_a8.c` | Beetom runtime peeled from Bank `$A8` |
 | `src/enemy_norfair_lava_man.c` | `../sm/src/sm_a8.c` | Norfair Lava Man runtime peeled from Bank `$A8` |
@@ -137,8 +137,6 @@ answer: "where did this logic live before we split it?"
 | `src/enemy_fune.c` | `../sm/src/sm_a8.c` | Fune runtime peeled from Bank `$A8` |
 | `src/enemy_kago.c` | `../sm/src/sm_a8.c` | Kago runtime peeled from Bank `$A8` |
 | `src/enemy_blue_brinstar_face_block.c` | `../sm/src/sm_a8.c` | Blue Brinstar Face Block runtime peeled from Bank `$A8`; together these peels retire Bank `$A8` |
-| `src/enemy_mother_brain.c` | `../sm/src/sm_a9.c` | Mother Brain + Shitroid + dead-monster props lifted whole from Bank `$A9`; retires Bank `$A9` |
-| `src/enemy_ki_hunter.c` | `../sm/src/sm_a8.c` | Ki-Hunter and remaining Bank `$A8` enemies lifted whole; retires Bank `$A8` |
 | `src/enemy_mother_brain.c` | `../sm/src/sm_a9.c` | Mother Brain body/brain/tubes, MotherBomb, CallMotherBrain*, and rainbow-beam Samus helpers from Bank `$A9` |
 | `src/enemy_shitroid.c` | `../sm/src/sm_a9.c` | Shitroid + ShitroidInCutscene + CallShitroid* runtime from Bank `$A9` |
 | `src/enemy_dead_monsters.c` | `../sm/src/sm_a9.c` | Dead Torizo/Sidehopper/Zoomer/Skree/Ripper props and shared corpse-rotting Process/Initialize/CallCorpseRotting* from Bank `$A9`; retires Bank `$A9` |
