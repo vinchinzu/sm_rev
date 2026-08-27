@@ -46,6 +46,10 @@ Avoid monolithic files based on ROM banks (e.g., `sm_91.c`). Instead, group code
 - Replace `goto` chains and "fall-through" logic with `if/else`, `switch/case`, and `for/while` loops.
 - Use `bool` or `sign16()` instead of bitwise checks like `(val & 0x8000)`.
 
+C-ify an already-split creature or eproj family file using the per-file bar
+in [docs/cify_bar.md](docs/cify_bar.md) (named tables, no `v0`/`LABEL_`,
+`kSfx_*` / `kProjectileType_*`). One family per patch.
+
 ## 3. Eliminating Magic Numbers
 
 Magic numbers make code hard to read and sensitive to changes.
