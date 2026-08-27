@@ -3258,7 +3258,7 @@ uint8 Phantoon_Func_3(int32 amt);
 uint8 Phantoon_Func_8(void);
 uint8 Phantoon_Func_9(void);
 uint8 Phantoon_SetColorBasedOnHp(void);
-void Dachora_Func_1(uint16 j, uint16 k);
+void Dachora_Func_1(const uint16 *src, uint16 k);
 void Dachora_Func_10(uint16 k);
 void Dachora_Func_11(uint16 k);
 void Dachora_Func_12(uint16 k);
