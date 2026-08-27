@@ -421,7 +421,7 @@ void InitializeEnemies(void) {  // 0xA08A9E
     E->frame_counter = 0;
     RecordEnemySpawnData(v5);
     cur_enemy_index = v5;
-    CallEnemyAi(ED->bank << 16 | ED->ai_init);
+    RunEnemyAiFn(GetEnemyDefAiFns(EP->enemy_ptr)->ai_init);
     E->spritemap_pointer = 0;
     if ((E->properties & kEnemyProps_ProcessInstructions) != 0) {
       uint16 v12 = addr_kSpritemap_Nothing_A4;
@@ -506,7 +506,7 @@ void ProcessEnemyInstructions(void) {  // 0xA0C26A
       const uint8 *base_ptr = RomBankBase(E->bank);
       const uint16 *pc = (const uint16 *)(base_ptr + E->current_instruction);
       while ((*pc & 0x8000) != 0) {
-        pc = CallEnemyInstr(E->bank << 16 | *pc, cur_enemy_index, pc + 1);
+        pc = EnemyRunInstr(*pc, cur_enemy_index, pc + 1);
         if (!pc)
           return;
         if ((uintptr_t)pc < 0x10000)
@@ -554,22 +554,21 @@ void EnemyMain(void) {  // 0xA08FD4
           bool update_frame_and_instr = false;
           UNUSED_word_7E17A2 = 0;
           if (!(debug_time_frozen_for_enemies | time_is_frozen_flag)) {
-            int16 handler_index = 0;
-            uint16 ai_handler_bits = E->ai_handler_bits;
-            if (ai_handler_bits) {
-              int8 bit_set;
-              do {
-                ++handler_index;
-                bit_set = ai_handler_bits & 1;
-                ai_handler_bits >>= 1;
-              } while (!bit_set);
-            }
-            CallEnemyAi(E->bank << 16 | get_EnemyDef_A2(E->enemy_ptr + 2 * handler_index)->main_ai);
+            const EnemyDefAiFns *fns = GetEnemyDefAiFns(E->enemy_ptr);
+            EnemyAiFn ai = fns->main_ai;
+            uint16 bits = E->ai_handler_bits;
+            if (bits & kEnemyAiBits_Grapple)
+              ai = fns->grapple_ai;
+            else if (bits & kEnemyAiBits_Hurt)
+              ai = fns->hurt_ai;
+            else if (bits & kEnemyAiBits_Frozen)
+              ai = fns->frozen_ai;
+            RunEnemyAiFn(ai);
             update_frame_and_instr = true;
           } else {
-            EnemyDef *ED = get_EnemyDef_A2(E->enemy_ptr);
-            if (ED->time_is_frozen_ai) {
-              CallEnemyAi(E->bank << 16 | ED->time_is_frozen_ai);
+            EnemyAiFn frozen = GetEnemyDefAiFns(E->enemy_ptr)->time_is_frozen_ai;
+            if (frozen) {
+              frozen();
               update_frame_and_instr = true;
             }
           }
@@ -700,7 +699,7 @@ add_enemy:
     RecordEnemySpawnData(new_enemy_index);
     cur_enemy_index = new_enemy_index;
     if (sign16(ED->ai_init))
-      CallEnemyAi(ED->bank << 16 | ED->ai_init);
+      RunEnemyAiFn(GetEnemyDefAiFns(EP->enemy_ptr)->ai_init);
     if ((E->properties & kEnemyProps_ProcessInstructions) != 0)
       E->spritemap_pointer = addr_kSpritemap_Nothing_A0;
     if (!varE26 || !--varE26) {

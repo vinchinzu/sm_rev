@@ -177,9 +177,6 @@ extern const int16 kSinCosTable8bit_Sext[320];
 #define kSine16bit ((uint16*)RomFixedPtr(0xa0b1c3))
 #define kTanTable ((uint16*)RomFixedPtr(0x91c9d4))
 
-void CallEnemyAi(uint32 ea);
-void CallEnemyPreInstr(uint32 ea);
-const uint16 *CallEnemyInstr(uint32 ea, uint16 k, const uint16 *jp);
 const uint16 *EnemyInstr_SetAiPreInstr(uint16 k, const uint16 *jp);
 const uint16 *EnemyInstr_ClearAiPreInstr(uint16 k, const uint16 *jp);
 const uint16 *EnemyInstr_StopScript(uint16 k, const uint16 *jp);

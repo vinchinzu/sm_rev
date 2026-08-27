@@ -5,6 +5,7 @@
 #include "funcs.h"
 #include "enemy_types.h"
 #include "samus_status.h"
+#include "enemy_ai_canon.h"
 
 enum EnemyGrappleReact {
   kEnemyGrappleReact_NoInteract = 0,
@@ -110,7 +111,7 @@ void SamusLatchesOnWithGrappleNoInvinc(void) {  // 0xA09FE9
   if (E->frozen_timer) {
     E->ai_handler_bits = kEnemyAiBits_Frozen;
   } else {
-    CallEnemyAi(E->bank << 16 | get_EnemyDef_A2(E->enemy_ptr)->main_ai);
+    RunEnemyAiFn(GetEnemyDefAiFns(E->enemy_ptr)->main_ai);
     E->ai_handler_bits = 0;
   }
   grapple_beam_end_x_pos = E->x_pos;
@@ -146,7 +147,7 @@ void func_nullsub_4(void) {
 }
 
 static void CallHitboxTouch(uint32 ea) {
-  CallEnemyAi(ea);
+  EnemyAiFromAddr(ea)();
 }
 
 void EnemySamusCollHandler_Multibox(void) {  // 0xA09A5A
@@ -213,7 +214,7 @@ void EnemySamusCollHandler(void) {  // 0xA0A07A
       abs16(samus_y_pos - E->y_pos) - samus_y_radius < E->y_height) {
     // r20 = 2 * E->spritemap_pointer;
     if (E->enemy_ptr == addr_kEnemyDef_DAFF || !E->frozen_timer)
-      CallEnemyAi(E->bank << 16 | ED->touch_ai);
+      RunEnemyAiFn(GetEnemyDefAiFns(E->enemy_ptr)->touch_ai);
   }
 }
 

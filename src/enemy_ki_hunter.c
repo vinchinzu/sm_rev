@@ -5,6 +5,7 @@
 #include "sm_rtl.h"
 #include "funcs.h"
 #include "enemy_types.h"
+#include "enemy_ai_canon.h"
 
 
 #define g_off_A890DA ((uint16*)RomFixedPtr(0xa890da))
@@ -388,7 +389,7 @@ void MorphBallEye_Init(void) {  // 0xA89058
 void MorphBallEye_Main(void) {  // 0xA890E2
   if ((collected_items & 4) != 0) {
     Enemy_MorphBallEye *E = Get_MorphBallEye(cur_enemy_index);
-    CallEnemyPreInstr(E->mbee_var_F | 0xA80000);
+    EnemyRunPreInstr(E->mbee_var_F);
   }
 }
 
@@ -1504,7 +1505,7 @@ void NorfairLavaMan_Func_6(void) {  // 0xA8B0B2
 void NorfairLavaMan_Main(void) {  // 0xA8B10A
   Enemy_NorfairLavaMan *E = Get_NorfairLavaMan(cur_enemy_index);
   --E->nlmn_var_04;
-  CallEnemyPreInstr(E->nlmn_var_F | 0xA80000);
+  EnemyRunPreInstr(E->nlmn_var_F);
 }
 
 void NorfairLavaMan_Func_7(uint16 k) {  // 0xA8B11A
@@ -2260,7 +2261,7 @@ void MaridiaFloater_Init(void) {  // 0xA8C1C9
 
 void MaridiaFloater_Main(void) {  // 0xA8C21C
   Enemy_MaridiaFloater *E = Get_MaridiaFloater(cur_enemy_index);
-  CallEnemyPreInstr(E->mfr_var_F | 0xA80000);
+  EnemyRunPreInstr(E->mfr_var_F);
 }
 
 void MaridiaFloater_Func_1(uint16 k) {  // 0xA8C223

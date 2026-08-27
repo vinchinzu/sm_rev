@@ -4,6 +4,7 @@
 #include "funcs.h"
 #include "enemy_types.h"
 #include "sm_rtl.h"
+#include "enemy_ai_canon.h"
 
 #undef r18
 
@@ -111,7 +112,7 @@ void Phantoon2_Init(void) {  // 0xA7CE55
 void Phantoon_Main(void) {  // 0xA7CEA6
   Phantoon_Func_2(cur_enemy_index);
   Enemy_Phantoon *EK = Get_Phantoon(cur_enemy_index);
-  CallEnemyPreInstr(EK->phant_var_F | 0xA70000);
+  EnemyRunPreInstr(EK->phant_var_F);
   if (cur_enemy_index == 0) { // code bug: X is overwritten
     Enemy_Phantoon *E0 = Get_Phantoon(0);
     Enemy_Phantoon *E1 = Get_Phantoon(0x40);
@@ -1221,7 +1222,7 @@ void Etecoon_Main(void) {  // 0xA7E940
   if (HIBYTE(E->etecoon_parameter_2))
     E->etecoon_parameter_2 -= 256;
   else
-    CallEnemyPreInstr(E->etecoon_var_F | 0xA70000);
+    EnemyRunPreInstr(E->etecoon_var_F);
 }
 
 void Etecoon_Func_1(uint16 k) {  // 0xA7E958
@@ -1632,7 +1633,7 @@ void Dachora_Init(void) {  // 0xA7F4DD
 
 void Dachora_Main(void) {  // 0xA7F52E
   Enemy_Dachora *E = Get_Dachora(cur_enemy_index);
-  CallEnemyPreInstr(E->dachor_var_F | 0xA70000);
+  EnemyRunPreInstr(E->dachor_var_F);
 }
 void Dachora_Func_1(uint16 j, uint16 k) {  // 0xA7F535
   Enemy_Dachora *E = Get_Dachora(k);

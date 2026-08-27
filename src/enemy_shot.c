@@ -126,7 +126,7 @@ static void CallHitboxShot(uint32 ea, uint16 j) {  // 0xA09D17
     Kraid_Arm_Shot(j);
     return;
   }
-  CallEnemyAi(ea);
+  EnemyAiFromAddr(ea)();
 }
 
 void EprojCollHandler_Multibox(void) {  // 0xA09B7F
@@ -234,7 +234,7 @@ void EprojCollHandler(void) {  // 0xA0A143
           if ((E->properties & kEnemyProps_BlockPlasmaBeam) != 0 || (projectile_type[pidx] & 8) == 0)
             projectile_dir[pidx] |= 0x10;
           collision_detection_index = pidx;
-          CallEnemyAi(E->bank << 16 | get_EnemyDef_A2(E->enemy_ptr)->shot_ai);
+          RunEnemyAiFn(GetEnemyDefAiFns(E->enemy_ptr)->shot_ai);
           return;
         }
       }
@@ -257,7 +257,7 @@ void EnemyBombCollHandler(void) {  // 0xA0A236
         abs16(projectile_y_pos[pidx] - E->y_pos) - projectile_y_radius[pidx] < E->y_height) {
       collision_detection_index = pidx;
       projectile_dir[pidx] |= 0x10;
-      CallEnemyAi(E->bank << 16 | get_EnemyDef_A2(E->enemy_ptr)->shot_ai);
+      RunEnemyAiFn(GetEnemyDefAiFns(E->enemy_ptr)->shot_ai);
       return;
     }
   }
@@ -276,8 +276,7 @@ void ProcessEnemyPowerBombInteraction(void) {  // 0xA0A306
       continue;
     if (abs16(power_bomb_explosion_x_pos - E->x_pos) < rx && abs16(power_bomb_explosion_y_pos - E->y_pos) < ry) {
       cur_enemy_index = i;
-      uint16 func = ED->powerbomb_reaction ? ED->powerbomb_reaction : FUNC16(Enemy_NormalPowerBombAI_A0);
-      CallEnemyAi(E->bank << 16 | func);
+      RunEnemyAiFn(GetEnemyDefAiFns(E->enemy_ptr)->powerbomb_reaction);
       E->properties |= kEnemyProps_ProcessedOffscreen;
     }
   }

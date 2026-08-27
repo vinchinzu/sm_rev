@@ -3,6 +3,7 @@
 #include "variables.h"
 #include "funcs.h"
 #include "enemy_types.h"
+#include "enemy_ai_canon.h"
 
 
 #define g_off_AAD810 ((uint16*)RomFixedPtr(0xaad810))
@@ -248,7 +249,7 @@ void Shaktool_DC6F(uint16 k) {  // 0xAADC6F
 
 void Shaktool_Hurt(void) {  // 0xAADCA3
   Enemy_Shaktool *E = Get_Shaktool(cur_enemy_index);
-  CallEnemyPreInstr(E->shakt_var_F | 0xAA0000);
+  EnemyRunPreInstr(E->shakt_var_F);
 }
 
 void Shaktool_DCAC(uint16 k) {  // 0xAADCAC
@@ -483,7 +484,7 @@ void sub_AAE784(void) {  // 0xAAE784
 
 void ChozoStatue_Main(void) {  // 0xAAE7A7
   EnemyData *v0 = gEnemyData(cur_enemy_index);
-  CallEnemyPreInstr(v0->ai_preinstr | 0xAA0000);
+  EnemyRunPreInstr(v0->ai_preinstr);
 }
 
 void Shaktool_PreInstr_0(uint16 k) {  // 0xAAE7AE

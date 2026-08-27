@@ -13,14 +13,21 @@
 #define MAX_ENEMY_OVERRIDES 256
 #define MAX_ENEMY_DEF_CACHE 256
 
-static EnemyDef g_enemy_overrides[MAX_ENEMY_OVERRIDES];
+typedef struct EnemyDefRam {
+  EnemyDef def;
+  EnemyDefAiFns ai;
+} EnemyDefRam;
+
+static EnemyDefRam g_enemy_overrides[MAX_ENEMY_OVERRIDES];
 static uint16 g_enemy_override_addrs[MAX_ENEMY_OVERRIDES];
 static int g_num_enemy_overrides = 0;
 static time_t g_last_enemy_config_time;
 
-static EnemyDef g_enemy_def_cache[MAX_ENEMY_DEF_CACHE];
+static EnemyDefRam g_enemy_def_cache[MAX_ENEMY_DEF_CACHE];
 static uint16 g_enemy_def_cache_addrs[MAX_ENEMY_DEF_CACHE];
 static int g_num_enemy_def_cache = 0;
+static EnemyDefRam g_enemy_def_overflow;
+static uint16 g_enemy_def_overflow_addr = 0xffff;
 
 typedef struct EnemySpeciesName {
   const char *name;
@@ -56,39 +63,66 @@ static const char *kAiPointerKeys[] = {
   "main_ai", "hurt_ai", "touch_ai", "shot_ai", "grapple_ai", "ai_init",
 };
 
+static void FillEnemyDefRam(EnemyDefRam *slot, uint16 addr) {
+  memcpy(&slot->def, RomPtr(0xA00000 | addr), sizeof(EnemyDef));
+  CanonicalizeEnemyDef(&slot->def);
+  BindEnemyDefAi(&slot->def, &slot->ai);
+}
+
 EnemyDef *GetEnemyDefOverride(uint16 addr) {
   for (int i = 0; i < g_num_enemy_overrides; i++) {
     if (g_enemy_override_addrs[i] == addr) {
-      return &g_enemy_overrides[i];
+      return &g_enemy_overrides[i].def;
     }
   }
   return NULL;
 }
 
-EnemyDef *get_EnemyDef_A2(uint16 a) {
-  EnemyDef *override = GetEnemyDefOverride(a);
-  if (override)
-    return override;
-
+static EnemyDefRam *FindEnemyDefRam(uint16 a) {
+  for (int i = 0; i < g_num_enemy_overrides; i++) {
+    if (g_enemy_override_addrs[i] == a)
+      return &g_enemy_overrides[i];
+  }
   for (int i = 0; i < g_num_enemy_def_cache; i++) {
     if (g_enemy_def_cache_addrs[i] == a)
       return &g_enemy_def_cache[i];
   }
+  if (g_enemy_def_overflow_addr == a)
+    return &g_enemy_def_overflow;
+  return NULL;
+}
 
-  const uint8 *rom_ptr = RomPtr(0xA00000 | a);
+EnemyDef *get_EnemyDef_A2(uint16 a) {
+  EnemyDefRam *ram = FindEnemyDefRam(a);
+  if (ram)
+    return &ram->def;
+
   if (g_num_enemy_def_cache >= MAX_ENEMY_DEF_CACHE) {
-    static EnemyDef overflow;
-    memcpy(&overflow, rom_ptr, sizeof(EnemyDef));
-    CanonicalizeEnemyDef(&overflow);
-    return &overflow;
+    FillEnemyDefRam(&g_enemy_def_overflow, a);
+    g_enemy_def_overflow_addr = a;
+    return &g_enemy_def_overflow.def;
   }
 
-  EnemyDef *slot = &g_enemy_def_cache[g_num_enemy_def_cache];
-  memcpy(slot, rom_ptr, sizeof(EnemyDef));
-  CanonicalizeEnemyDef(slot);
+  EnemyDefRam *slot = &g_enemy_def_cache[g_num_enemy_def_cache];
+  FillEnemyDefRam(slot, a);
   g_enemy_def_cache_addrs[g_num_enemy_def_cache] = a;
   g_num_enemy_def_cache++;
-  return slot;
+  return &slot->def;
+}
+
+const EnemyDefAiFns *GetEnemyDefAiFns(uint16 addr) {
+  get_EnemyDef_A2(addr);
+  return &FindEnemyDefRam(addr)->ai;
+}
+
+void RebindEnemyDefAi(uint16 addr) {
+  EnemyDefRam *ram = FindEnemyDefRam(addr);
+  if (!ram) {
+    get_EnemyDef_A2(addr);
+    ram = FindEnemyDefRam(addr);
+  }
+  if (ram)
+    BindEnemyDefAi(&ram->def, &ram->ai);
 }
 
 static uint16 parse_json_hex_or_int(cJSON *obj) {
@@ -168,10 +202,9 @@ void LoadEnemyConfig(void) {
       uint16 addr = resolve_enemy_override_addr(item);
       if (addr == 0) continue;
 
-      const uint8 *rom_ptr = RomPtr(0xA00000 | addr);
-      EnemyDef *target = &g_enemy_overrides[g_num_enemy_overrides];
-      memcpy(target, rom_ptr, sizeof(EnemyDef));
-      CanonicalizeEnemyDef(target);
+      EnemyDefRam *slot = &g_enemy_overrides[g_num_enemy_overrides];
+      FillEnemyDefRam(slot, addr);
+      EnemyDef *target = &slot->def;
       g_enemy_override_addrs[g_num_enemy_overrides] = addr;
 
       cJSON *health = cJSON_GetObjectItem(item, "health");

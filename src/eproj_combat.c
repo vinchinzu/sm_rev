@@ -5,6 +5,7 @@
 #include "funcs.h"
 #include "enemy_types.h"
 #include "eproj_internal.h"
+#include "enemy_ai_canon.h"
 
 #define kAlignPos_Tab1 ((uint8*)RomFixedPtr(0x94892b))
 #define off_868A75 ((uint16*)RomFixedPtr(0x868a75))
@@ -2540,7 +2541,7 @@ void RespawnEnemy(uint16 v0) {  // 0x86F264
   E->health = Edef->health;
   E->layer = Edef->layer;
   *(uint16 *)&E->bank = *(uint16 *)&Edef->bank;
-  CallEnemyAi(Edef->bank << 16 | Edef->ai_init);
+  RunEnemyAiFn(GetEnemyDefAiFns(E->enemy_ptr)->ai_init);
 }
 
 

@@ -3,6 +3,7 @@
 #include "variables.h"
 #include "funcs.h"
 #include "enemy_types.h"
+#include "enemy_ai_canon.h"
 
 
 #define g_off_B3882B ((uint16*)RomFixedPtr(0xb3882b))
@@ -51,7 +52,7 @@ void BrinstarPipeBug_Init(void) {  // 0xB3883B
 
 void BrinstarPipeBug_Main(void) {  // 0xB3887A
   Enemy_PipeBug *PipeBug = Get_PipeBug(cur_enemy_index);
-  CallEnemyPreInstr(PipeBug->pbg_var_F | 0xB30000);
+  EnemyRunPreInstr(PipeBug->pbg_var_F);
 }
 
 void BrinstarPipeBug_PreInstr_1(uint16 k) {  // 0xB38880
@@ -800,7 +801,7 @@ void Botwoon_Func_7(void) {  // 0xB3989D
     CallBotwoonFuncVarE(E->botwoon_var_E | 0xB30000);
     Botwoon_Func_22();
     Botwoon_Func_23();
-    CallEnemyPreInstr(E->botwoon_var_F | 0xB30000);
+    EnemyRunPreInstr(E->botwoon_var_F);
     Botwoon_Func_25();
     Botwoon_Func_24();
     Botwoon_Func_31(cur_enemy_index);
@@ -863,7 +864,7 @@ void Botwoon_Func_12(void) {  // 0xB399A4
     CallBotwoonFuncVarE(E->botwoon_var_E | 0xB30000);
     Botwoon_Func_22();
     Botwoon_Func_23();
-    CallEnemyPreInstr(E->botwoon_var_F | 0xB30000);
+    EnemyRunPreInstr(E->botwoon_var_F);
     Botwoon_Func_25();
     Botwoon_Func_24();
   }
@@ -875,7 +876,7 @@ void Botwoon_Func_13(void) {  // 0xB399E4
   Enemy_Botwoon *E = Get_Botwoon(cur_enemy_index);
   if (E->botwoon_var_21) {
     E->botwoon_var_2E = 0;
-    CallEnemyPreInstr(E->botwoon_var_F | 0xB30000);
+    EnemyRunPreInstr(E->botwoon_var_F);
   } else {
     E->botwoon_var_3C = 0;
     E->botwoon_var_D = FUNC16(Botwoon_Func_12);
@@ -1129,7 +1130,7 @@ void Botwoon_Func_27(uint16 k) {  // 0xB39E7D
   E->botwoon_var_F = FUNC16(Botwoon_Func_28);
   if (E->botwoon_var_D != 0x99E4)
     E->botwoon_var_F = FUNC16(Botwoon_Func_29);
-  CallEnemyPreInstr(E->botwoon_var_F | 0xB30000);
+  EnemyRunPreInstr(E->botwoon_var_F);
 }
 
 void Botwoon_Func_28(uint16 k) {  // 0xB39EE0
@@ -1271,7 +1272,7 @@ const uint16 *EscapeEtecoon_Instr_2(uint16 k, const uint16 *jp) {  // 0xB3E610
 
 void EscapeEtecoon_Main(void) {  // 0xB3E655
   Enemy_EscapeEtecoon *E = Get_EscapeEtecoon(cur_enemy_index);
-  CallEnemyPreInstr(E->een_var_F | 0xB30000);
+  EnemyRunPreInstr(E->een_var_F);
 }
 
 void EscapeEtecoon_E65C(uint16 k) {  // 0xB3E65C

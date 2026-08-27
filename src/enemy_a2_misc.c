@@ -4,6 +4,7 @@
 #include "funcs.h"
 #include "enemy_types.h"
 #include "variables.h"
+#include "enemy_ai_canon.h"
 
 
 #define kEnemyInit_BouncingGoofball_Tab0 ((uint16*)RomFixedPtr(0xa286df))
@@ -224,7 +225,7 @@ void MiniCrocomire_Init(void) {  // 0xA289AD
 
 void MiniCrocomire_Main(void) {  // 0xA289F0
   Enemy_MiniCrocomire *E = Get_MiniCrocomire(cur_enemy_index);
-  CallEnemyPreInstr(E->mce_var_F | 0xA20000);
+  EnemyRunPreInstr(E->mce_var_F);
 }
 
 void MiniCrocomire_Func1(void) {  // 0xA289F7
@@ -1083,7 +1084,7 @@ void SpikeShootingPlant_Init(void) {  // 0xA29F48
 
 void SpikeShootingPlant_Main(void) {  // 0xA29FB3
   Enemy_SpikeShootingPlant *E = Get_SpikeShootingPlant(cur_enemy_index);
-  CallEnemyPreInstr(E->sspt_var_F | 0xA20000);
+  EnemyRunPreInstr(E->sspt_var_F);
 }
 
 void SpikeShootingPlant_2(uint16 k) {  // 0xA29FBA
@@ -1311,7 +1312,7 @@ uint16 Flies_2(uint16 k) {  // 0xA2B0DC
 void Flies_Main(void) {  // 0xA2B11F
   NextRandom();
   Enemy_Flies *E = Get_Flies(cur_enemy_index);
-  CallEnemyPreInstr(E->flies_var_F | 0xA20000);
+  EnemyRunPreInstr(E->flies_var_F);
 }
 
 void Flies_3(uint16 k) {  // 0xA2B129
@@ -1917,7 +1918,7 @@ void NorfairLavajumpingEnemy_Init(void) {  // 0xA2BE99
 void NorfairLavajumpingEnemy_Main(void) {  // 0xA2BED2
   NextRandom();
   Enemy_NorfairLavajumpingEnemy *E = Get_NorfairLavajumpingEnemy(cur_enemy_index);
-  CallEnemyPreInstr(E->nley_var_F | 0xA20000);
+  EnemyRunPreInstr(E->nley_var_F);
 }
 
 void NorfairLavajumpingEnemy_Func_1(uint16 k) {  // 0xA2BEDC
@@ -2069,7 +2070,7 @@ void NorfairRio_Init(void) {  // 0xA2C242
 void NorfairRio_Main(void) {  // 0xA2C277
   NextRandom();
   Enemy_NorfairRio *E = Get_NorfairRio(cur_enemy_index);
-  CallEnemyPreInstr(E->nro_var_F | 0xA20000);
+  EnemyRunPreInstr(E->nro_var_F);
 }
 
 void NorfairRio_Func_1(uint16 k) {  // 0xA2C281
@@ -2200,7 +2201,7 @@ void LowerNorfairRio_Init(void) {  // 0xA2C6F3
 void LowerNorfairRio_Main(void) {  // 0xA2C724
   NextRandom();
   Enemy_LowerNorfairRio *E = Get_LowerNorfairRio(cur_enemy_index);
-  CallEnemyPreInstr(E->lnro_var_F | 0xA20000);
+  EnemyRunPreInstr(E->lnro_var_F);
 }
 
 void LowerNorfairRio_Func_1(uint16 k) {  // 0xA2C72E
@@ -2404,7 +2405,7 @@ void MaridiaLargeSnail_Func_3(uint16 k) {  // 0xA2CD77
 void MaridiaLargeSnail_Func_4(void) {  // 0xA2CDE6
   Enemy_MaridiaLargeSnail *E = Get_MaridiaLargeSnail(cur_enemy_index);
   if (E->mlsl_var_E) {
-    CallEnemyPreInstr(E->mlsl_var_F | 0xA20000);
+    EnemyRunPreInstr(E->mlsl_var_F);
   } else {
     E->mlsl_var_00 = 0;
     if ((GetSamusEnemyDelta_X(cur_enemy_index) & 0x8000) != 0) {
@@ -2423,7 +2424,7 @@ void MaridiaLargeSnail_Func_4(void) {  // 0xA2CDE6
 void MaridiaLargeSnail_Func_5(void) {  // 0xA2CE2B
   Enemy_MaridiaLargeSnail *E = Get_MaridiaLargeSnail(cur_enemy_index);
   if (E->mlsl_var_E) {
-    CallEnemyPreInstr(E->mlsl_var_F | 0xA20000);
+    EnemyRunPreInstr(E->mlsl_var_F);
   } else {
     if (!(Enemy_MoveDown(cur_enemy_index, INT16_SHL16(1)))) {
       E->mlsl_var_B = 0;
@@ -2867,7 +2868,7 @@ void LavaSeahorse_Init(void) {  // 0xA2E606
 
 void LavaSeahorse_Main(void) {  // 0xA2E64E
   Enemy_LavaSeahorse *E = Get_LavaSeahorse(cur_enemy_index);
-  CallEnemyPreInstr(E->lse_var_F | 0xA20000);
+  EnemyRunPreInstr(E->lse_var_F);
 }
 
 void LavaSeahorse_Func_1(uint16 k) {  // 0xA2E654

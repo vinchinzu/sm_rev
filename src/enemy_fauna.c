@@ -4,6 +4,7 @@
 #include "sm_rtl.h"
 #include "funcs.h"
 #include "enemy_types.h"
+#include "enemy_ai_canon.h"
 
 #define g_off_A386DB ((uint16*)RomFixedPtr(0xa386db))
 #define g_off_A3894E ((uint16*)RomFixedPtr(0xa3894e))
@@ -1263,7 +1264,7 @@ uint16 Bang_Func_4(uint16 a) {  // 0xA3BBEB
 
 void Bang_Func_5(void) {  // 0xA3BC9E
   Enemy_Bang *E = Get_Bang(cur_enemy_index);
-  CallEnemyPreInstr(E->bang_var_F | 0xA30000);
+  EnemyRunPreInstr(E->bang_var_F);
 }
 
 void Bang_Func_6(uint16 k) {  // 0xA3BCA5
@@ -1576,7 +1577,7 @@ void MaridiaSnail_Main(void) {  // 0xA3CE64
   MaridiaSnail_Func_5(cur_enemy_index);
   MaridiaSnail_Func_6(cur_enemy_index);
   Enemy_MaridiaSnail *E = Get_MaridiaSnail(cur_enemy_index);
-  CallEnemyPreInstr(E->msl_var_F | 0xA30000);
+  EnemyRunPreInstr(E->msl_var_F);
 }
 
 void MaridiaSnail_Func_4(uint16 k) {  // 0xA3CE73
@@ -2060,7 +2061,7 @@ void WreckedShipOrangeZoomer_Init(void) {  // 0xA3E043
 
 void WreckedShipOrangeZoomer_Main(void) {  // 0xA3E08B
   Enemy_WreckedShipOrangeZoomer *E = Get_WreckedShipOrangeZoomer(cur_enemy_index);
-  CallEnemyPreInstr(E->wsozr_var_F | 0xA30000);
+  EnemyRunPreInstr(E->wsozr_var_F);
 }
 
 void WreckedShipOrangeZoomer_Func_2(uint16 k) {  // 0xA3E091
@@ -2205,7 +2206,7 @@ void StoneZoomer_E67A(uint16 k) {  // 0xA3E67A
 
 void StoneZoomer_Main(void) {  // 0xA3E6C2
   Enemy_StoneZoomer *E = Get_StoneZoomer(cur_enemy_index);
-  CallEnemyPreInstr(E->szr_var_F | 0xA30000);
+  EnemyRunPreInstr(E->szr_var_F);
 }
 
 void FireZoomer_Func_1(uint16 k) {  // 0xA3E6C8

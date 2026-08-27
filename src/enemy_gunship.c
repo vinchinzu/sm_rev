@@ -5,6 +5,7 @@
 #include "enemy_types.h"
 #include "variables.h"
 #include "funcs.h"
+#include "enemy_ai_canon.h"
 
 #define g_byte_A2A7CF ((uint8*)RomFixedPtr(0xa2a7cf))
 #define g_word_A2A622 ((uint16*)RomFixedPtr(0xa2a622))
@@ -86,7 +87,7 @@ void GunshipTop_Main(void) {  // 0xA2A759
   Enemy_GunshipTop *E0 = Get_GunshipTop(cur_enemy_index);
   if (!sign16(E0->gtp_var_F + 0x56BE) && sign16(E0->gtp_var_F + 0x53E5))
     GunshipTop_1(cur_enemy_index);
-  CallEnemyPreInstr(E0->gtp_var_F | 0xA20000);
+  EnemyRunPreInstr(E0->gtp_var_F);
 }
 
 void GunshipTop_1(uint16 k) {  // 0xA2A784

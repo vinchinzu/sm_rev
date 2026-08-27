@@ -5,6 +5,7 @@
 #include "enemy_types.h"
 #include "enemy_torizo_attacks.h"
 #include "torizo_config.h"
+#include "enemy_ai_canon.h"
 
 #define g_off_AAC967 ((uint16*)RomFixedPtr(0xaac967))
 
@@ -588,7 +589,7 @@ void Torizo_Func_1(uint16 k) {  // 0xAAC6FF
       if (TorizoAttacks_TryStartBombOpeningChozoOrbAttack(k, E))
         return;
       TorizoAttacks_RunScheduledOpeningChozoOrbWaves(k, E);
-      CallEnemyPreInstr(E->toriz_var_F | kTorizoFunctionBank);
+      EnemyRunPreInstr(E->toriz_var_F);
     } else {
       E->toriz_var_00 = Torizo_SelectByParam1Sign(E, addr_kTorizo_Ilist_BD0E, addr_kTorizo_Ilist_C188);
       E->base.current_instruction = addr_kTorizo_Ilist_B155;
@@ -937,7 +938,7 @@ void Torizo_Func_10(uint16 k) {  // 0xAAD5DF
 void Torizo_D5E6(uint16 k) {  // 0xAAD5E6
   Torizo_C620(k);
   Enemy_Torizo *E = Get_Torizo(k);
-  CallEnemyPreInstr(E->toriz_var_F | kTorizoFunctionBank);
+  EnemyRunPreInstr(E->toriz_var_F);
 }
 
 void Torizo_D5ED(uint16 k) {  // 0xAAD5ED

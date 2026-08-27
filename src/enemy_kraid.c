@@ -4,6 +4,7 @@
 #include "funcs.h"
 #include "enemy_types.h"
 #include "sm_rtl.h"
+#include "enemy_ai_canon.h"
 
 #undef r18
 
@@ -1739,6 +1740,7 @@ void Kraid_Death_SinkThroughFloor(void) {  // 0xA7C537
     enemy_bg2_tilemap_size = 2;
     uint16 enemy_ptr = Get_Kraid(cur_enemy_index)->base.enemy_ptr;
     get_EnemyDef_A2(enemy_ptr)->shot_ai = FUNC16(nullsub_170_A7);
+    RebindEnemyDefAi(enemy_ptr);
     Enemy_Kraid *E1 = Get_Kraid(0x40);
     uint16 v3 = E1->base.properties | kEnemyProps_Intangible | kEnemyProps_Deleted;
     E1->base.properties = v3;
