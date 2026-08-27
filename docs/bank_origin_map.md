@@ -85,7 +85,9 @@ answer: "where did this logic live before we split it?"
 | `src/enemy_ridley_zebetite.c` | `../sm/src/sm_a6.c` | Ridley boss + zebetites lifted whole from Bank `$A6`; retires Bank `$A6` |
 | `src/enemy_kraid_phantoon.c` | `../sm/src/sm_a7.c` | Kraid + Phantoon bosses lifted whole from Bank `$A7`; retires Bank `$A7` |
 | `src/enemy_ki_hunter.c` | `../sm/src/sm_a8.c` | Ki-Hunter and remaining Bank `$A8` enemies lifted whole; retires Bank `$A8` |
-| `src/enemy_mother_brain.c` | `../sm/src/sm_a9.c` | Mother Brain + Shitroid + dead-monster props lifted whole from Bank `$A9`; retires Bank `$A9` |
+| `src/enemy_mother_brain.c` | `../sm/src/sm_a9.c` | Mother Brain body/brain/tubes, MotherBomb, CallMotherBrain*, and rainbow-beam Samus helpers from Bank `$A9` |
+| `src/enemy_shitroid.c` | `../sm/src/sm_a9.c` | Shitroid + ShitroidInCutscene + CallShitroid* runtime from Bank `$A9` |
+| `src/enemy_dead_monsters.c` | `../sm/src/sm_a9.c` | Dead Torizo/Sidehopper/Zoomer/Skree/Ripper props and shared corpse-rotting Process/Initialize/CallCorpseRotting* from Bank `$A9`; retires Bank `$A9` |
 | `src/enemy_touch.c` | `../sm/src/sm_a0.c` | `EnemyCollisionHandler` `0xA09758` plus Samus contact, grapple latch/react table, and `NormalEnemyTouchAi*` from Bank `$A0` |
 | `src/enemy_shot.c` | `../sm/src/sm_a0.c` | Projectile/bomb/power-bomb reactions, `NormalEnemyShotAi*`, eproj-vs-Samus, and death animation from Bank `$A0` |
 | `src/enemy_block_collision.c` | `../sm/src/sm_a0.c` | Enemy-vs-block/slope movers (`Enemy_MoveRight_*`, `Enemy_MoveDown`, `CalculateBlockContainingPixelPos`) from Bank `$A0` |
