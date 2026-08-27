@@ -1991,6 +1991,9 @@ enum Consts_A2 {
 enum Consts_A3 {
   addr_kSpritemap_Nothing_A3 = 0x804D,
   addr_kWaver_Ilist_86A7 = 0x86A7,
+  addr_kWaver_Ilist_86AD = 0x86AD,
+  addr_kWaver_Ilist_86B3 = 0x86B3,
+  addr_kWaver_Ilist_86C7 = 0x86C7,
   addr_kMetalee_Ilist_8910 = 0x8910,
   addr_kFireflea_Ilist_8C2F = 0x8C2F,
   addr_kMaridiaFish_Ilist_902A = 0x902A,
