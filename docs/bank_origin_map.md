@@ -98,6 +98,18 @@ answer: "where did this logic live before we split it?"
 | `src/enemy_space_pirates.c` | `../sm/src/sm_b2.c` | Walking, Ninja, and Wall Space Pirate runtimes lifted whole from Bank `$B2`; retires Bank `$B2` |
 | `src/enemy_botwoon.c` | `../sm/src/sm_b3.c` | Botwoon boss runtime lifted whole from Bank `$B3`; retires Bank `$B3` |
 | `src/enemy_ridley_zebetite.c` | `../sm/src/sm_a6.c` | Ridley boss + zebetites lifted whole from Bank `$A6`; retires Bank `$A6` |
+| `src/enemy_a2_misc.c` | `../sm/src/sm_a2.c` | Bank `$A2` remainder after gunship was peeled out: shutters, Norfair/Maridia fauna, and small enemies; retires Bank `$A2` |
+| `src/enemy_ridley.c` | `../sm/src/sm_a6.c` | Ridley boss + RidleysExplosion + CallRidley* peeled from Bank `$A6`; Bank `$A6` stays retired |
+| `src/enemy_ceres_ridley.c` | `../sm/src/sm_a6.c` | CeresRidley + HandleCeresRidleyGetawayCutscene |
+| `src/enemy_zebetite.c` | `../sm/src/sm_a6.c` | Zebetites |
+| `src/enemy_ceres_door.c` | `../sm/src/sm_a6.c` | CeresDoor + CeresSteam facility cluster |
+| `src/enemy_baby_metroid.c` | `../sm/src/sm_a6.c` | BabyMetroid + DrawBabyMetroid + CallBabyMetroidInstr |
+| `src/enemy_escape_typewriter.c` | `../sm/src/sm_a6.c` | SetupZebesEscapeTypewriter, ProcessEscapeTimerTileTransfers, HandleTypewriterText |
+| `src/enemy_nuclear_waffle.c` | `../sm/src/sm_a6.c` | Nuclear waffle |
+| `src/enemy_spikey_platform.c` | `../sm/src/sm_a6.c` | Spikey platform |
+| `src/enemy_fake_kraid.c` | `../sm/src/sm_a6.c` | Fake Kraid / Mini-Kraid |
+| `src/enemy_boulder.c` | `../sm/src/sm_a6.c` | Boulder |
+| `src/enemy_fire_geyser.c` | `../sm/src/sm_a6.c` | Fire geyser |
 | `src/enemy_kraid_phantoon.c` | `../sm/src/sm_a7.c` | Kraid + Phantoon bosses lifted whole from Bank `$A7`; retires Bank `$A7` |
 | `src/enemy_ki_hunter.c` | `../sm/src/sm_a8.c` | Ki-Hunter + Ki-Hunter Wings runtime peeled from Bank `$A8`; `CallKiHunter*` stays with this family |
 | `src/enemy_beetom.c` | `../sm/src/sm_a8.c` | Beetom runtime peeled from Bank `$A8` |
