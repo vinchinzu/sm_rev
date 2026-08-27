@@ -6,30 +6,69 @@
 #include "variables.h"
 #include "enemy_ai_canon.h"
 
-#define g_word_A2B75B ((uint16*)RomFixedPtr(0xa2b75b))
+enum {
+  kRinkaSpawnSlotCount = 11,
+  kRinkaFireSpeed = 0x120,
+};
 
+typedef struct RinkaSpawnSlot {
+  uint16 x_pos;
+  uint16 y_pos;
+  uint16 slot;
+} RinkaSpawnSlot;
+_Static_assert(sizeof(RinkaSpawnSlot) == 6, "Rinka spawn slot is 6 bytes");
+
+static const RinkaSpawnSlot kRinkaSpawnSlots[kRinkaSpawnSlotCount] = {
+  { 0x03e7, 0x0026, 0x0002 },
+  { 0x03e7, 0x00a6, 0x0004 },
+  { 0x0337, 0x0036, 0x0006 },
+  { 0x0337, 0x00a6, 0x0008 },
+  { 0x0277, 0x001c, 0x000a },
+  { 0x0277, 0x00b6, 0x000c },
+  { 0x01b7, 0x0036, 0x000e },
+  { 0x01b7, 0x00a6, 0x0010 },
+  { 0x00f7, 0x001c, 0x0012 },
+  { 0x00f7, 0x00b6, 0x0014 },
+  { 0x0080, 0x00a8, 0x0016 },
+};
+
+static uint16 *RinkaSpawnAvailabilityFlag(uint16 slot) {
+  return &gRam8000_Default(slot)[31].var_3F;
+}
+
+static bool RinkaSpawnSlotBusy(uint16 slot) {
+  return (*RinkaSpawnAvailabilityFlag(slot) & 1) != 0;
+}
+
+static void RinkaOccupySpawnSlot(uint16 k, EnemySpawnData *ES, const RinkaSpawnSlot *spawn) {
+  Enemy_Rinka *E = Get_Rinka(k);
+  ES->x_pos = spawn->x_pos;
+  E->base.x_pos = spawn->x_pos;
+  ES->y_pos = spawn->y_pos;
+  E->base.y_pos = spawn->y_pos;
+  *RinkaSpawnAvailabilityFlag(spawn->slot) = (uint16)-1;
+  E->rinka_var_D = spawn->slot;
+}
 
 void Rinka_Init(void) {  // 0xA2B602
   Enemy_Rinka *E = Get_Rinka(cur_enemy_index);
   if (E->rinka_parameter_1) {
     Rinka_1(cur_enemy_index);
-    E->base.properties = E->base.properties & ~(kEnemyProps_RespawnIfKilled | kEnemyProps_ProcessInstructions | kEnemyProps_ProcessedOffscreen | kEnemyProps_Intangible) | 0x2C00;
+    E->base.properties = (E->base.properties | kEnemyProps_ProcessInstructions | kEnemyProps_ProcessedOffscreen | kEnemyProps_Intangible) & ~kEnemyProps_RespawnIfKilled;
   } else {
-    E->base.properties = E->base.properties & ~(kEnemyProps_RespawnIfKilled | kEnemyProps_ProcessInstructions | kEnemyProps_ProcessedOffscreen | kEnemyProps_Intangible) | 0x6400;
+    E->base.properties = (E->base.properties | kEnemyProps_RespawnIfKilled | kEnemyProps_ProcessInstructions | kEnemyProps_Intangible) & ~kEnemyProps_ProcessedOffscreen;
   }
   E->base.palette_index = 1024;
   Rinka_Init3(cur_enemy_index);
 }
 
 void Rinka_Init2(uint16 k) {  // 0xA2B63E
-  EnemySpawnData *v2;
-
   Enemy_Rinka *E = Get_Rinka(k);
   if (E->rinka_parameter_1)
     Rinka_1(k);
-  v2 = gEnemySpawnData(k);
-  E->base.x_pos = v2->x_pos;
-  E->base.y_pos = v2->y_pos;
+  EnemySpawnData *ES = gEnemySpawnData(k);
+  E->base.x_pos = ES->x_pos;
+  E->base.y_pos = ES->y_pos;
   Rinka_Init3(k);
 }
 
@@ -55,66 +94,39 @@ void Rinka_Init3(uint16 k) {  // 0xA2B654
 }
 
 void Rinka_1(uint16 k) {  // 0xA2B69B
-  uint16 v2;
   EnemySpawnData *ES = gEnemySpawnData(k);
-  if (Rinka_10(ES->x_pos, ES->y_pos) || (v2 = Rinka_2(k), gRam8000_Default(v2)[31].var_3F & 1)) {
-    uint16 v3 = 0;
-    do {
-      int v4 = v3 >> 1;
-      uint16 x = g_word_A2B75B[v4];
-      uint16 y = g_word_A2B75B[v4 + 1];
-      if (!Rinka_10(x, y) && !(gRam8000_Default(g_word_A2B75B[v4 + 2])[31].var_3F & 1)) {
-        Enemy_Rinka *E = Get_Rinka(k);
-        ES->x_pos = x;
-        E->base.x_pos = x;
-        ES->y_pos = y;
-        E->base.y_pos = y;
-        uint16 v9 = g_word_A2B75B[(v3 >> 1) + 2];
-        gRam8000_Default(v9)[31].var_3F = -1;
-        E->rinka_var_D = v9;
-        return;
-      }
-      v3 += 6;
-    } while ((int16)(v3 - 66) < 0);
-    uint16 v10 = 0;
-    while (gRam8000_Default(g_word_A2B75B[(v10 >> 1) + 2])[31].var_3F & 1) {
-      v10 += 6;
-      if ((int16)(v10 - 66) >= 0)
-        return;
+  uint16 previous_slot;
+  if (!Rinka_10(ES->x_pos, ES->y_pos) &&
+      (previous_slot = Rinka_2(k), !RinkaSpawnSlotBusy(previous_slot))) {
+    Get_Rinka(k)->rinka_var_D = previous_slot;
+    *RinkaSpawnAvailabilityFlag(previous_slot) = (uint16)-1;
+    return;
+  }
+
+  for (int i = 0; i < kRinkaSpawnSlotCount; i++) {
+    const RinkaSpawnSlot *spawn = &kRinkaSpawnSlots[i];
+    if (!Rinka_10(spawn->x_pos, spawn->y_pos) && !RinkaSpawnSlotBusy(spawn->slot)) {
+      RinkaOccupySpawnSlot(k, ES, spawn);
+      return;
     }
-    int v11 = v10 >> 1;
-    uint16 v12 = g_word_A2B75B[v11];
-    ES->x_pos = v12;
-    Enemy_Rinka *E = Get_Rinka(k);
-    E->base.x_pos = v12;
-    uint16 v15 = g_word_A2B75B[v11 + 1];
-    ES->y_pos = v15;
-    E->base.y_pos = v15;
-    uint16 v16 = g_word_A2B75B[v11 + 2];
-    E->rinka_var_D = v16;
-    gRam8000_Default(v16)[31].var_3F = -1;
-  } else {
-    Get_Rinka(k)->rinka_var_D = v2;
-    gRam8000_Default(v2)[31].var_3F = -1;
+  }
+
+  for (int i = 0; i < kRinkaSpawnSlotCount; i++) {
+    const RinkaSpawnSlot *spawn = &kRinkaSpawnSlots[i];
+    if (!RinkaSpawnSlotBusy(spawn->slot)) {
+      RinkaOccupySpawnSlot(k, ES, spawn);
+      return;
+    }
   }
 }
 
 uint16 Rinka_2(uint16 k) {  // 0xA2B79D
-  EnemySpawnData *v3;
-
-  uint16 v1 = 0;
-  while (1) {
-    int v2 = v1 >> 1;
-    v3 = gEnemySpawnData(k);
-    if (g_word_A2B75B[v2] == v3->x_pos && g_word_A2B75B[v2 + 1] == v3->y_pos)
-      break;
-    v1 += 6;
-    if (!sign16(v1 - 66)) {
-      v1 = 0;
-      return g_word_A2B75B[(v1 >> 1) + 2];
-    }
+  EnemySpawnData *ES = gEnemySpawnData(k);
+  for (int i = 0; i < kRinkaSpawnSlotCount; i++) {
+    if (kRinkaSpawnSlots[i].x_pos == ES->x_pos && kRinkaSpawnSlots[i].y_pos == ES->y_pos)
+      return kRinkaSpawnSlots[i].slot;
   }
-  return g_word_A2B75B[(v1 >> 1) + 2];
+  return kRinkaSpawnSlots[0].slot;
 }
 
 void CallRinkaFunc(uint32 ea, uint16 k) {
@@ -128,15 +140,12 @@ void CallRinkaFunc(uint32 ea, uint16 k) {
 }
 
 void Rinka_Main(void) {  // 0xA2B7C4
-  uint16 v2;
-
   Enemy_Rinka *E = Get_Rinka(cur_enemy_index);
   if (E->rinka_parameter_1 && Get_Rinka(0)->rinka_var_1D) {
     Rinka_6(cur_enemy_index);
     Rinka_8(cur_enemy_index);
     //printf("A unknown\n");
-    v2 = 0;
-    RinkasDeathAnimation(v2);
+    RinkasDeathAnimation(0);
   } else {
     CallRinkaFunc(E->rinka_var_A | 0xA20000, cur_enemy_index);
   }
@@ -144,23 +153,21 @@ void Rinka_Main(void) {  // 0xA2B7C4
 
 void Rinka_3(uint16 k) {  // 0xA2B7DF
   Enemy_Rinka *E = Get_Rinka(k);
-  if ((--E->rinka_var_F & 0x8000) != 0) {
+  if (sign16(--E->rinka_var_F)) {
     E->rinka_var_A = FUNC16(Rinka_B85B);
-    uint16 v3;
     if (E->rinka_parameter_1)
-      v3 = E->base.properties & ~kEnemyProps_Intangible;
+      E->base.properties &= ~kEnemyProps_Intangible;
     else
-      v3 = E->base.properties & 0xF3FF | 0x800;
-    E->base.properties = v3;
+      E->base.properties = (E->base.properties | kEnemyProps_ProcessedOffscreen) & ~kEnemyProps_Intangible;
     uint16 r18 = (uint8)-(CalculateAngleFromXY(samus_x_pos - E->base.x_pos, samus_y_pos - E->base.y_pos) + 0x80);
-    E->rinka_var_B = Math_MultBySin(0x120, r18);
-    E->rinka_var_C = Math_MultByCos(0x120, r18);
+    E->rinka_var_B = Math_MultBySin(kRinkaFireSpeed, r18);
+    E->rinka_var_C = Math_MultByCos(kRinkaFireSpeed, r18);
   }
 }
 
 void Rinka_4(uint16 k) {  // 0xA2B844
   Enemy_Rinka *E = Get_Rinka(k);
-  if ((--E->rinka_var_F & 0x8000) != 0) {
+  if (sign16(--E->rinka_var_F)) {
     E->base.health = 10;
     Rinka_Init2(k);
   }
@@ -188,15 +195,13 @@ void Rinka_B865(uint16 k) {  // 0xA2B865
 }
 
 void Rinka_6(uint16 k) {  // 0xA2B880
-  int16 v3;
-
   Enemy_Rinka *E = Get_Rinka(k);
   if (E->rinka_parameter_1 && (E->base.properties & kEnemyProps_Invisible) == 0) {
     Enemy_Rinka *E0 = Get_Rinka(0);
-    v3 = E0->rinka_var_1E - 1;
-    if (v3 < 0)
-      v3 = 0;
-    E0->rinka_var_1E = v3;
+    int16 count = E0->rinka_var_1E - 1;
+    if (count < 0)
+      count = 0;
+    E0->rinka_var_1E = count;
   }
 }
 
@@ -213,42 +218,32 @@ void Rinka_8(uint16 k) {  // 0xA2B8BB
   if (E->rinka_parameter_1) {
     uint16 rinka_var_D = E->rinka_var_D;
     if (rinka_var_D) {
-      gRam8000_Default(rinka_var_D)[31].var_3F = 0;
+      *RinkaSpawnAvailabilityFlag(rinka_var_D) = 0;
       E->rinka_var_D = 0;
     }
   }
 }
 
 uint8 Rinka_9(uint16 k) {  // 0xA2B8D3
-  int16 y_pos;
-  int16 v3;
-  int16 x_pos;
-  int16 v5;
-
   Enemy_Rinka *E = Get_Rinka(k);
-  y_pos = E->base.y_pos;
-  uint8 result = 1;
-  if (y_pos >= 0) {
-    v3 = y_pos + 16 - layer1_y_pos;
-    if (v3 >= 0) {
-      if (sign16(v3 - 256)) {
-        x_pos = E->base.x_pos;
-        if (x_pos >= 0) {
-          v5 = x_pos + 16 - layer1_x_pos;
-          if (v5 >= 0) {
-            if (sign16(v5 - 288))
-              return 0;
-          }
-        }
-      }
-    }
-  }
-  return result;
+  int16 y_pos = E->base.y_pos;
+  if (y_pos < 0)
+    return 1;
+  int16 y_on_screen = y_pos + 16 - layer1_y_pos;
+  if (y_on_screen < 0 || !sign16(y_on_screen - 256))
+    return 1;
+  int16 x_pos = E->base.x_pos;
+  if (x_pos < 0)
+    return 1;
+  int16 x_on_screen = x_pos + 16 - layer1_x_pos;
+  if (x_on_screen < 0 || !sign16(x_on_screen - 288))
+    return 1;
+  return 0;
 }
 
 bool Rinka_10(uint16 r18, uint16 r20) {  // 0xA2B8FF
-  return (r20 & 0x8000) != 0 || (int16)(r20 - layer1_y_pos) < 0 || !sign16(r20 - layer1_y_pos - 224)
-       || (r20 & 0x8000) != 0 || (int16)(r18 - layer1_x_pos) < 0 || !sign16(r18 - layer1_x_pos - 256);
+  return sign16(r20) || (int16)(r20 - layer1_y_pos) < 0 || !sign16(r20 - layer1_y_pos - 224)
+       || sign16(r20) || (int16)(r18 - layer1_x_pos) < 0 || !sign16(r18 - layer1_x_pos - 256);
 }
 
 void Rinka_Frozen(uint16 k) {  // 0xA2B929
@@ -259,8 +254,7 @@ void Rinka_Frozen(uint16 k) {  // 0xA2B929
     Rinka_6(k);
     Rinka_8(k);
 //    printf("A undefined!\n");
-    uint16 v1 = 0;
-    RinkasDeathAnimation(v1);
+    RinkasDeathAnimation(0);
   }
 }
 
@@ -289,7 +283,7 @@ void Rinka_B960(uint16 k) {  // 0xA2B960
     if (E->rinka_parameter_1) {
       E->base.properties |= kEnemyProps_Intangible | kEnemyProps_Invisible;
       eproj_spawn_pt = (Point16U){ E->base.x_pos, E->base.y_pos };
-      SpawnEprojWithRoomGfx(0xE509, 3);
+      SpawnEprojWithRoomGfx(addr_kEproj_DustCloudExplosion, 3);
       E->rinka_var_A = FUNC16(Rinka_4);
       E->rinka_var_F = 1;
     } else {
