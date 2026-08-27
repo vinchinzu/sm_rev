@@ -7,7 +7,17 @@
 #include "enemy_types.h"
 #include "enemy_ai_canon.h"
 
-#define kBeetom_Ilist_B74E ((uint16*)RomFixedPtr(0xa8b74e))
+enum {
+  kSfx3_BeetomDrain = 0x2D,
+};
+
+// $A8:B74E — idle/hop function pointers, indexed by random_number & 7.
+static const uint16 kBeetomJumpTable[8] = {
+  FUNC16(Beetom_Func_5), FUNC16(Beetom_Func_5),
+  FUNC16(Beetom_Func_8), FUNC16(Beetom_Func_11),
+  FUNC16(Beetom_Func_8), FUNC16(Beetom_Func_9),
+  FUNC16(Beetom_Func_10), FUNC16(Beetom_Func_11),
+};
 
 const uint16 *Beetom_Instr_1(uint16 k, const uint16 *jp) {  // 0xA8B75E
   return jp;
@@ -34,7 +44,7 @@ void Beetom_Init(void) {  // 0xA8B776
   E->beetom_var_03 = Beetom_Func_2(0x4000, 5);
   E->beetom_var_04 = Beetom_Func_2(12288, 3);
   E->beetom_var_00 = addr_kBeetom_Ilist_B6F2;
-  if ((GetSamusEnemyDelta_X(cur_enemy_index) & 0x8000) != 0)
+  if (sign16(GetSamusEnemyDelta_X(cur_enemy_index)))
     E->beetom_var_00 = addr_kBeetom_Ilist_B696;
   Beetom_Func_1();
   E->beetom_var_C = FUNC16(Beetom_Func_3);
@@ -59,7 +69,7 @@ void Beetom_Func_3(void) {  // 0xA8B814
 void Beetom_Func_4(void) {  // 0xA8B82F
   NextRandom();
   Enemy_Beetom *E = Get_Beetom(cur_enemy_index);
-  E->beetom_var_C = kBeetom_Ilist_B74E[random_number & 7];
+  E->beetom_var_C = kBeetomJumpTable[random_number & 7];
   E->beetom_var_09 = random_number & 1;
 }
 
@@ -125,7 +135,7 @@ void Beetom_Func_12(void) {  // 0xA8B90F
   E->beetom_var_00 = addr_kBeetom_Ilist_B708;
   E->beetom_var_C = FUNC16(Beetom_Func_29);
   E->beetom_var_09 = 1;
-  if ((GetSamusEnemyDelta_X(cur_enemy_index) & 0x8000) != 0) {
+  if (sign16(GetSamusEnemyDelta_X(cur_enemy_index))) {
     E->beetom_var_00 = addr_kBeetom_Ilist_B6AC;
     E->beetom_var_C = FUNC16(Beetom_Func_28);
     E->beetom_var_09 = 0;
@@ -166,13 +176,13 @@ void Beetom_Func_16(void) {  // 0xA8B9A2
 
 void Beetom_Func_17(void) {  // 0xA8B9B2
   Enemy_Beetom *E = Get_Beetom(cur_enemy_index);
-  if ((--E->beetom_var_D & 0x8000) != 0)
+  if (sign16(--E->beetom_var_D))
     E->beetom_var_C = FUNC16(Beetom_Func_3);
 }
 
 void Beetom_Func_18(void) {  // 0xA8B9C1
   Enemy_Beetom *E = Get_Beetom(cur_enemy_index);
-  if ((--E->beetom_var_D & 0x8000) != 0) {
+  if (sign16(--E->beetom_var_D)) {
     E->beetom_var_D = 64;
     E->beetom_var_C = FUNC16(Beetom_Func_3);
   } else {
@@ -191,7 +201,7 @@ void Beetom_Func_18(void) {  // 0xA8B9C1
 
 void Beetom_Func_19(void) {  // 0xA8BA24
   Enemy_Beetom *E = Get_Beetom(cur_enemy_index);
-  if ((--E->beetom_var_D & 0x8000) != 0) {
+  if (sign16(--E->beetom_var_D)) {
     E->beetom_var_D = 64;
     E->beetom_var_C = FUNC16(Beetom_Func_3);
   } else {
@@ -483,12 +493,10 @@ void Beetom_Touch(void) {  // 0xA8BE2E
     E->beetom_var_06 = samus_x_pos - E->base.x_pos;
     E->beetom_var_07 = samus_y_pos - E->base.y_pos;
   }
-  if (samus_contact_damage_index)
-    goto LABEL_11;
-  if ((random_enemy_counter & 7) == 7 && !sign16(samus_health - 30))
-    QueueSfx3_Max6(0x2D);
-  if ((E->base.frame_counter & 0x3F) == 63) {
-LABEL_11:
+  if (!samus_contact_damage_index
+      && (random_enemy_counter & 7) == 7 && !sign16(samus_health - 30))
+    QueueSfx3_Max6(kSfx3_BeetomDrain);
+  if (samus_contact_damage_index || (E->base.frame_counter & 0x3F) == 63) {
     NormalEnemyTouchAi();
     samus_invincibility_timer = 0;
     samus_knockback_timer = 0;
