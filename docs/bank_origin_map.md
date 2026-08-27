@@ -84,10 +84,22 @@ answer: "where did this logic live before we split it?"
 | `src/enemy_hirising.c` | `../sm/src/sm_a2.c` | HirisingSlowfalling |
 | `src/enemy_mini_crocomire.c` | `../sm/src/sm_a2.c` | MiniCrocomire; with the other Bank `$A2` family files this retires Bank `$A2` |
 | `src/enemy_elevator.c` | `../sm/src/sm_a3.c` | Elevator runtime peeled from the mixed Bank `$A3` file; owns the Samus/platform sync state machine and elevator-triggered transition handoff |
-| `src/enemy_fauna.c` | `../sm/src/sm_a3.c` | Remaining fauna/hazard runtime peeled from the mixed Bank `$A3` file; owns the Waver/Metalee/Fireflea/fish-crab-slug/Roach/Sidehopper/Bang/Skree/Maridia-snail/Reflec/Zoomer families and related small-enemy hazards |
+| `src/enemy_waver.c` | `../sm/src/sm_a3.c` | Waver runtime peeled from the mixed Bank `$A3` remainder (`Waver_*`, `0xA386E3`) |
+| `src/enemy_metalee.c` | `../sm/src/sm_a3.c` | Metalee runtime peeled from the mixed Bank `$A3` remainder (`Metalee_*`, `CallMetaleeFunc`, `0xA38956`) |
+| `src/enemy_fireflea.c` | `../sm/src/sm_a3.c` | Fireflea runtime peeled from the mixed Bank `$A3` remainder (`Fireflea_*`, `0xA38D2D`) |
+| `src/enemy_maridia_fish.c` | `../sm/src/sm_a3.c` | Maridia fish runtime peeled from the mixed Bank `$A3` remainder (`MaridiaFish_*`, `CallMaridiaFishFunc`, `0xA39096`) |
+| `src/enemy_slug.c` | `../sm/src/sm_a3.c` | Tiny A3 crawler cluster: Crab, Slug, NorfairSlowFireball, BigEyeBugs (`0xA396E3`, `0xA3993B`, `0xA3B66F`, `0xA3E2D4`) |
+| `src/enemy_roach.c` | `../sm/src/sm_a3.c` | Roach runtime peeled from the mixed Bank `$A3` remainder (`Roach_*`, `CallRoachFunc`, `0xA3A12F`) |
+| `src/enemy_sidehopper.c` | `../sm/src/sm_a3.c` | Sidehopper runtime peeled from the mixed Bank `$A3` remainder (`Sidehopper_*`, `CallSidehopperFunc`, `0xA3AA68`) |
+| `src/enemy_maridia_candy.c` | `../sm/src/sm_a3.c` | Maridia refill-candy runtime peeled from the mixed Bank `$A3` remainder (`MaridiaRefillCandy_*`, `0xA3B429`) |
+| `src/enemy_bang.c` | `../sm/src/sm_a3.c` | Bang runtime peeled from the mixed Bank `$A3` remainder (`Bang_*`, `0xA3BA78`) |
+| `src/enemy_skree.c` | `../sm/src/sm_a3.c` | Skree runtime peeled from the mixed Bank `$A3` remainder (`Skree_*`, `CallSkreeFunc`, `0xA3C6A4`) |
+| `src/enemy_maridia_snail.c` | `../sm/src/sm_a3.c` | Maridia snail runtime peeled from the mixed Bank `$A3` remainder (`MaridiaSnail_*`, `0xA3CC36`) |
+| `src/enemy_reflec.c` | `../sm/src/sm_a3.c` | Reflec runtime peeled from the mixed Bank `$A3` remainder (`Reflec_*`, `0xA3DB0C`) |
+| `src/enemy_zoomer.c` | `../sm/src/sm_a3.c` | FireZoomer / WreckedShipOrangeZoomer / StoneZoomer runtime peeled from the mixed Bank `$A3` remainder (`0xA3DFC2`, `0xA3E59C`) |
 | `src/enemy_metroid.c` | `../sm/src/sm_a3.c` | Metroid runtime peeled from the mixed Bank `$A3` file; owns the sprite-linked chase, latch, freeze, hurt, and item-drop behavior |
 | `src/enemy_mochtroid.c` | `../sm/src/sm_a3.c` | Mochtroid chase/contact runtime peeled from the mixed Bank `$A3` file; now owns the full state machine between Roach and Sidehopper |
-| `src/enemy_falling_platform.c` | `../sm/src/sm_a3.c` | Falling/sinking platform runtime (`PlatformThatFallsWithSamus_*`, `FastMovingSlowSinkingPlatform_*`) plus the shared Bank `$A3` enemy wrappers (`Enemy_GrappleReact_*_A3`, `Enemy_Normal*_A3`); retires Bank `$A3` |
+| `src/enemy_falling_platform.c` | `../sm/src/sm_a3.c` | Falling/sinking platform runtime (`PlatformThatFallsWithSamus_*`, `FastMovingSlowSinkingPlatform_*`) |
 | `src/enemy_torizo.c` | `../sm/src/sm_aa.c` | Bomb/Golden Torizo runtime peeled from Bank `$AA`; owns the boss AI, most instruction handlers, and palette choreography |
 | `src/enemy_torizo_attacks.c` | `../sm/src/sm_aa.c` | Bomb Torizo opening attack entry and scheduled Chozo orb waves, including `Torizo_Instr_18` `0xAAC5CB` and `Torizo_Instr_19` `0xAAC2F7` |
 | `src/enemy_torizo_finale.c` | `../sm/src/sm_aa.c` | Shared Torizo finish-explosion instruction handlers (`Torizo_Instr_30`, `Torizo_Instr_34`) |
