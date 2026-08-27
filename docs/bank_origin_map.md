@@ -84,7 +84,20 @@ answer: "where did this logic live before we split it?"
 | `src/enemy_a2_misc.c` | `../sm/src/sm_a2.c` | Bank `$A2` remainder after gunship was peeled out: shutters, Norfair/Maridia fauna, and small enemies; retires Bank `$A2` |
 | `src/enemy_ridley_zebetite.c` | `../sm/src/sm_a6.c` | Ridley boss + zebetites lifted whole from Bank `$A6`; retires Bank `$A6` |
 | `src/enemy_kraid_phantoon.c` | `../sm/src/sm_a7.c` | Kraid + Phantoon bosses lifted whole from Bank `$A7`; retires Bank `$A7` |
-| `src/enemy_ki_hunter.c` | `../sm/src/sm_a8.c` | Ki-Hunter and remaining Bank `$A8` enemies lifted whole; retires Bank `$A8` |
+| `src/enemy_ki_hunter.c` | `../sm/src/sm_a8.c` | Ki-Hunter + Ki-Hunter Wings runtime peeled from Bank `$A8`; `CallKiHunter*` stays with this family |
+| `src/enemy_beetom.c` | `../sm/src/sm_a8.c` | Beetom runtime peeled from Bank `$A8` |
+| `src/enemy_norfair_lava_man.c` | `../sm/src/sm_a8.c` | Norfair Lava Man runtime peeled from Bank `$A8` |
+| `src/enemy_yapping_maw.c` | `../sm/src/sm_a8.c` | Yapping Maw runtime peeled from Bank `$A8` |
+| `src/enemy_mini_draygon.c` | `../sm/src/sm_a8.c` | Mini-Draygon runtime peeled from Bank `$A8` |
+| `src/enemy_evir_projectile.c` | `../sm/src/sm_a8.c` | Evir projectile runtime peeled from Bank `$A8` |
+| `src/enemy_maridia_floater.c` | `../sm/src/sm_a8.c` | Maridia Floater runtime peeled from Bank `$A8` |
+| `src/enemy_walking_lava_seahorse.c` | `../sm/src/sm_a8.c` | Walking Lava Seahorse runtime peeled from Bank `$A8` |
+| `src/enemy_maridia_puffer.c` | `../sm/src/sm_a8.c` | Maridia Puffer runtime peeled from Bank `$A8` |
+| `src/enemy_wrecked_ship.c` | `../sm/src/sm_a8.c` | Wrecked Ship Ghost / Orbs / Spark / Robot(+Deactivated) cluster peeled from Bank `$A8` |
+| `src/enemy_morph_ball_eye.c` | `../sm/src/sm_a8.c` | Morph Ball Eye runtime peeled from Bank `$A8` |
+| `src/enemy_fune.c` | `../sm/src/sm_a8.c` | Fune runtime peeled from Bank `$A8` |
+| `src/enemy_kago.c` | `../sm/src/sm_a8.c` | Kago runtime peeled from Bank `$A8` |
+| `src/enemy_blue_brinstar_face_block.c` | `../sm/src/sm_a8.c` | Blue Brinstar Face Block runtime peeled from Bank `$A8`; together these peels retire Bank `$A8` |
 | `src/enemy_mother_brain.c` | `../sm/src/sm_a9.c` | Mother Brain + Shitroid + dead-monster props lifted whole from Bank `$A9`; retires Bank `$A9` |
 | `src/enemy_touch.c` | `../sm/src/sm_a0.c` | `EnemyCollisionHandler` `0xA09758` plus Samus contact, grapple latch/react table, and `NormalEnemyTouchAi*` from Bank `$A0` |
 | `src/enemy_shot.c` | `../sm/src/sm_a0.c` | Projectile/bomb/power-bomb reactions, `NormalEnemyShotAi*`, eproj-vs-Samus, and death animation from Bank `$A0` |
