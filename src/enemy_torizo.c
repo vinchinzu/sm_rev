@@ -7,8 +7,6 @@
 #include "torizo_config.h"
 #include "enemy_ai_canon.h"
 
-#define g_off_AAC967 ((uint16*)RomFixedPtr(0xaac967))
-
 enum {
   kTorizoFunctionBank = 0xaa0000,
   kTorizoBossBit = 4,
@@ -66,6 +64,16 @@ enum {
   kGoldTorizoLowHealthJumpRandomMask = 0x102,
   kGoldTorizoSpaceJumpInputMask = 0x300,
   kGoldTorizoSpaceJumpRandomMask = 0x101,
+
+  kTorizoMusic_StatueReveal = 6,
+  kTorizoMusic_Fight = 5,
+  kTorizoMusic_Defeated = 3,
+
+  kSfx2_TorizoShot = 0x27,
+  kSfx2_TorizoFootstep = 0x4B,
+  kSfx2_GoldTorizoEggs = 0x34,
+  kSfx2_GoldTorizoEyeBeam = 0x67,
+  kSfx2_TorizoSwipe = 0x48,
 };
 
 typedef struct TorizoJumpConfig {
@@ -80,27 +88,27 @@ typedef struct TorizoFacingIlistPair {
   uint16 sign_clear;
 } TorizoFacingIlistPair;
 
-static const uint16 g_word_AAB096 = 6;
-static const uint16 g_word_AAB098 = 5;
-static const uint16 g_word_AAB09A = 3;
+typedef struct TorizoInitConfig {
+  uint16 x_pos;
+  uint16 y_pos;
+  uint16 current_instruction;
+  uint16 properties;
+  uint16 x_width;
+  uint16 y_height;
+} TorizoInitConfig;
 
-static const int16 g_word_AAC3EE[16] = { -9, -6, -7, 5, -16, -7, 0, 0, 9, 6, 7, -5, 16, 7, 0, 0 };
-static const int16 g_word_AAC40E[8] = { 0, -6, -6, -7, 0, 0, 0, 0 };
-static const int16 g_word_AAC440[16] = { -9, -6, -7, 5, -16, -7, 0, 0, 9, 6, 7, -5, 16, 7, 0, 0 };
-static const int16 g_word_AAC460[8] = { 0, -6, -6, -7, 0, 0, 0, 0 };
-static const int16 g_word_AAC4BD[20] = {
+static const int16 kTorizoStandSitX[16] = { -9, -6, -7, 5, -16, -7, 0, 0, 9, 6, 7, -5, 16, 7, 0, 0 };
+static const int16 kTorizoStandSitY[8] = { 0, -6, -6, -7, 0, 0, 0, 0 };
+static const int16 kTorizoWalkX[20] = {
   -5, 0, -5, -19, -16, -7, 0, -7, -17, -18, 5, 0, 5, 19, 16, 7,
    0, 7, 17,  18,
 };
-static const int16 g_word_AAC532[20] = {
-  -5, 0, -5, -19, -16, -7, 0, -7, -17, -18, 5, 0, 5, 19, 16, 7,
-   0, 7, 17,  18,
+static const TorizoInitConfig kTorizoInit[2] = {
+  { 0xdb, 0xb3, addr_kTorizo_Ilist_B879,
+    kEnemyProps_ProcessInstructions | kEnemyProps_ProcessedOffscreen, 0x12, 0x30 },
+  { 0x1a8, 0x90, addr_kTorizo_Ilist_C9CB,
+    kEnemyProps_ProcessInstructions | kEnemyProps_ProcessedOffscreen, 0x12, 0x29 },
 };
-static const int16 g_word_AAC95F[2] = { 0xdb, 0x1a8 };
-static const int16 g_word_AAC963[2] = { 0xb3, 0x90 };
-static const int16 g_word_AAC96B[2] = { 0x2800, 0x2800 };
-static const int16 g_word_AAC96F[2] = { 0x12, 0x12 };
-static const int16 g_word_AAC973[2] = { 0x30, 0x29 };
 
 static const uint16 kTorizo_Palette[16] = { 0x3800, 0x3ff, 0x33b, 0x216, 0x113, 0x6b1e, 0x4a16, 0x3591, 0x20e9, 0x1580, 0x1580, 0x1580, 0x1580, 0x1580, 0x1580, 0x1580 };
 static const uint16 kTorizo_Palettes_1[16] = { 0x3800, 0x2df, 0x1d7, 0xac, 0x5a73, 0x41ad, 0x2d08, 0x1863, 0x1486, 0x145, 0x145, 0x145, 0x7fff, 0x145, 0x145, 0 };
@@ -112,10 +120,6 @@ static const uint16 kTorizo_Palettes_6[16] = { 0x3800, 0x6ab5, 0x49b0, 0x1c45, 0
 static const uint16 kTorizo_Palettes_7[16] = { 0x3800, 0x5610, 0x350b, 0x800, 0, 0x416e, 0x2cc8, 0x1823, 0xc01, 0x6a31, 0x4caa, 0x2406, 0x7f7b, 0x75f4, 0x4d10, 0xc63 };
 static const uint16 kTorizo_Palettes_8[16] = { 0x3800, 0x4bbe, 0x6b9, 0xa8, 0, 0x173a, 0x276, 0x1f2, 0x14d, 0x73e0, 0x4f20, 0x2a20, 0x7fe0, 0x5aa0, 0x5920, 0x43 };
 static const uint16 kTorizo_Palettes_10[16] = { 0x3800, 0x3719, 0x214, 3, 0, 0x295, 0x1d1, 0x14d, 0xa8, 0x4b40, 0x25e0, 0xe0, 0x6b40, 0x4600, 0x4480, 0 };
-static const int16 g_word_AAD59A[20] = {
-  -5, 0, -5, -19, -16, -7, 0, -7, -17, -18, 5, 0, 5, 19, 16, 7,
-   0, 7, 17,  18,
-};
 
 static const TorizoJumpConfig kTorizoJump_LongDirectionArc = { 512, -512, -1472, kTorizoFallAcceleration };
 static const TorizoJumpConfig kTorizoJump_ReverseDirectionArc = { -768, 768, -1152, kTorizoFallAcceleration };
@@ -264,7 +268,7 @@ const uint16 *Torizo_Instr_35(uint16 k, const uint16 *jp) {  // 0xAAB238
 
 const uint16 *Torizo_Instr_38(uint16 k, const uint16 *jp) {  // 0xAAB24D
   SetBossBitForCurArea(kTorizoBossBit);
-  QueueMusic_Delayed8(g_word_AAB09A);
+  QueueMusic_Delayed8(kTorizoMusic_Defeated);
   if (area_index)
     Enemy_ItemDrop_GoldenTorizo(k);
   else
@@ -283,7 +287,7 @@ const uint16 *Torizo_Instr_5(uint16 k, const uint16 *jp) {  // 0xAAB94D
 }
 
 const uint16 *Torizo_Instr_9(uint16 k, const uint16 *jp) {  // 0xAAB951
-  QueueMusic_Delayed8(g_word_AAB098);
+  QueueMusic_Delayed8(kTorizoMusic_Fight);
   SpawnPalfxObject(addr_stru_8DF759);
   return jp;
 }
@@ -408,22 +412,22 @@ const uint16 *Torizo_Instr_28(uint16 k, const uint16 *jp) {  // 0xAAC3B6
 const uint16 *Torizo_Instr_4(uint16 k, const uint16 *jp) {  // 0xAAC3CC
   uint16 v2 = jp[0];
   Enemy_Torizo *E = Get_Torizo(k);
-  E->base.x_pos += g_word_AAC3EE[v2 >> 1];
-  E->base.y_pos += g_word_AAC40E[(v2 & kTorizoStepYTableMask) >> 1];
+  E->base.x_pos += kTorizoStandSitX[v2 >> 1];
+  E->base.y_pos += kTorizoStandSitY[(v2 & kTorizoStepYTableMask) >> 1];
   return jp + 1;
 }
 
 const uint16 *Torizo_Instr_40(uint16 k, const uint16 *jp) {  // 0xAAC41E
   uint16 v2 = jp[0];
   Enemy_Torizo *E = Get_Torizo(k);
-  E->base.x_pos -= g_word_AAC440[v2 >> 1];
-  E->base.y_pos -= g_word_AAC460[(v2 & kTorizoStepYTableMask) >> 1];
+  E->base.x_pos -= kTorizoStandSitX[v2 >> 1];
+  E->base.y_pos -= kTorizoStandSitY[(v2 & kTorizoStepYTableMask) >> 1];
   return jp + 1;
 }
 
 const uint16 *Torizo_Instr_16(uint16 k, const uint16 *jp) {  // 0xAAC470
   Enemy_Torizo *E = Get_Torizo(k);
-  E->toriz_var_A = g_word_AAC4BD[jp[0] >> 1];
+  E->toriz_var_A = kTorizoWalkX[jp[0] >> 1];
   if (Enemy_MoveRight_IgnoreSlopes(k, INT16_SHL16(E->toriz_var_A))) {
     E->toriz_var_03 = 0;
     return INSTR_RETURN_ADDR(Torizo_SelectByParam1Sign(E, addr_kTorizo_Ilist_B962, addr_kTorizo_Ilist_BDD8));
@@ -436,7 +440,7 @@ const uint16 *Torizo_Instr_16(uint16 k, const uint16 *jp) {  // 0xAAC470
 
 const uint16 *Torizo_Instr_27(uint16 k, const uint16 *jp) {  // 0xAAC4E5
   Enemy_Torizo *E = Get_Torizo(k);
-  E->toriz_var_A = g_word_AAC532[jp[0] >> 1];
+  E->toriz_var_A = kTorizoWalkX[jp[0] >> 1];
   if (Enemy_MoveRight_IgnoreSlopes(k, INT16_SHL16(E->toriz_var_A))) {
     E->toriz_var_03 = 0;
     return INSTR_RETURN_ADDR(Torizo_SelectByParam1Sign(E, addr_kTorizo_Ilist_BD0E, addr_kTorizo_Ilist_C188));
@@ -496,12 +500,12 @@ const uint16 *Torizo_Instr_21(uint16 k, const uint16 *jp) {  // 0xAAC601
 }
 
 const uint16 *Torizo_Instr_17(uint16 k, const uint16 *jp) {  // 0xAAC610
-  QueueSfx2_Max6(0x27);
+  QueueSfx2_Max6(kSfx2_TorizoShot);
   return jp;
 }
 
 const uint16 *Torizo_Instr_13(uint16 k, const uint16 *jp) {  // 0xAAC618
-  QueueSfx2_Max6(0x4B);
+  QueueSfx2_Max6(kSfx2_TorizoFootstep);
   return jp;
 }
 
@@ -572,7 +576,7 @@ void Torizo_Func_4(uint16 k) {  // 0xAAC6C6
   while (plm_header_ptr[v2 >> 1] != addr_kPlmHeader_D6EA) {
     v2 -= 2;
     if (Torizo_IsNegative(v2)) {
-      QueueMusic_Delayed8(g_word_AAB096);
+      QueueMusic_Delayed8(kTorizoMusic_StatueReveal);
       E->base.properties &= ~kEnemyProps_Intangible;
       E->base.current_instruction += 2;
       E->base.instruction_timer = 1;
@@ -636,20 +640,20 @@ void Torizo_Init(void) {  // 0xAAC87F
   if (CheckBossBitForCurArea(kTorizoBossBit) & 1) {
     E->base.properties |= kEnemyProps_Deleted;
   } else {
-    int v2 = area_index >> 1;
-    E->base.properties |= g_word_AAC96B[v2];
+    const TorizoInitConfig *init = &kTorizoInit[area_index >> 1];
+    E->base.properties |= init->properties;
     E->base.extra_properties |= kEnemyExtraProps_MultiHitbox;
-    E->base.x_width = g_word_AAC96F[v2];
-    E->base.y_height = g_word_AAC973[v2];
+    E->base.x_width = init->x_width;
+    E->base.y_height = init->y_height;
     E->toriz_var_E = FUNC16(Torizo_Func_3);
     E->base.instruction_timer = 1;
     E->base.timer = 0;
     E->base.palette_index = 0;
     E->toriz_var_F = addr_locret_AAC95E;
-    E->base.current_instruction = g_off_AAC967[v2];
+    E->base.current_instruction = init->current_instruction;
     E->base.spritemap_pointer = addr_kTorizo_ExtSprmap_87D0;
-    E->base.x_pos = g_word_AAC95F[v2];
-    E->base.y_pos = g_word_AAC963[v2];
+    E->base.x_pos = init->x_pos;
+    E->base.y_pos = init->y_pos;
     E->toriz_var_A = 0;
     E->toriz_var_B = kTorizoLandingYSpeed;
     E->toriz_var_08 = 0;
@@ -723,7 +727,7 @@ const uint16 *Torizo_Instr_41(uint16 k, const uint16 *jp) {  // 0xAACADE
 }
 
 const uint16 *Torizo_Instr_42(uint16 k, const uint16 *jp) {  // 0xAACAE2
-  QueueMusic_Delayed8(g_word_AAB098);
+  QueueMusic_Delayed8(kTorizoMusic_Fight);
   Enemy_Torizo *E = Get_Torizo(k);
   E->base.x_width = kGoldTorizoWidth;
   E->base.y_height = kGoldTorizoHeight;
@@ -782,17 +786,17 @@ void GoldTorizo_Main(void) {  // 0xAAD369
 }
 
 const uint16 *Torizo_Instr_56(uint16 k, const uint16 *jp) {  // 0xAAD38F
-  QueueSfx2_Max6(0x34);
+  QueueSfx2_Max6(kSfx2_GoldTorizoEggs);
   return jp;
 }
 
 const uint16 *Torizo_Instr_60(uint16 k, const uint16 *jp) {  // 0xAAD397
-  QueueSfx2_Max6(0x67);
+  QueueSfx2_Max6(kSfx2_GoldTorizoEyeBeam);
   return jp;
 }
 
 const uint16 *Torizo_Instr_46(uint16 k, const uint16 *jp) {  // 0xAAD39F
-  QueueSfx2_Max6(0x48);
+  QueueSfx2_Max6(kSfx2_TorizoSwipe);
   return jp;
 }
 
@@ -910,7 +914,7 @@ const uint16 *Torizo_Instr_45(uint16 k, const uint16 *jp) {  // 0xAAD526
 
 const uint16 *Torizo_Instr_54(uint16 k, const uint16 *jp) {  // 0xAAD54D
   Enemy_Torizo *E = Get_Torizo(k);
-  E->toriz_var_A = g_word_AAD59A[jp[0] >> 1];
+  E->toriz_var_A = kTorizoWalkX[jp[0] >> 1];
   if (Enemy_MoveRight_IgnoreSlopes(k, INT16_SHL16(E->toriz_var_A))) {
     E->toriz_var_03 = 0;
     return INSTR_RETURN_ADDR(Torizo_SelectByParam1Sign(E, addr_kTorizo_Ilist_D203, addr_kTorizo_Ilist_D2BF));
@@ -958,29 +962,27 @@ void Torizo_D658(void) {  // 0xAAD658
 
 void GoldTorizo_Shot(void) {  // 0xAAD667
   Enemy_Torizo *E = Get_Torizo(cur_enemy_index);
-  if (!E->base.flash_timer) {
-    if (E->toriz_var_04) {
-      Torizo_D6A6();
+  if (E->base.flash_timer)
+    return;
+  if (E->toriz_var_04) {
+    Torizo_D6A6();
+    return;
+  }
+  if ((E->toriz_parameter_2 & kTorizoParam2_CaughtSuperMissile) == 0) {
+    uint16 projectile_slot = 2 * collision_detection_index;
+    uint16 shot_type = projectile_type[collision_detection_index] & kProjectileType_TypeMask;
+    E->toriz_var_05 = shot_type;
+    if (shot_type == kProjectileType_Missile) {
+      Torizo_D6D1(cur_enemy_index, projectile_slot);
       return;
     }
-    if ((E->toriz_parameter_2 & kTorizoParam2_CaughtSuperMissile) != 0)
-      goto LABEL_11;
-    uint16 v2, v3;
-    v2 = 2 * collision_detection_index;
-    v3 = projectile_type[collision_detection_index] & kProjectileType_TypeMask;
-    E->toriz_var_05 = v3;
-    if (v3 == kProjectileType_Missile) {
-      Torizo_D6D1(cur_enemy_index, v2);
+    if (shot_type == kProjectileType_SuperMissile) {
+      Torizo_D6F7(cur_enemy_index, projectile_slot);
       return;
-    }
-    if (v3 != kProjectileType_SuperMissile) {
-LABEL_11:
-      E->toriz_parameter_2 |= kTorizoParam2_NonMissileHitPending;
-      Torizo_D6A6();
-    } else {
-      Torizo_D6F7(cur_enemy_index, v2);
     }
   }
+  E->toriz_parameter_2 |= kTorizoParam2_NonMissileHitPending;
+  Torizo_D6A6();
 }
 
 void Torizo_D6A6(void) {  // 0xAAD6A6
