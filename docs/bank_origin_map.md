@@ -67,6 +67,22 @@ answer: "where did this logic live before we split it?"
 | `src/enemy_ai_canon.c` | `../sm/src/sm_a0.c` plus per-bank identity copies (`../sm/src/sm_a2.c`, `sm_a3.c`, …) | Load/dispatch canonicalize of bank-local `Enemy_Normal*`, `Enemy_GrappleReact_*`, nullsub-as-AI, and shared `EnemyInstr_*` wrappers onto the Bank `$A0` handlers |
 | `src/enemy_tiles.c` | `../sm/src/sm_a0.c` | Shared enemy tileset selection, palette staging, RAM tile assembly, and enemy-VRAM transfer helpers extracted from Bank `$A0` |
 | `src/enemy_gunship.c` | `../sm/src/sm_a2.c` | Gunship-only enemy runtime: landing-site idle/save interaction, event-driven departure, and takeoff choreography |
+| `src/enemy_shutter.c` | `../sm/src/sm_a2.c` | TimedShutter, HorizontalShootableShutter, ShootableShutter, and RisingFallingPlatform; last Bank `$A2` address cluster |
+| `src/enemy_goofball_rio.c` | `../sm/src/sm_a2.c` | BouncingGoofball, Rio, NorfairRio, and LowerNorfairRio |
+| `src/enemy_rinka.c` | `../sm/src/sm_a2.c` | Rinka spawn/shot/frozen/powerbomb runtime |
+| `src/enemy_beyblade_turtle.c` | `../sm/src/sm_a2.c` | MaridiaBeybladeTurtle and MiniMaridiaBeybladeTurtle |
+| `src/enemy_hopping_blobs.c` | `../sm/src/sm_a2.c` | ThinHoppingBlobs and TwinHoppingBlobs |
+| `src/enemy_spike_plant.c` | `../sm/src/sm_a2.c` | SpikeShootingPlant |
+| `src/enemy_spikey_shell.c` | `../sm/src/sm_a2.c` | MaridiaSpikeyShell |
+| `src/enemy_maridia_large_snail.c` | `../sm/src/sm_a2.c` | MaridiaLargeSnail |
+| `src/enemy_gripper.c` | `../sm/src/sm_a2.c` | Gripper |
+| `src/enemy_ripper.c` | `../sm/src/sm_a2.c` | Ripper and JetPowerRipper |
+| `src/enemy_lava_seahorse.c` | `../sm/src/sm_a2.c` | LavaSeahorse |
+| `src/enemy_flies.c` | `../sm/src/sm_a2.c` | Flies plus local `CarryAdd16` helper |
+| `src/enemy_fireball.c` | `../sm/src/sm_a2.c` | NorfairErraticFireball and NorfairLavajumpingEnemy |
+| `src/enemy_lavaquake_rocks.c` | `../sm/src/sm_a2.c` | LavaquakeRocks |
+| `src/enemy_hirising.c` | `../sm/src/sm_a2.c` | HirisingSlowfalling |
+| `src/enemy_mini_crocomire.c` | `../sm/src/sm_a2.c` | MiniCrocomire; with the other Bank `$A2` family files this retires Bank `$A2` |
 | `src/enemy_elevator.c` | `../sm/src/sm_a3.c` | Elevator runtime peeled from the mixed Bank `$A3` file; owns the Samus/platform sync state machine and elevator-triggered transition handoff |
 | `src/enemy_fauna.c` | `../sm/src/sm_a3.c` | Remaining fauna/hazard runtime peeled from the mixed Bank `$A3` file; owns the Waver/Metalee/Fireflea/fish-crab-slug/Roach/Sidehopper/Bang/Skree/Maridia-snail/Reflec/Zoomer families and related small-enemy hazards |
 | `src/enemy_metroid.c` | `../sm/src/sm_a3.c` | Metroid runtime peeled from the mixed Bank `$A3` file; owns the sprite-linked chase, latch, freeze, hurt, and item-drop behavior |
@@ -81,7 +97,6 @@ answer: "where did this logic live before we split it?"
 | `src/enemy_draygon_spore.c` | `../sm/src/sm_a5.c` | Draygon and Spore Spawn boss runtimes lifted whole from Bank `$A5`; retires Bank `$A5` |
 | `src/enemy_space_pirates.c` | `../sm/src/sm_b2.c` | Walking, Ninja, and Wall Space Pirate runtimes lifted whole from Bank `$B2`; retires Bank `$B2` |
 | `src/enemy_botwoon.c` | `../sm/src/sm_b3.c` | Botwoon boss runtime lifted whole from Bank `$B3`; retires Bank `$B3` |
-| `src/enemy_a2_misc.c` | `../sm/src/sm_a2.c` | Bank `$A2` remainder after gunship was peeled out: shutters, Norfair/Maridia fauna, and small enemies; retires Bank `$A2` |
 | `src/enemy_ridley_zebetite.c` | `../sm/src/sm_a6.c` | Ridley boss + zebetites lifted whole from Bank `$A6`; retires Bank `$A6` |
 | `src/enemy_kraid_phantoon.c` | `../sm/src/sm_a7.c` | Kraid + Phantoon bosses lifted whole from Bank `$A7`; retires Bank `$A7` |
 | `src/enemy_ki_hunter.c` | `../sm/src/sm_a8.c` | Ki-Hunter and remaining Bank `$A8` enemies lifted whole; retires Bank `$A8` |
