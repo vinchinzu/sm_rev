@@ -1,0 +1,466 @@
+{
+  "commit_message": "bd: vanilla C cleanliness roadmap (land A0 peel, canonicalize EnemyDef, split leftover dumps)",
+  "nodes": [
+    {
+      "key": "vclean",
+      "title": "Finish vanilla C cleanliness",
+      "type": "epic",
+      "priority": 1,
+      "labels": [
+        "vanilla",
+        "cleanliness",
+        "refactor"
+      ],
+      "description": "Bank-shaped sm_*.c files are gone. Remaining work is decompiler-shaped C: ROM-address dispatch, leftover bank dumps with topical names, identity bank wrappers, funcs.h soup, and ASM leftovers (RomFixedPtr, goto, v0).\n\nThis is the full-build parity track, not mini/mod. Do not treat enemy_dispatch.c as the destination architecture.\n\nSequence:\n1. Land the in-progress A0 collision peel properly.\n2. Canonicalize EnemyDef AI/instruction pointers at load; delete CallEnemyAi(uint32) and bank-local identity wrappers.\n3. Split leftover $A2/$A6/$A8/$A9/$86/$A3 dumps by creature.\n4. C-ify creature files (named tables, no v0/LABEL_, kSfx/kProjectileType).\n5. Carve funcs.h into topical headers.\n6. Cinematics last.\n\nDo not: polish enemy_dispatch.c into three switches; rename unknown EnemyDef words to extra_ai_*; C-ify a 4k dump in place; start cinematics/menus/spc_player first.\n\nAcceptance: No leftover bank-dump files named after one creature while holding many; no CallEnemyAi(uint32 ea) ROM switch in the enemy runtime; standard touch/shot/frozen/powerbomb/instr handlers exist once; funcs.h is no longer the only enemy/Samus prototype dump; full `make` parity still holds."
+    },
+    {
+      "key": "land_a0",
+      "title": "[vanilla 1] Land A0 collision peel without freezing the SNES ABI",
+      "type": "epic",
+      "priority": 0,
+      "parent_key": "vclean",
+      "labels": [
+        "vanilla",
+        "cleanliness",
+        "enemy",
+        "a0"
+      ],
+      "description": "Current uncommitted WIP already extracted enemy_dispatch.c, enemy_shot.c, enemy_touch.c, enemy_block_collision.c, samus_status.c from enemy_main/enemy_collision. samus_status (Torizo freeze \u2192 generic lockout) stays.\n\nDo NOT land as-is. Finish the peel so it is a real module boundary, not relocated ASM.\n\nOut of scope: deleting CallEnemyAi, splitting $A8/$A2/$A6 dumps, C-ifying enemy_block_collision LABEL_7 (unless cheap and local).\n\nEstimate: 240 min\nAcceptance: WIP is behavior-preserving and reviewable: no enemy_collision.c husk, one hitbox dispatch path, no assert(0) on the Samus-projectile path, projectile magics use kProjectileType_*, extra_ai_* reverted unless bank-log named, samus_status kept, tests pass."
+    },
+    {
+      "key": "land_husk",
+      "title": "Fold enemy_collision.c husk into the right homes",
+      "type": "task",
+      "priority": 0,
+      "parent_key": "land_a0",
+      "labels": [
+        "vanilla",
+        "enemy",
+        "a0"
+      ],
+      "description": "src/enemy_collision.c is 30 lines: EnemyCollisionHandler, func_nullsub_4, SuitDamageDivision.\n\nSuitDamageDivision is Samus damage \u2014 move next to samus_status/samus_resource.\nEnemyCollisionHandler is a 10-line orchestrator \u2014 move into enemy_touch.c or keep only if the file still owns collision. Delete the husk file if nothing remains.\nUpdate bank_origin_map.md and any includes.\n\nEstimate: 30 min\nAcceptance: No 30-line enemy_collision.c; SuitDamageDivision lives with Samus damage; EnemyCollisionHandler has a real home; full build still links."
+    },
+    {
+      "key": "land_hitbox",
+      "title": "Route CallHitboxShot/CallHitboxTouch through CallEnemyAi",
+      "type": "task",
+      "priority": 0,
+      "parent_key": "land_a0",
+      "labels": [
+        "vanilla",
+        "enemy",
+        "a0"
+      ],
+      "description": "enemy_shot.c::CallHitboxShot and enemy_touch.c::CallHitboxTouch are incomplete ROM-address switches that duplicate CallEnemyAi. If CallEnemyAi must exist for this patch, these two must call it (or a single shared helper). Do not keep a second Unreachable() table.\n\nDo not try to delete CallEnemyAi in this task.\n\nEstimate: 25 min\nAcceptance: No second ROM-address hitbox switch; multibox shot/touch still reach the same handlers; Unreachable() cannot fire from a missing duplicate case."
+    },
+    {
+      "key": "land_shot_cify",
+      "title": "C-ify enemy_shot.c: assert(0), projectile magics, byte overlays",
+      "type": "task",
+      "priority": 0,
+      "parent_key": "land_a0",
+      "labels": [
+        "vanilla",
+        "enemy",
+        "a0"
+      ],
+      "description": "In src/enemy_shot.c (and the same checks copied in EprojCollHandler*):\n- Remove assert(0) on the Samus-hits-own-projectile path. Compare ../sm/src/sm_a0.c and keep vanilla behavior; do not leave a crash in a reachable handler.\n- Replace 768/1280/1792/0xF00 with kProjectileType_PowerBomb, Bomb, BeamExplosion, TypeMask (ida_types.h).\n- Replace k>>1 and *(uint16*)((uint8*)eproj_id+k) with indexed eproj_* arrays.\n- Prefer kProjectileType_* / named dir flags over 0x10/0xFF00 where the meaning is known.\n\nIf a path is genuinely unreachable in vanilla, document why with a comment citing the original address \u2014 still do not assert(0) in gameplay.\n\nEstimate: 60 min\nAcceptance: enemy_shot.c has no assert(0); projectile type checks use kProjectileType_*; no (uint8*) overlay on eproj_id; behavior matches ../sm/ for the A0 projectile-interaction handlers."
+    },
+    {
+      "key": "land_enemydef_fields",
+      "title": "Revert extra_ai_* unless each EnemyDef slot is bank-log named",
+      "type": "task",
+      "priority": 0,
+      "parent_key": "land_a0",
+      "labels": [
+        "vanilla",
+        "enemy",
+        "types"
+      ],
+      "description": "ida_types.h EnemyDef renamed field_16/field_24/\u2026 to extra_ai_1..7. Several of those words are unused/padding in the vanilla header. extra_ai_* claims a type contract that is not established.\n\nKeep the good bit renames: kEnemyProps_Intangible, ProcessInstructions, SolidToSamus.\n\nFor unknown words: unused_18 / unused_26 / unused_28 / unused_2C / \u2026 or restore field_* until the bank log name is known. Cite the header layout if renaming.\n\nAlso drop MiniEnemyDefLooksUnusable() silent fallback in src/mini/mini_enemy_metadata.c \u2014 mini either has a real EnemyDef or an explicit species table. Do not guess from \u201cthe ROM struct looks empty.\u201d\n\nEstimate: 20 min\nAcceptance: No extra_ai_* names on undocumented EnemyDef words; kEnemyProps_* bit names kept; mini reaction helpers do not paper over a missing EnemyDef."
+    },
+    {
+      "key": "land_tests",
+      "title": "Validate A0 peel: build + mini-test + origin map",
+      "type": "task",
+      "priority": 0,
+      "parent_key": "land_a0",
+      "labels": [
+        "vanilla",
+        "testing",
+        "a0"
+      ],
+      "description": "After the peel fixes:\n- python3 -m pytest tests/test_build.py -q\n- make mini-test\n- If runtime behavior may have shifted: python3 tests/run_tests.py -v (re-run flaky SPC once before investigating).\n- Confirm bank_origin_map.md lists enemy_dispatch/shot/touch/block_collision/samus_status and no longer points collision at a husk.\n- CORE_SRCS is wildcard src/*.c so new files link; do not leave a .c that is unused.\n\nCompare any surprising change against ../sm/src/sm_a0.c before \u201cfixing\u201d it.\n\nEstimate: 40 min\nAcceptance: test_build.py passes; mini-test passes; bank_origin_map.md matches the landed files; no new unused translation units."
+    },
+    {
+      "key": "canonicalize",
+      "title": "[vanilla 2] Canonicalize EnemyDef function pointers (delete the address ABI)",
+      "type": "epic",
+      "priority": 1,
+      "parent_key": "vclean",
+      "labels": [
+        "vanilla",
+        "cleanliness",
+        "enemy",
+        "judo"
+      ],
+      "description": "The remaining enemy runtime is still SNES call convention: CallEnemyAi(bank<<16|offset) plus per-bank identity wrappers (Enemy_NormalTouchAI_A2 through _B3, EnemyInstr_Goto_A2 through _B3).\n\nCode judo: when an EnemyDef is loaded, map bank-local copies of the standard handlers onto the canonical C functions. Then one NormalEnemyTouchAi exists, CallHitbox* disappear, and CallEnemyAi can die.\n\nThis is the highest-risk behavior change left. Full headless suite required. Do not generate a prettier 1129-line switch.\n\nEstimate: 480 min\nAcceptance: Standard touch/shot/frozen/powerbomb/grapple/instr handlers are unique C functions; EnemyDef load rewrites bank-local aliases; CallEnemyAi(uint32) is gone or only used for truly unique creature AI that has not yet been converted to function pointers."
+    },
+    {
+      "key": "canon_load",
+      "title": "Normalize standard AI/instr pointers when EnemyDef is loaded",
+      "type": "task",
+      "priority": 1,
+      "parent_key": "canonicalize",
+      "labels": [
+        "vanilla",
+        "enemy",
+        "judo"
+      ],
+      "description": "Add a load-time alias table: A28023/A38023/A88023/\u2026 \u2192 NormalEnemyTouchAi, and the same for shot/frozen/powerbomb/grapple/nullsub and shared EnemyInstr_Goto/SetTimer/Sleep/WaitNframes.\n\nApply in get_EnemyDef_A2 / LoadEnemies / GetEnemyDefOverride so ROM defs and JSON overrides both canonicalize.\n\nKeep unique creature AI as bank+offset until those files are C function pointers (later).\n\nEstimate: 180 min\nAcceptance: Loading any vanilla EnemyDef that used a bank-local Normal* stub stores the canonical handler; game boot + enemy rooms still run those stubs as the same C function."
+    },
+    {
+      "key": "canon_delete_wrappers",
+      "title": "Delete per-bank Enemy_Normal*AI_* and shared instr identity wrappers",
+      "type": "task",
+      "priority": 1,
+      "parent_key": "canonicalize",
+      "labels": [
+        "vanilla",
+        "enemy",
+        "judo"
+      ],
+      "description": "After load-time canonicalization, delete Enemy_NormalTouchAI_A2/A3/A4/A5/A6/A8/B3 (and shot/frozen/powerbomb/grapple copies) from leftover bank files. Same for bank-local EnemyInstr_Goto_* aliases in enemy_dispatch.c.\n\nCallEnemyAi cases for those aliases can collapse to the canonical function or disappear if the switch is already keyed on canonical addresses.\n\nEstimate: 120 min\nAcceptance: No Enemy_Normal*AI_A2..B3 identity wrappers remain; dispatch still reaches NormalEnemyTouchAi/ShotAi/etc.; tests pass."
+    },
+    {
+      "key": "canon_retire_switch",
+      "title": "Retire CallEnemyAi/PreInstr/Instr ROM-address switches",
+      "type": "task",
+      "priority": 1,
+      "parent_key": "canonicalize",
+      "labels": [
+        "vanilla",
+        "enemy",
+        "judo"
+      ],
+      "description": "Replace remaining CallEnemyAi(uint32 ea) with typed function pointers on EnemyDef (or a compact creature vtable). Unique creature main/init/shot/touch stay as C functions; the switch is not regenerated.\n\nenemy_dispatch.c should shrink dramatically or be deleted. Instruction bytecode can become a per-bank opcode table later; this task at least removes the 24-bit address as the public API.\n\nHigh regression risk: run full runtime tests, not only test_build.\n\nEstimate: 180 min\nAcceptance: Gameplay no longer looks up enemy AI by 24-bit ROM address; enemy_dispatch.c is gone or <200 lines of leftover unique cases with a plan to drain them; python3 tests/run_tests.py -v passes."
+    },
+    {
+      "key": "split_dumps",
+      "title": "[vanilla 3] Split leftover bank dumps by creature",
+      "type": "epic",
+      "priority": 2,
+      "parent_key": "vclean",
+      "labels": [
+        "vanilla",
+        "cleanliness",
+        "split"
+      ],
+      "description": "These files are still bank files with better names. Split by creature BEFORE C-ifying. One family per patch. Update bank_origin_map.md in the same patch.\n\nDo not C-ify v0/RomFixedPtr inside a 4k file in the same change as the move.\n\nAcceptance: No src/enemy_*.c that is a retired-bank remainder holding unrelated creatures; each new file is one family; origin map and port_triage/coverage match reality."
+    },
+    {
+      "key": "split_a8",
+      "title": "Split enemy_ki_hunter.c (Bank $A8 remainder) by creature",
+      "type": "task",
+      "priority": 2,
+      "parent_key": "split_dumps",
+      "labels": [
+        "vanilla",
+        "split",
+        "a8"
+      ],
+      "description": "4068 LOC, misnamed. Ki-Hunter is ~20 of ~240 functions. Peel: Ki-Hunter, Beetom, NorfairLavaMan, YappingMaw, MiniDraygon, MaridiaFloater, WalkingLavaSeahorse, MaridiaPuffer, WreckedShipGhost/Orbs/Spark/Robot, MorphBallEye, Fune, Kago, BlueBrinstarFaceBlock, EvirProjectile.\n\nMechanical move first. Keep shared A8 Normal* wrappers deleted by canonicalize \u2014 do not copy them into every new file.\n\nEstimate: 240 min\nAcceptance: enemy_ki_hunter.c is Ki-Hunter only (or gone if renamed); other A8 families have their own files; build+mini-test pass; bank_origin_map.md updated."
+    },
+    {
+      "key": "split_a2",
+      "title": "Split enemy_a2_misc.c (Bank $A2 remainder) by creature",
+      "type": "task",
+      "priority": 2,
+      "parent_key": "split_dumps",
+      "labels": [
+        "vanilla",
+        "split",
+        "a2"
+      ],
+      "description": "3693 LOC. Shutters/platforms plus Norfair/Maridia fauna (goofball, rio, rinka, beyblade turtle, hopping blobs, spike plant, spikey shell, large snail, gripper, ripper, lava seahorse, flies, fireball, lavaquake rocks, hirising, jet-power ripper).\nGunship is already in enemy_gunship.c.\n\nEstimate: 240 min\nAcceptance: No enemy_a2_misc.c remainder dump; shutter/platform cluster and fauna families are separate files; origin map updated; tests pass."
+    },
+    {
+      "key": "split_a6",
+      "title": "Split enemy_ridley_zebetite.c (Bank $A6) by creature",
+      "type": "task",
+      "priority": 2,
+      "parent_key": "split_dumps",
+      "labels": [
+        "vanilla",
+        "split",
+        "a6"
+      ],
+      "description": "4944 LOC. Ridley is the majority, but the file also has Ceres Ridley, zebetites, Ceres door/steam, baby metroid, escape typewriter, nuclear waffle, spikey platform, fake Kraid, boulder, fire geyser.\n\nMinimum split: enemy_ridley.c, enemy_ceres_ridley.c, enemy_zebetite.c, then the rest by family.\n\nEstimate: 240 min\nAcceptance: Ridley, Ceres Ridley, and zebetite are not in one TU with waffle/fake-Kraid/typewriter; origin map updated; tests pass."
+    },
+    {
+      "key": "split_a9",
+      "title": "Split enemy_mother_brain.c (Bank $A9) into MB / Shitroid / dead monsters",
+      "type": "task",
+      "priority": 2,
+      "parent_key": "split_dumps",
+      "labels": [
+        "vanilla",
+        "split",
+        "a9"
+      ],
+      "description": "6499 LOC. Split to enemy_mother_brain.c, enemy_shitroid.c, enemy_dead_monsters.c (dead torizo/sidehopper/zoomer/skree/ripper props). Do not C-ify in the same patch.\n\nEstimate: 180 min\nAcceptance: Three topical files replace the $A9 dump; origin map updated; tests pass."
+    },
+    {
+      "key": "split_86",
+      "title": "Split eproj_combat.c (Bank $86 remainder) by family",
+      "type": "task",
+      "priority": 2,
+      "parent_key": "split_dumps",
+      "labels": [
+        "vanilla",
+        "split",
+        "eproj"
+      ],
+      "description": "2958 LOC, 34 sub_* names. Remaining combat eproj after core/environment/Tourian/Torizo peels: Skree/Draygon/Crocomire/Kraid/Mini-Kraid, pirate/Ceres/Shaktool, Ki-Hunter/Kago/Maridia/WS robot/n00b tube/spore, Botwoon/Yapping Maw, pickup/death-explosion/sparks.\n\nPeel by boss/family. Rename sub_* at split time only when the family is obvious.\n\nEstimate: 240 min\nAcceptance: eproj_combat.c is gone or is a small leftover with a listed drain plan; families have named files; origin map updated; tests pass."
+    },
+    {
+      "key": "split_a3",
+      "title": "Split enemy_fauna.c (Bank $A3 remainder) by creature",
+      "type": "task",
+      "priority": 2,
+      "parent_key": "split_dumps",
+      "labels": [
+        "vanilla",
+        "split",
+        "a3"
+      ],
+      "description": "2327 LOC. Roach, Maridia snail, sidehopper, bang, fireflea, metalee, skree, refill candy, fish, zoomers, reflec, waver, slug, crab, slow fireball.\nMetroid/mochtroid/elevator/falling platform already peeled.\n\nEstimate: 180 min\nAcceptance: enemy_fauna.c is not a mixed A3 remainder; one file per family or a small coherent cluster; origin map updated; tests pass."
+    },
+    {
+      "key": "split_docs",
+      "title": "Refresh port_triage.md, coverage.md, bank_origin_map.md after dump splits",
+      "type": "task",
+      "priority": 2,
+      "parent_key": "split_dumps",
+      "labels": [
+        "vanilla",
+        "docs"
+      ],
+      "description": "port_triage.md and coverage.md still describe enemy_kraid_phantoon.c / enemy_draygon_spore.c and call dump splits optional. After the leftover dumps are split, those docs must match the tree and stop calling the bank-retirement campaign the remaining work.\n\nEstimate: 40 min\nAcceptance: Docs name current files and LOC; optional-follow-up list is empty or only cinematics/menus; coverage.md last-refreshed date is current."
+    },
+    {
+      "key": "cify",
+      "title": "[vanilla 4] C-ify topical enemy/eproj files (no 4k dumps)",
+      "type": "epic",
+      "priority": 3,
+      "parent_key": "vclean",
+      "labels": [
+        "vanilla",
+        "cleanliness",
+        "c-like"
+      ],
+      "description": "Bar for a creature file: named ROM tables instead of RomFixedPtr macros; no v0/LABEL_/goto leftover; kSfx_* / kEnemyProps_* / kProjectileType_*; structs instead of r18_r20; file stays under ~1k or has a reason.\n\nNever start this on a leftover bank dump. Already-split bosses can start after the A0 peel.\n\nAcceptance: Remaining gameplay enemy/eproj files are topical and C-like by the bar above; no new RomFixedPtr macros in those files."
+    },
+    {
+      "key": "cify_protocol",
+      "title": "Document the per-file C-ify bar and apply it to already-split bosses",
+      "type": "task",
+      "priority": 3,
+      "parent_key": "cify",
+      "labels": [
+        "vanilla",
+        "c-like"
+      ],
+      "description": "Apply the C-ify bar inside already-split topical bosses (do not wait for $A8 dump split):\nenemy_kraid.c (2100), enemy_phantoon.c (1887), enemy_crocomire.c (1646), enemy_botwoon.c (1403), enemy_draygon.c (1361), enemy_torizo.c (1027).\nOne file per patch if the diff is large. Kill g_word_A* macros by copying tables into named static const arrays when size is known.\n\nEstimate: 360 min\nAcceptance: Each listed boss file has a landed C-ify pass or an explicit leftover list in the bead notes; no file grows past 1k because of the pass."
+    },
+    {
+      "key": "cify_after_splits",
+      "title": "C-ify newly split A8/A2/A6/A9/A3/86 creature files",
+      "type": "task",
+      "priority": 3,
+      "parent_key": "cify",
+      "labels": [
+        "vanilla",
+        "c-like"
+      ],
+      "description": "After dump splits, walk each new creature file and apply the C-ify bar. Prefer one family per patch. This is many small diffs, not one mega-PR.\n\nEstimate: 480 min\nAcceptance: New creature files from the dump splits meet the C-ify bar or have a leftover note; no 2k+ mixed file remains."
+    },
+    {
+      "key": "funcs_h",
+      "title": "[vanilla 5] Carve funcs.h into topical headers",
+      "type": "epic",
+      "priority": 3,
+      "parent_key": "vclean",
+      "labels": [
+        "vanilla",
+        "headers"
+      ],
+      "description": "funcs.h is 7994 lines and still the only prototype dump. New enemy_*.c files include funcs.h + variables.h + ida_types.h + sm_rtl.h.\n\nStart with the A0 peel files: enemy_touch.h, enemy_shot.h, enemy_block_collision.h, samus_status.h (already exists). Stop adding prototypes to funcs.h. Re-export from funcs.h during the transition if needed.\n\nEstimate: 240 min\nAcceptance: New enemy/Samus modules declare in their own headers; funcs.h shrinks over time and is not the place new prototypes land."
+    },
+    {
+      "key": "funcs_enemy_headers",
+      "title": "Add headers for enemy_touch/shot/block_collision/dispatch and stop dumping into funcs.h",
+      "type": "task",
+      "priority": 3,
+      "parent_key": "funcs_h",
+      "labels": [
+        "vanilla",
+        "headers"
+      ],
+      "description": "Give the landed A0 modules real headers. Move CallEnemyAi declarations off sm_rtl.h once canonicalize retires them. Do not put EnemyInstr_* on sm_rtl.h as a growing dump (already started in the WIP).\n\nEstimate: 90 min\nAcceptance: enemy_touch/shot/block_collision have headers; sm_rtl.h does not accumulate more EnemyInstr_* prototypes; funcs.h is not the only way to call NormalEnemyTouchAi."
+    },
+    {
+      "key": "samus_semantic",
+      "title": "[vanilla parallel] Samus semantic cleanup (not the remaining dump problem)",
+      "type": "epic",
+      "priority": 3,
+      "parent_key": "vclean",
+      "labels": [
+        "vanilla",
+        "samus"
+      ],
+      "description": "Samus is already topical. Remaining \u22651k files: samus_runtime.c, samus_grapple.c, samus_transition.c, samus_xray.c. Clean in place: pose groups, movement-state names, slope/material flags via block_reaction.h, kProjectileType_*.\n\nDo not split these for the line count. This is parallel to the enemy dump work, not a substitute.\n\nAcceptance: Remaining Samus files use named poses/movement/material flags in the hot paths; no new samus_*.c created just to get under 1k."
+    },
+    {
+      "key": "samus_hotpaths",
+      "title": "Named poses, movement states, and materials in remaining Samus hot paths",
+      "type": "task",
+      "priority": 3,
+      "parent_key": "samus_semantic",
+      "labels": [
+        "vanilla",
+        "samus"
+      ],
+      "description": "Continue semantic cleanup in samus_runtime.c, samus_grapple.c, samus_transition.c, samus_xray.c, samus_collision_block.c. Use ida_types.h pose constants and block_reaction.h materials. Replace hex pose/movement checks as they are touched.\n\nEstimate: 240 min\nAcceptance: Touched hot paths use kPose_* / movement-type names / block material helpers; behavior unchanged."
+    },
+    {
+      "key": "cinematics",
+      "title": "[vanilla last] Split cinematics.c only when someone is working there",
+      "type": "epic",
+      "priority": 4,
+      "parent_key": "vclean",
+      "labels": [
+        "vanilla",
+        "cinematics"
+      ],
+      "description": "cinematics.c is 6395 LOC (Bank $8B). Presentation-only. Split into cinematic_ppu/bg/sprite/palette/intro/ending + credits.c only when a cinematics task needs it. Menus and spc_player.c are the same bucket: not the vanilla-gameplay cleanliness path.\n\nEstimate: 480 min\nAcceptance: Either untouched, or split into topical cinematic files because someone is actively working cinematics; not used as busywork before enemy dumps are gone."
+    }
+  ],
+  "edges": [
+    {
+      "from_key": "land_hitbox",
+      "to_key": "land_husk",
+      "type": "blocks"
+    },
+    {
+      "from_key": "land_shot_cify",
+      "to_key": "land_hitbox",
+      "type": "blocks"
+    },
+    {
+      "from_key": "land_enemydef_fields",
+      "to_key": "land_shot_cify",
+      "type": "blocks"
+    },
+    {
+      "from_key": "land_tests",
+      "to_key": "land_enemydef_fields",
+      "type": "blocks"
+    },
+    {
+      "from_key": "canon_load",
+      "to_key": "land_tests",
+      "type": "blocks"
+    },
+    {
+      "from_key": "canon_delete_wrappers",
+      "to_key": "canon_load",
+      "type": "blocks"
+    },
+    {
+      "from_key": "canon_retire_switch",
+      "to_key": "canon_delete_wrappers",
+      "type": "blocks"
+    },
+    {
+      "from_key": "split_a8",
+      "to_key": "canon_delete_wrappers",
+      "type": "blocks"
+    },
+    {
+      "from_key": "split_a2",
+      "to_key": "canon_delete_wrappers",
+      "type": "blocks"
+    },
+    {
+      "from_key": "split_a6",
+      "to_key": "canon_delete_wrappers",
+      "type": "blocks"
+    },
+    {
+      "from_key": "split_a9",
+      "to_key": "canon_delete_wrappers",
+      "type": "blocks"
+    },
+    {
+      "from_key": "split_86",
+      "to_key": "canon_delete_wrappers",
+      "type": "blocks"
+    },
+    {
+      "from_key": "split_a3",
+      "to_key": "canon_delete_wrappers",
+      "type": "blocks"
+    },
+    {
+      "from_key": "split_docs",
+      "to_key": "split_a8",
+      "type": "blocks"
+    },
+    {
+      "from_key": "split_docs",
+      "to_key": "split_a2",
+      "type": "blocks"
+    },
+    {
+      "from_key": "split_docs",
+      "to_key": "split_a6",
+      "type": "blocks"
+    },
+    {
+      "from_key": "split_docs",
+      "to_key": "split_a9",
+      "type": "blocks"
+    },
+    {
+      "from_key": "split_docs",
+      "to_key": "split_86",
+      "type": "blocks"
+    },
+    {
+      "from_key": "split_docs",
+      "to_key": "split_a3",
+      "type": "blocks"
+    },
+    {
+      "from_key": "cify_protocol",
+      "to_key": "land_tests",
+      "type": "blocks"
+    },
+    {
+      "from_key": "cify_after_splits",
+      "to_key": "split_docs",
+      "type": "blocks"
+    },
+    {
+      "from_key": "funcs_enemy_headers",
+      "to_key": "land_tests",
+      "type": "blocks"
+    },
+    {
+      "from_key": "cinematics",
+      "to_key": "cify",
+      "type": "blocks"
+    }
+  ]
+}

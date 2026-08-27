@@ -15,6 +15,8 @@ typedef struct MiniEnemySpeciesMetadata {
   uint8 ai_bank;
   uint16 init_ai;
   uint16 main_ai;
+  uint16 touch_ai;
+  uint16 shot_ai;
   MiniEnemyBehavior behavior;
 } MiniEnemySpeciesMetadata;
 

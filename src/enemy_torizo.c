@@ -566,13 +566,13 @@ void Torizo_Func_3(uint16 k) {  // 0xAAC6BF
 
 void Torizo_Func_4(uint16 k) {  // 0xAAC6C6
   Enemy_Torizo *E = Get_Torizo(k);
-  E->base.properties |= kEnemyProps_Tangible;
+  E->base.properties |= kEnemyProps_Intangible;
   uint16 v2 = kTorizoLastPlmHeaderOffset;
   while (plm_header_ptr[v2 >> 1] != addr_kPlmHeader_D6EA) {
     v2 -= 2;
     if (Torizo_IsNegative(v2)) {
       QueueMusic_Delayed8(g_word_AAB096);
-      E->base.properties &= ~kEnemyProps_Tangible;
+      E->base.properties &= ~kEnemyProps_Intangible;
       E->base.current_instruction += 2;
       E->base.instruction_timer = 1;
       return;
@@ -698,7 +698,7 @@ void Torizo_Shot(void) {  // 0xAAC97C
         E->base.current_instruction = addr_kTorizo_Ilist_B1C8;
         E->base.instruction_timer = 1;
         E->toriz_parameter_2 |= kTorizoParam2_Defeated;
-        E->base.properties |= kEnemyProps_Tangible;
+        E->base.properties |= kEnemyProps_Intangible;
       }
     }
   }
@@ -989,7 +989,7 @@ void Torizo_D6A6(void) {  // 0xAAD6A6
     E->base.current_instruction = addr_kTorizo_Ilist_B1C8;
     E->base.instruction_timer = 1;
     E->toriz_parameter_2 |= kTorizoParam2_Defeated;
-    E->base.properties |= kEnemyProps_Tangible;
+    E->base.properties |= kEnemyProps_Intangible;
   }
 }
 

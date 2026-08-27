@@ -73,7 +73,7 @@ const uint16 *Enemy_ClearAiPreInstr_B3(uint16 k, const uint16 *jp) {  // 0xB3807
 
 void UnusedSpinningTurtleEye_Init(void) {  // 0xB386FB
   EnemyData *v0 = gEnemyData(cur_enemy_index);
-  v0->properties |= kEnemyProps_DisableSamusColl;
+  v0->properties |= kEnemyProps_ProcessInstructions;
   v0->current_instruction = addr_kUnusedSpinningTurtleEye_Ilist_86A7;
 }
 
@@ -712,7 +712,7 @@ void Botwoon_Init(void) {  // 0xB39583
     E->botwoon_var_59 = 1;
     E->botwoon_var_36 = -1;
     E->botwoon_var_37 = 0;
-    E->base.properties |= kEnemyProps_Tangible;
+    E->base.properties |= kEnemyProps_Intangible;
     uint16 health = E->base.health;
     E->botwoon_var_5B = health;
     health >>= 1;
@@ -791,7 +791,7 @@ void Botwoon_Func_3(void) {  // 0xB396C6
 
 void Botwoon_Func_4(void) {  // 0xB396F5
   Enemy_Botwoon *E = Get_Botwoon(0);
-  E->base.properties |= kEnemyProps_Tangible;
+  E->base.properties |= kEnemyProps_Intangible;
 }
 
 void Botwoon_Func_5(void) {  // 0xB396FF
@@ -869,7 +869,7 @@ void Botwoon_Func_9(void) {  // 0xB39913
   E->botwoon_var_D = FUNC16(Botwoon_Func_13);
   E->botwoon_var_F = FUNC16(Botwoon_Func_27);
   E->botwoon_var_21 = 48;
-  E->base.properties &= ~kEnemyProps_Tangible;
+  E->base.properties &= ~kEnemyProps_Intangible;
 }
 
 void Botwoon_Func_10(uint16 k) {  // 0xB39933
@@ -1136,11 +1136,11 @@ void Botwoon_Func_26(uint16 k) {  // 0xB39DC0
     uint16 v1;
     if (E->botwoon_var_33) {
       E->base.layer = 7;
-      E->base.properties |= kEnemyProps_Tangible;
+      E->base.properties |= kEnemyProps_Intangible;
       v1 = addr_kBotwoon_Ilist_9389;
     } else {
       E->base.layer = 2;
-      E->base.properties &= ~kEnemyProps_Tangible;
+      E->base.properties &= ~kEnemyProps_Intangible;
       // Added hysteresis: Compute a weighted average
       E->botwoon_var_45 = (uint8)(E->botwoon_var_45 + (int8)(r22 - E->botwoon_var_45) * 3 / 4);
       v1 = g_off_B3946B[E->botwoon_var_45 >> 5];
@@ -1350,7 +1350,7 @@ void EscapeEtecoon_Init(void) {  // 0xB3E6CB
   if (CheckEventHappened(0xF)) {
     E->base.properties |= kEnemyProps_Deleted;
   } else {
-    E->base.properties |= kEnemyProps_DisableSamusColl | kEnemyProps_Tangible | 0x8000;
+    E->base.properties |= kEnemyProps_ProcessInstructions | kEnemyProps_Intangible | kEnemyProps_SolidToSamus;
     E->base.instruction_timer = 1;
     E->base.timer = 0;
     E->base.palette_index = 0;
@@ -1394,7 +1394,7 @@ void EscapeDachora_Init(void) {  // 0xB3EAE5
   if (CheckEventHappened(0xF)) {
     E->base.properties |= kEnemyProps_Deleted;
   } else {
-    E->base.properties |= kEnemyProps_DisableSamusColl;
+    E->base.properties |= kEnemyProps_ProcessInstructions;
     E->base.spritemap_pointer = addr_kSpritemap_Nothing_B3;
     E->base.instruction_timer = 1;
     E->base.timer = 0;

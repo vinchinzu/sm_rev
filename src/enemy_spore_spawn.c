@@ -39,7 +39,7 @@ void SporeSpawn_Init(void) {  // 0xA5EA2A
   if ((boss_bits_for_area[area_index] & 2) != 0) {
     E0->base.current_instruction = addr_kDraygon_Ilist_E6B9;
     E0->ssn_var_A = FUNC16(nullsub_223);
-    E0->base.properties |= 0x8000;
+    E0->base.properties |= kEnemyProps_SolidToSamus;
     SporeSpawn_Func_5();
     SpawnHardcodedPlm((SpawnHardcodedPlmArgs) { 0x07, 0x1e, 0xb793 });
     scrolling_finished_hook = 0;
@@ -231,7 +231,7 @@ void SporeSpawn_Func_6(void) {  // 0xA5EDF3
     E->base.invincibility_timer = 0;
     E->base.flash_timer = 0;
     E->base.ai_handler_bits = 0;
-    E->base.properties |= kEnemyProps_Tangible;
+    E->base.properties |= kEnemyProps_Intangible;
     for (int i = 26; i >= 0; i -= 2)
       *(uint16 *)((uint8 *)eproj_id + (uint16)i) = 0;
     E0->base.current_instruction = addr_kDraygon_Ilist_E77D;

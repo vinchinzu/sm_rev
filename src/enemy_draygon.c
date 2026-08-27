@@ -511,7 +511,7 @@ void Draygon_Func_22(void) {  // 0xA58E19
 
   Draygon_Func_3();
   if (samus_x_speed_divisor) {
-    E->base.properties |= kEnemyProps_Tangible;
+    E->base.properties |= kEnemyProps_Intangible;
     v2 = 8;
     if (!E->draygon_var_20)
       v2 = -8;
@@ -567,7 +567,7 @@ void Draygon_Func_24(uint16 k) {  // 0xA58F1E
       Enemy_Draygon *EK = Get_Draygon(k);
       EK->base.current_instruction = v6;
       EK->base.instruction_timer = 1;
-      E->base.properties |= kEnemyProps_Tangible;
+      E->base.properties |= kEnemyProps_Intangible;
     } else {
       uint16 varE20 = (uint8)(64 - CalculateAngleFromXY(256 - E->base.x_pos, 384 - E->base.y_pos));
       Point32 pt = ConvertAngleToXy(varE20, 2);
@@ -655,7 +655,7 @@ void Draygon_Func_29(void) {  // 0xA59128
   samus_grapple_flags = 0;
   Enemy_Draygon *E = Get_Draygon(0);
   E->draygon_var_A = FUNC16(Draygon_Func_30);
-  E->base.properties &= ~kEnemyProps_Tangible;
+  E->base.properties &= ~kEnemyProps_Intangible;
   uint16 v1 = addr_kDraygon_Ilist_9B5A;
   if (E->draygon_var_20)
     v1 = addr_kDraygon_Ilist_9F15;
@@ -672,7 +672,7 @@ void Draygon_Func_30(void) {  // 0xA59154
   v1 = E->base.y_pos - 4;
   E->base.y_pos = v1;
   if (v1 < 0) {
-    E->base.properties &= ~kEnemyProps_Tangible;
+    E->base.properties &= ~kEnemyProps_Intangible;
     E->draygon_var_A = FUNC16(Draygon_Func_4);
     E->draygon_var_B = 0;
     E->base.x_pos = E->draygon_var_00;
@@ -1028,7 +1028,7 @@ const uint16 *Draygon_Instr_11(uint16 k, const uint16 *jp) {  // 0xA598D3
 
 const uint16 *Draygon_Instr_5(uint16 k, const uint16 *jp) {  // 0xA598EF
   Enemy_Draygon *E = Get_Draygon(0);
-  E->base.properties |= kEnemyProps_Tangible;
+  E->base.properties |= kEnemyProps_Intangible;
   return jp;
 }
 

@@ -4,7 +4,7 @@
 #include "ida_types.h"
 #include "util.h"
 #include "variables.h"
-#include "samus_env.h"
+#include "samus_status.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -89,7 +89,6 @@ TorizoConfig g_torizo_config = {
 };
 
 static time_t g_torizo_config_mtime;
-static uint16 g_torizo_samus_freeze_timer;
 
 static int TorizoConfig_ClampInt(int value, int min_value, int max_value) {
   if (value < min_value)
@@ -289,7 +288,6 @@ void LoadTorizoConfig(void) {
   char *data = (char *)ReadWholeFile(kTorizoConfigPath, &len);
   if (!data) {
     g_torizo_config_mtime = 0;
-    g_torizo_samus_freeze_timer = 0;
     return;
   }
 
@@ -298,7 +296,6 @@ void LoadTorizoConfig(void) {
   if (!root) {
     if (stat(kTorizoConfigPath, &st) == 0)
       g_torizo_config_mtime = st.st_mtime;
-    g_torizo_samus_freeze_timer = 0;
     printf("Failed to parse %s; using vanilla Torizo behavior.\n", kTorizoConfigPath);
     return;
   }
@@ -307,9 +304,6 @@ void LoadTorizoConfig(void) {
   TorizoConfig_LoadAttackOrderConfig(root);
   TorizoConfig_LoadFinishExplosionConfig(root);
   cJSON_Delete(root);
-
-  if (g_torizo_config.chozo_orb_freeze_samus_frames <= 0)
-    g_torizo_samus_freeze_timer = 0;
 
   if (stat(kTorizoConfigPath, &st) == 0)
     g_torizo_config_mtime = st.st_mtime;
@@ -360,30 +354,6 @@ static uint16 TorizoConfig_ChozoOrbPaletteIndex(void) {
   if (palette <= 7)
     return (uint16)(palette << 9);
   return (uint16)(palette & 0x0e00);
-}
-
-static void TorizoConfig_ClearSamusMotionForFreeze(void) {
-  input_to_pose_calc = 0;
-  joypad1_input_samusfilter = 0;
-  joypad1_newinput_samusfilter = 0;
-  samus_x_extra_run_speed = 0;
-  samus_x_extra_run_subspeed = 0;
-  samus_x_base_speed = 0;
-  samus_x_base_subspeed = 0;
-  samus_x_accel_mode = kSamusXAccelMode_None;
-  samus_y_speed = 0;
-  samus_y_subspeed = 0;
-}
-
-void TorizoConfig_TickSamusFreeze(void) {
-  if (g_torizo_samus_freeze_timer == 0)
-    return;
-  TorizoConfig_ClearSamusMotionForFreeze();
-  --g_torizo_samus_freeze_timer;
-}
-
-bool TorizoConfig_SamusFreezeActive(void) {
-  return g_torizo_samus_freeze_timer != 0;
 }
 
 uint16 TorizoConfig_BombChozoOrbBurstCount(void) {
@@ -455,11 +425,7 @@ void TorizoConfig_OnChozoOrbHitSamus(void) {
                                                        kTorizoMaxChozoOrbFreezeFrames);
   if (freeze_frames == 0)
     return;
-  if (g_torizo_samus_freeze_timer < freeze_frames)
-    g_torizo_samus_freeze_timer = freeze_frames;
-  if (samus_knockback_timer < freeze_frames)
-    samus_knockback_timer = freeze_frames;
-  TorizoConfig_ClearSamusMotionForFreeze();
+  SamusStatus_RequestLockout(freeze_frames);
 }
 
 uint16 TorizoConfig_FinishExplosionBodyBurstCount(void) {

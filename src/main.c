@@ -28,6 +28,7 @@
 #include "enemy_types.h"
 #include "physics_config.h"
 #include "torizo_config.h"
+#include "samus_status.h"
 #include "multi_samus.h"
 #include "sm_dispatcher.h"
 #include "wram_obs.h"
@@ -736,13 +737,13 @@ int main(int argc, char** argv) {
     }
     int inputs2 = g_input2_state;
 
-    if (TorizoConfig_SamusFreezeActive()) {
+    if (SamusStatus_LockoutActive()) {
       inputs = 0;
       inputs2 = 0;
     }
 
     uint8 is_replay = RtlRunFrame(inputs, inputs2);
-    TorizoConfig_TickSamusFreeze();
+    SamusStatus_Tick();
 
     frameCtr++;
     if (trace_wram != NULL)

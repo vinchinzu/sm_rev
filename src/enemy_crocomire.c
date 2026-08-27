@@ -389,7 +389,7 @@ void Crocomire_Init(void) {  // 0xA48A5A
     *(uint16 *)&scrolls[2] = 257;
     croco_target_0688 = 0;
     Enemy_Crocomire *E = Get_Crocomire(0);
-    E->base.properties = E->base.properties & 0x7BFF | 0x400;
+    E->base.properties = (E->base.properties & ~(kEnemyProps_SolidToSamus | kEnemyProps_Intangible)) | kEnemyProps_Intangible;
     SpawnHardcodedPlm((SpawnHardcodedPlmArgs) { 0x20, 0x03, 0xb753 });
     SpawnHardcodedPlm((SpawnHardcodedPlmArgs) { 0x1e, 0x03, 0xb753 });
     SpawnHardcodedPlm((SpawnHardcodedPlmArgs) { 0x61, 0x0b, 0xb747 });
@@ -635,7 +635,7 @@ void Crocomire_Func_37(void) {  // 0xA48D5E
       SpawnHardcodedPlm((SpawnHardcodedPlmArgs) { 0x4e, 0x03, 0xb757 });
       EK->base.current_instruction = addr_kCrocomire_Ilist_BFB0;
       EK->base.instruction_timer = 1;
-      EK->base.properties |= kEnemyProps_Tangible;
+      EK->base.properties |= kEnemyProps_Intangible;
       Enemy_Crocomire *E1 = Get_Crocomire(cur_enemy_index + 64);
       E1->base.instruction_timer = 0x7FFF;
       E1->base.current_instruction = addr_kCrocomire_Ilist_BF62;
@@ -1253,7 +1253,7 @@ void Crocomire_Func_68(void) {  // 0xA497D3
     SpawnHardcodedPlm((SpawnHardcodedPlmArgs) { 0x30, 0x03, 0xb757 });
     camera_distance_index = 6;
     Enemy_Crocomire *E0 = Get_Crocomire(0);
-    E0->base.properties = E0->base.properties & 0x7BFF | kEnemyProps_Tangible;
+    E0->base.properties = (E0->base.properties & ~(kEnemyProps_SolidToSamus | kEnemyProps_Intangible)) | kEnemyProps_Intangible;
     Enemy_Crocomire *E1 = Get_Crocomire(0x40);
     E1->base.properties |= 0x500;
     E0->crocom_var_D = 4;

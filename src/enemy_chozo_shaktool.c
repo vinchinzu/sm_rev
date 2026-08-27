@@ -466,7 +466,7 @@ void N00bTubeCracks_Init(void) {  // 0xAAE716
 
 void ChozoStatue_Init(void) {  // 0xAAE725
   EnemyData *v0 = gEnemyData(cur_enemy_index);
-  v0->properties |= kEnemyProps_DisableSamusColl | kEnemyProps_ProcessedOffscreen | 0x8000;
+  v0->properties |= kEnemyProps_ProcessInstructions | kEnemyProps_ProcessedOffscreen | kEnemyProps_SolidToSamus;
   v0->spritemap_pointer = addr_kSpritemap_Nothing_AA;
   v0->instruction_timer = 1;
   v0->timer = 0;

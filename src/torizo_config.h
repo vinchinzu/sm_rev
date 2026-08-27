@@ -30,8 +30,6 @@ extern TorizoConfig g_torizo_config;
 void LoadTorizoConfig(void);
 void CheckTorizoConfigReload(void);
 bool TorizoModsActive(void);
-void TorizoConfig_TickSamusFreeze(void);
-bool TorizoConfig_SamusFreezeActive(void);
 uint16 TorizoConfig_BombChozoOrbBurstCount(void);
 uint16 TorizoConfig_BombOpeningChozoOrbBurstCount(void);
 bool TorizoConfig_BombOpeningAttackIsChozoOrbs(void);

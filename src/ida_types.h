@@ -706,11 +706,12 @@ enum ProjectileType {
 enum EnemyProps {
   kEnemyProps_Invisible = 0x100,
   kEnemyProps_Deleted = 0x200,
-  kEnemyProps_Tangible = 0x400,
+  kEnemyProps_Intangible = 0x400,  // SET skips Samus/projectile collision
   kEnemyProps_ProcessedOffscreen = 0x800,
   kEnemyProps_BlockPlasmaBeam = 0x1000,
-  kEnemyProps_DisableSamusColl = 0x2000,
+  kEnemyProps_ProcessInstructions = 0x2000,  // SET runs ProcessEnemyInstructions
   kEnemyProps_RespawnIfKilled = 0x4000,
+  kEnemyProps_SolidToSamus = 0x8000,
 };
 
 /* 54 */
@@ -1186,22 +1187,22 @@ typedef struct EnemyDef {
   uint16 boss_fight_value;
   VoidP ai_init;
   uint16 num_parts;
-  uint16 field_16;
+  uint16 extra_ai_1;
   VoidP main_ai;
   VoidP grapple_ai;
   VoidP hurt_ai;
   VoidP frozen_ai;
   VoidP time_is_frozen_ai;
   uint16 death_anim;
-  uint16 field_24;
-  uint16 field_26;
+  uint16 extra_ai_2;
+  uint16 extra_ai_3;
   VoidP powerbomb_reaction;
-  VoidP field_2A;
-  uint16 field_2C;
-  uint16 field_2E;
+  VoidP extra_ai_4;
+  uint16 extra_ai_5;
+  uint16 extra_ai_6;
   VoidP touch_ai;
   VoidP shot_ai;
-  VoidP field_34;
+  VoidP extra_ai_7;
   LongPtr tile_data;
   uint8 layer;
   VoidP item_drop_chances_ptr;

@@ -2,6 +2,9 @@
 
 #include <stddef.h>
 
+#include "funcs.h"
+#include "ida_types.h"
+
 static const MiniEnemySpeciesMetadata kMiniEnemySpeciesMetadata[] = {
   {
     .species_id = kMiniEnemySpecies_Roach,
@@ -13,6 +16,8 @@ static const MiniEnemySpeciesMetadata kMiniEnemySpeciesMetadata[] = {
     .ai_bank = 0xA3,
     .init_ai = 0xA14D,
     .main_ai = 0xA2D0,
+    .touch_ai = FUNC16(Enemy_NormalTouchAI_A0),
+    .shot_ai = FUNC16(Enemy_NormalShotAI_A0),
     .behavior = kMiniEnemyBehavior_Roach,
   },
   {
@@ -25,6 +30,8 @@ static const MiniEnemySpeciesMetadata kMiniEnemySpeciesMetadata[] = {
     .ai_bank = 0xB2,
     .init_ai = 0xEF9F,
     .main_ai = 0xF02D,
+    .touch_ai = FUNC16(WalkingSpacePirates_Touch),
+    .shot_ai = FUNC16(WalkingSpacePirates_Shot),
     .behavior = kMiniEnemyBehavior_SpacePirateShooter,
   },
 };
@@ -66,14 +73,35 @@ bool MiniKnownClimbPopulationForSpawn(const MiniEditorEnemySpawnView *spawn,
   return false;
 }
 
+static bool MiniEnemyHasRealReaction(uint16 reaction_ai) {
+  return reaction_ai != 0 &&
+         reaction_ai != FUNC16(nullsub_170) &&
+         reaction_ai != FUNC16(nullsub_169);
+}
+
+static bool MiniEnemyDefLooksUnusable(const EnemyDef *def) {
+  return def == NULL ||
+         (def->tile_data_size == 0 && def->health == 0 && def->bank == 0 &&
+          def->ai_init == 0 && def->main_ai == 0 &&
+          def->touch_ai == 0 && def->shot_ai == 0);
+}
+
 bool MiniEnemyTakesProjectileDamage(const MiniEnemyRuntimeState *enemy) {
-  return enemy->behavior == kMiniEnemyBehavior_Roach ||
-         enemy->behavior == kMiniEnemyBehavior_SpacePirateShooter;
+  if (enemy->species_id == 0)
+    return false;
+  const EnemyDef *def = get_EnemyDef_A2(enemy->species_id);
+  if (MiniEnemyDefLooksUnusable(def))
+    return enemy->behavior != kMiniEnemyBehavior_Passive;
+  return MiniEnemyHasRealReaction(def->shot_ai);
 }
 
 bool MiniEnemyDoesTouchDamage(const MiniEnemyRuntimeState *enemy) {
-  return enemy->behavior == kMiniEnemyBehavior_Roach ||
-         enemy->behavior == kMiniEnemyBehavior_SpacePirateShooter;
+  if (enemy->species_id == 0)
+    return false;
+  const EnemyDef *def = get_EnemyDef_A2(enemy->species_id);
+  if (MiniEnemyDefLooksUnusable(def))
+    return enemy->behavior != kMiniEnemyBehavior_Passive;
+  return MiniEnemyHasRealReaction(def->touch_ai);
 }
 
 const char *MiniEnemyBehaviorName(MiniEnemyBehavior behavior) {

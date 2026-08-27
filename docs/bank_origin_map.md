@@ -61,7 +61,8 @@ answer: "where did this logic live before we split it?"
 
 | Current file | Original bank file in `../sm/` | Notes |
 | --- | --- | --- |
-| `src/enemy_main.c` | `../sm/src/sm_a0.c` | Shared enemy lifecycle, spawn/load path, frame dispatch, and draw/runtime plumbing after the Bank `$A0` split |
+| `src/enemy_main.c` | `../sm/src/sm_a0.c` | Shared enemy lifecycle, spawn/load path, `EnemyMain` frame loop, and draw/runtime plumbing after the Bank `$A0` split. ROM-address switches now live in `enemy_dispatch.c` |
+| `src/enemy_dispatch.c` | `../sm/src/sm_a0.c` | `CallEnemyAi`, `CallEnemyPreInstr`, and `CallEnemyInstr` ROM-address switches peeled out of `enemy_main.c` |
 | `src/enemy_tiles.c` | `../sm/src/sm_a0.c` | Shared enemy tileset selection, palette staging, RAM tile assembly, and enemy-VRAM transfer helpers extracted from Bank `$A0` |
 | `src/enemy_gunship.c` | `../sm/src/sm_a2.c` | Gunship-only enemy runtime: landing-site idle/save interaction, event-driven departure, and takeoff choreography |
 | `src/enemy_elevator.c` | `../sm/src/sm_a3.c` | Elevator runtime peeled from the mixed Bank `$A3` file; owns the Samus/platform sync state machine and elevator-triggered transition handoff |
@@ -83,7 +84,10 @@ answer: "where did this logic live before we split it?"
 | `src/enemy_kraid_phantoon.c` | `../sm/src/sm_a7.c` | Kraid + Phantoon bosses lifted whole from Bank `$A7`; retires Bank `$A7` |
 | `src/enemy_ki_hunter.c` | `../sm/src/sm_a8.c` | Ki-Hunter and remaining Bank `$A8` enemies lifted whole; retires Bank `$A8` |
 | `src/enemy_mother_brain.c` | `../sm/src/sm_a9.c` | Mother Brain + Shitroid + dead-monster props lifted whole from Bank `$A9`; retires Bank `$A9` |
-| `src/enemy_collision.c` | `../sm/src/sm_a0.c` | Shared enemy-vs-Samus, enemy-vs-projectile, and block-collision helpers extracted from Bank `$A0` |
+| `src/enemy_collision.c` | `../sm/src/sm_a0.c` | `EnemyCollisionHandler` orchestrator plus `SuitDamageDivision` after the Bank `$A0` collision split |
+| `src/enemy_touch.c` | `../sm/src/sm_a0.c` | Samus contact, grapple latch/react table, and `NormalEnemyTouchAi*` peeled from `enemy_collision.c` |
+| `src/enemy_shot.c` | `../sm/src/sm_a0.c` | Projectile/bomb/power-bomb reactions, `NormalEnemyShotAi*`, eproj-vs-Samus, and death animation peeled from `enemy_collision.c` |
+| `src/enemy_block_collision.c` | `../sm/src/sm_a0.c` | Enemy-vs-block/slope movers (`Enemy_MoveRight_*`, `Enemy_MoveDown`, `CalculateBlockContainingPixelPos`) peeled from `enemy_collision.c` |
 | `src/enemy_drops.c` | `../sm/src/sm_a0.c` | Enemy drops, grapple-death hooks, and respawn/item-drop helpers extracted from Bank `$A0` |
 | `src/eproj_core.c` | `../sm/src/sm_86.c` | Enemy-projectile lifecycle, generic instruction handlers, shared block-collision/movement helpers, draw path, and screen-shake helpers |
 | `src/eproj_environment.c` | `../sm/src/sm_86.c` | Environment/facility enemy-projectile families; currently owns the fake-wall / dust-cloud / shot-gate cluster (`EprojInit_TourianEscapeShaftFakeWallExplode`, `EprojInit_DustCloudOrExplosion`, `EprojPreInstr_DustCloudOrExplosion`, `EprojInit_SpawnedShotGate`, `EprojInit_ClosedDownwardsShotGate`, `EprojInit_ClosedUpwardsShotGate`, `EprojPreInstr_E605`, `CheckIfEprojIsOffScreen`), the lava / fireball cluster (`EprojInit_LavaSeahorseFireball`, `sub_86B535`, `EprojInit_NamiFuneFireball`, `EprojPreInstr_NamiFuneFireball`, `EprojInit_LavaThrownByLavaman`, `sub_86E049`), the eye-door/save-station cluster (`EprojInit_EyeDoorProjectile`, `EprojInit_EyeDoorSweat`, `EprojPreInstr_EyeDoorProjectile`, `EprojPreInstr_EyeDoorSweat`, `EprojInit_EyeDoorSmoke`, `EprojInit_SaveStationElectricity`), `EprojInit_NuclearWaffleBody`, and the Norfair lavaquake rocks cluster (`EprojInit_NorfairLavaquakeRocks` through `EprojPreInstr_NorfairLavaquakeRocks_Inner2`) |

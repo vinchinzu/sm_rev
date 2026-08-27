@@ -88,7 +88,7 @@ void Phantoon_Init(void) {  // 0xA7CDF3
   E1->phant_parameter_1 = 0;
   E1->phant_parameter_2 = 0;
   Enemy_Phantoon *E0 = Get_Phantoon(0);
-  E0->base.properties |= kEnemyProps_Tangible;
+  E0->base.properties |= kEnemyProps_Intangible;
   static const SpawnHdmaObject_Args unk_A7CE51 = { 0x01, 0x14, 0xce96 };
   SpawnHdmaObject(0xa7, &unk_A7CE51);
   Phantoon2_Init();
@@ -229,7 +229,7 @@ void Phantoon_StartTrackingSamusAndInitEyeTimer(void) {  // 0xA7D03F
   Enemy_Phantoon *E = Get_Phantoon(0);
   E->base.instruction_timer = 1;
   E->base.current_instruction = addr_kKraid_Ilist_CC4D;
-  E->base.properties &= ~kEnemyProps_Tangible;
+  E->base.properties &= ~kEnemyProps_Intangible;
   E->phant_var_E = g_word_A7CD41[NextRandom() & 7];
   E->phant_var_F = FUNC16(Phantoon_EyeFollowsSamusUntilTimerRunsOut);
 
@@ -610,7 +610,7 @@ void Phantoon_EyeFollowsSamusUntilTimerRunsOut(uint16 k) {  // 0xA7D60D
       E1->base.instruction_timer = 1;
       E0->base.current_instruction = addr_kKraid_Ilist_CC41;
       E1->base.current_instruction = addr_kKraid_Ilist_CC81;
-      E0->base.properties |= kEnemyProps_Tangible;
+      E0->base.properties |= kEnemyProps_Intangible;
       E0->phant_parameter_2 = 1;
       return;
     }
@@ -645,7 +645,7 @@ void Phantoon_IsSwooping(uint16 k) {  // 0xA7D678
     E1->base.instruction_timer = 1;
     E0->base.current_instruction = addr_kKraid_Ilist_CC41;
     E1->base.current_instruction = addr_kKraid_Ilist_CC91;
-    E0->base.properties |= kEnemyProps_Tangible;
+    E0->base.properties |= kEnemyProps_Intangible;
     E1->phant_var_F = 0;
     Get_Phantoon(k + 128)->phant_var_B = 0;
   }
@@ -711,7 +711,7 @@ void Phantoon_FadeInDuringFireballRain(uint16 k) {  // 0xA7D767
   Phantoon_FadeIn(1);
   if (Get_Phantoon(0x40)->phant_var_F) {
     Enemy_Phantoon *E = Get_Phantoon(0);
-    E->base.properties &= ~kEnemyProps_Tangible;
+    E->base.properties &= ~kEnemyProps_Intangible;
     Get_Phantoon(k)->phant_var_F = FUNC16(Phantoon_FollowSamusWithEyeDuringFireballRain);
     E->phant_var_E = 90;
   }
@@ -737,7 +737,7 @@ void Phantoon_FollowSamusWithEyeDuringFireballRain(uint16 k) {  // 0xA7D788
       E1->base.instruction_timer = 1;
       E0->base.current_instruction = addr_kKraid_Ilist_CC41;
       E1->base.current_instruction = addr_kKraid_Ilist_CC91;
-      E0->base.properties |= kEnemyProps_Tangible;
+      E0->base.properties |= kEnemyProps_Intangible;
       phantom_related_layer_flag |= 0x4000;
     }
   }
@@ -929,7 +929,7 @@ void Phantoon_WavyDyingPhantoonAndCry(uint16 k) {  // 0xA7DA51
   Get_Phantoon(k)->phant_var_F = FUNC16(Phantoon_DyingFadeOut);
   Phantoon = Get_Phantoon(0x40);
   Phantoon->phant_var_C = 2;
-  uint16 v2 = Get_Phantoon(0)->base.properties & ~(kEnemyProps_DisableSamusColl | kEnemyProps_Tangible | kEnemyProps_Invisible) | kEnemyProps_Tangible | kEnemyProps_Invisible;
+  uint16 v2 = Get_Phantoon(0)->base.properties & ~(kEnemyProps_ProcessInstructions | kEnemyProps_Intangible | kEnemyProps_Invisible) | kEnemyProps_Intangible | kEnemyProps_Invisible;
   Phantoon->base.properties = v2;
   Get_Phantoon(0x80)->base.properties = v2;
   Get_Phantoon(0xC0)->base.properties = v2;
@@ -1139,7 +1139,7 @@ void Phantoon_Shot(void) {  // 0xA7DD9B
   if (!EK->base.health) {
     QueueSfx2_Max6(0x73);
     Get_Phantoon(0x80)->phant_parameter_2 = 1;
-    E0->base.properties |= kEnemyProps_Tangible;
+    E0->base.properties |= kEnemyProps_Intangible;
     Phantoon_StartDeathSequence(v1);
     return;
   }
@@ -1188,7 +1188,7 @@ LABEL_22:
       E1->base.instruction_timer = 1;
       E0->base.current_instruction = addr_kKraid_Ilist_CC41;
       E1->base.current_instruction = addr_kKraid_Ilist_CC91;
-      E0->base.properties |= kEnemyProps_Tangible;
+      E0->base.properties |= kEnemyProps_Intangible;
       E1->phant_var_F = 0;
       goto LABEL_20;
     }
@@ -1207,7 +1207,7 @@ LABEL_22:
 
 void Etecoon_Init(void) {  // 0xA7E912
   Enemy_Etecoon *E = Get_Etecoon(cur_enemy_index);
-  E->base.properties |= kEnemyProps_DisableSamusColl;
+  E->base.properties |= kEnemyProps_ProcessInstructions;
   E->base.spritemap_pointer = addr_kSpritemap_Nothing_A7;
   E->base.instruction_timer = 1;
   E->base.timer = 0;
@@ -1610,7 +1610,7 @@ void Dachora_Init(void) {  // 0xA7F4DD
   int16 dachor_parameter_1;
 
   Enemy_Dachora *E = Get_Dachora(cur_enemy_index);
-  E->base.properties |= kEnemyProps_DisableSamusColl;
+  E->base.properties |= kEnemyProps_ProcessInstructions;
   E->base.spritemap_pointer = addr_kSpritemap_Nothing_A7;
   E->base.instruction_timer = 1;
   E->base.timer = 0;

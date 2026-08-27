@@ -21,7 +21,7 @@ static uint16 GunshipTopPieceYPos(uint16 enemy_index) {
 
 void GunshipTop_Init(void) {  // 0xA2A644
   Enemy_GunshipTop *E = Get_GunshipTop(cur_enemy_index);
-  E->base.properties |= kEnemyProps_DisableSamusColl | kEnemyProps_Tangible;
+  E->base.properties |= kEnemyProps_ProcessInstructions | kEnemyProps_Intangible;
   E->base.instruction_timer = 1;
   E->base.timer = 0;
   E->base.current_instruction = addr_kGunshipTop_Ilist_A616;
@@ -51,7 +51,7 @@ void GunshipTop_Init(void) {  // 0xA2A644
 
 void GunshipBottom_Init(void) {  // 0xA2A6D2
   Enemy_GunshipBottom *E = Get_GunshipBottom(cur_enemy_index);
-  E->base.properties |= kEnemyProps_DisableSamusColl | kEnemyProps_Tangible;
+  E->base.properties |= kEnemyProps_ProcessInstructions | kEnemyProps_Intangible;
   E->base.instruction_timer = 1;
   E->base.timer = 0;
   if (E->gbm_parameter_2)

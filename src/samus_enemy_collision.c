@@ -18,12 +18,8 @@ typedef enum SolidEnemyCollisionKind {
   kSolidEnemyCollision_Gap,
 } SolidEnemyCollisionKind;
 
-enum {
-  kEnemyProps_SolidSamusCollision = 0x8000,
-};
-
 static bool Samus_IsEnemySolidForCollision(const EnemyData *enemy) {
-  return enemy->frozen_timer || (enemy->properties & kEnemyProps_SolidSamusCollision) != 0;
+  return enemy->frozen_timer || (enemy->properties & kEnemyProps_SolidToSamus) != 0;
 }
 
 static SolidEnemyCollisionKind Samus_CheckSolidEnemyContact(

@@ -264,7 +264,7 @@ void Kraid_Init(void) {  // 0xA7A959
     E->field_2E[8] = 0;
     E->base.x_pos = 176;
     E->base.y_pos = 592;
-    E->base.properties |= kEnemyProps_Tangible;
+    E->base.properties |= kEnemyProps_Intangible;
     E->kraid_var_A = FUNC16(Kraid_RestrictSamusXtoFirstScreen);
     E->kraid_var_F = 300;
     E->kraid_next = FUNC16(Kraid_RaiseKraidThroughFloor);
@@ -708,12 +708,12 @@ LABEL_14:
     if (sign16(E->base.health - 1) && sign16(E->kraid_var_A + 0x3CA0)) {
       E->kraid_var_A = FUNC16(Kraid_Death_Init);
       E->kraid_mouth_flags = 0;
-      E->base.properties |= kEnemyProps_Tangible;
+      E->base.properties |= kEnemyProps_Intangible;
       Kraid_SetupGfxWithTilePrioClear(~0x2000);
       uint16 v12 = 0;
       do {
         Enemy_Kraid *EL = Get_Kraid(v12);
-        EL->base.properties |= kEnemyProps_Tangible;
+        EL->base.properties |= kEnemyProps_Intangible;
         v12 += 64;
       } while ((int16)(v12 - 384) < 0);
       if (sign16(E->kraid_var_B + 0x68F2))
@@ -1064,7 +1064,7 @@ void KraidLint_FireLint(uint16 k) {  // 0xA7B89B
   Enemy_Kraid *E = Get_Kraid(k);
   AddToHiLo(&E->base.x_pos, &E->base.x_subpos, -IPAIR32(g_word_A7A928, g_word_A7A926));
   if (sign16(E->base.x_pos - 56))
-    E->base.properties |= kEnemyProps_Tangible;
+    E->base.properties |= kEnemyProps_Intangible;
   if (sign16(E->base.x_pos - 32)) {
     E->base.properties |= kEnemyProps_Invisible;
     E->kraid_var_A = FUNC16(Kraid_AlignEnemyToKraid);
@@ -1124,7 +1124,7 @@ void KraidEnemy_ProcessInstrEnemyTimer(uint16 k) {  // 0xA7B965
 
 void Kraid_EnemyTouch_Lint(uint16 k) {  // 0xA7B96A
   Enemy_Kraid *E = Get_Kraid(k);
-  if ((E->base.properties & kEnemyProps_Tangible) == 0 && !samus_invincibility_timer) {
+  if ((E->base.properties & kEnemyProps_Intangible) == 0 && !samus_invincibility_timer) {
     uint16 r18 = g_stru_A792B7.left + E->base.x_pos - 2;
     if (!sign16(samus_x_radius + samus_x_pos - r18)) {
       if (sign16(samus_x_pos - samus_x_radius - r18)) {
@@ -1137,7 +1137,7 @@ void Kraid_EnemyTouch_Lint(uint16 k) {  // 0xA7B96A
               v2 = 16;
             extra_samus_x_displacement = v2;
             NormalEnemyTouchAi();
-            E->base.properties |= kEnemyProps_Tangible;
+            E->base.properties |= kEnemyProps_Intangible;
           }
         }
       }
@@ -1370,7 +1370,7 @@ void KraidsFingernail_Init(void) {  // 0xA7BD60
   E->kraid_var_D = GET_WORD(v3 + 4);
   E->kraid_var_E = GET_WORD(v3 + 6);
   E->kraid_parameter_1 = 1;
-  E->base.properties &= ~(kEnemyProps_Tangible | kEnemyProps_Invisible);
+  E->base.properties &= ~(kEnemyProps_Intangible | kEnemyProps_Invisible);
   E->base.instruction_timer = 1;
   E->base.current_instruction = addr_kKraid_Ilist_8B0A;
   E->kraid_var_A = FUNC16(KraidsFingernail_Fire);
@@ -1396,7 +1396,7 @@ LABEL_7:
     E->kraid_var_E = 0;
     E->kraid_var_A = FUNC16(KraidFingernail_WaitForLintXpos);
     E->kraid_next = FUNC16(KraidsFingernail_Fire);
-    E->base.properties |= kEnemyProps_Tangible | kEnemyProps_Invisible;
+    E->base.properties |= kEnemyProps_Intangible | kEnemyProps_Invisible;
   }
 }
 
@@ -1705,7 +1705,7 @@ void Kraid_Death_UpdateBG2TilemapBottomHalf(void) {  // 0xA7C4C8
   Enemy_Kraid *E = Get_Kraid(0);
   E->kraid_var_A = FUNC16(Kraid_Death_SinkThroughFloor);
   kraid_unk9000 = 43;
-  E->base.properties |= 0x8000;
+  E->base.properties |= kEnemyProps_SolidToSamus;
   earthquake_type = 1;
   earthquake_timer = 256;
   Enemy_Kraid *E1 = Get_Kraid(0x40);
@@ -1755,12 +1755,12 @@ void Kraid_Death_SinkThroughFloor(void) {  // 0xA7C537
   Kraid_HandleSinking();
   Enemy_Kraid *E0 = Get_Kraid(0);
   if (!sign16(++E0->base.y_pos - 608)) {
-    E0->base.properties &= ~kEnemyProps_Tangible;
+    E0->base.properties &= ~kEnemyProps_Intangible;
     enemy_bg2_tilemap_size = 2;
     uint16 enemy_ptr = Get_Kraid(cur_enemy_index)->base.enemy_ptr;
     get_EnemyDef_A2(enemy_ptr)->shot_ai = FUNC16(nullsub_170_A7);
     Enemy_Kraid *E1 = Get_Kraid(0x40);
-    uint16 v3 = E1->base.properties | kEnemyProps_Tangible | kEnemyProps_Deleted;
+    uint16 v3 = E1->base.properties | kEnemyProps_Intangible | kEnemyProps_Deleted;
     E1->base.properties = v3;
     uint16 v4 = v3 & 0x51FF | 0x600;
     Get_Kraid(0x80)->base.properties = v4;
