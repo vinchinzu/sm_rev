@@ -7,54 +7,69 @@
 #include "enemy_types.h"
 #include "enemy_ai_canon.h"
 
-#define g_word_A8E7CC ((uint16*)RomFixedPtr(0xa8e7cc))
+enum {
+  kCollectedItems_MorphBall = 0x04,
+  kBlueBrinstarFaceBlockBank = 168,
+  kBlueBrinstarFaceBlockCycleTimer = 16,
+  kBlueBrinstarFaceBlockPaletteBase = 137,
+  kBlueBrinstarFaceBlockPaletteColors = 4,
+  kBlueBrinstarFaceBlockPaletteFrames = 7,
+  kProjectileDir_Hit = 0x10,
+};
+
+static const uint16 kBlueBrinstarFaceBlockGlowColors[8][4] = {
+  { 0x001f, 0x0012, 0x000a, 0x002b },
+  { 0x051f, 0x0096, 0x0011, 0x0007 },
+  { 0x0a3f, 0x013b, 0x0018, 0x000d },
+  { 0x0f3f, 0x01bf, 0x001f, 0x0012 },
+  { 0x0f3f, 0x01bf, 0x001f, 0x0012 },
+  { 0x0a3f, 0x013b, 0x0018, 0x000d },
+  { 0x051f, 0x0096, 0x0011, 0x0007 },
+  { 0x001f, 0x0012, 0x000a, 0x002b },
+};
 
 void BlueBrinstarFaceBlock_Init(void) {  // 0xA8E82E
-  EnemyData *v0 = gEnemyData(cur_enemy_index);
-  v0->current_instruction = addr_kBlueBrinstarFaceBlock_Ilist_E828;
-  uint16 v1 = FUNC16(BlueBrinstarFaceBlock_Func_1);
-  if ((collected_items & 4) == 0)
-    v1 = FUNC16(nullsub_170_A8);
-  enemy_gfx_drawn_hook.addr = v1;
-  *(uint16 *)&enemy_gfx_drawn_hook.bank = 168;
-  variables_for_enemy_graphics_drawn_hook[0] = ((16 * v0->palette_index) & 0xFF00) >> 8;
-  variables_for_enemy_graphics_drawn_hook[2] = 16;
-  v0->parameter_2 = ((v0->parameter_2 & 1) >> 2) | ((v0->parameter_2 & 1) << 15);
+  EnemyData *E = gEnemyData(cur_enemy_index);
+  E->current_instruction = addr_kBlueBrinstarFaceBlock_Ilist_E828;
+  uint16 gfx_hook = FUNC16(BlueBrinstarFaceBlock_Func_1);
+  if ((collected_items & kCollectedItems_MorphBall) == 0)
+    gfx_hook = FUNC16(nullsub_170_A8);
+  enemy_gfx_drawn_hook.addr = gfx_hook;
+  *(uint16 *)&enemy_gfx_drawn_hook.bank = kBlueBrinstarFaceBlockBank;
+  variables_for_enemy_graphics_drawn_hook[0] = ((16 * E->palette_index) & 0xFF00) >> 8;
+  variables_for_enemy_graphics_drawn_hook[2] = kBlueBrinstarFaceBlockCycleTimer;
+  E->parameter_2 = ((E->parameter_2 & 1) >> 2) | ((E->parameter_2 & 1) << 15);
 }
 
 void BlueBrinstarFaceBlock_Func_1(void) {  // 0xA8E86E
   if (!door_transition_flag_enemies && !--variables_for_enemy_graphics_drawn_hook[2]) {
-    variables_for_enemy_graphics_drawn_hook[2] = 16;
-    uint16 v0 = variables_for_enemy_graphics_drawn_hook[0];
-    uint16 v1 = 8 * variables_for_enemy_graphics_drawn_hook[1];
-    int n = 4;
-    do {
-      palette_buffer[(v0 >> 1) + 137] = g_word_A8E7CC[v1 >> 1];
-      v1 += 2;
-      v0 += 2;
-    } while (--n);
-    variables_for_enemy_graphics_drawn_hook[1] = (LOBYTE(variables_for_enemy_graphics_drawn_hook[1]) + 1) & 7;
+    variables_for_enemy_graphics_drawn_hook[2] = kBlueBrinstarFaceBlockCycleTimer;
+    uint16 pal_off = variables_for_enemy_graphics_drawn_hook[0] >> 1;
+    uint16 frame = variables_for_enemy_graphics_drawn_hook[1] & kBlueBrinstarFaceBlockPaletteFrames;
+    for (int i = 0; i < kBlueBrinstarFaceBlockPaletteColors; i++)
+      palette_buffer[pal_off + kBlueBrinstarFaceBlockPaletteBase + i] = kBlueBrinstarFaceBlockGlowColors[frame][i];
+    variables_for_enemy_graphics_drawn_hook[1] = (LOBYTE(variables_for_enemy_graphics_drawn_hook[1]) + 1) & kBlueBrinstarFaceBlockPaletteFrames;
   }
 }
 
 void BlueBrinstarFaceBlock_Main(void) {  // 0xA8E8AE
-  if ((collected_items & 4) != 0) {
+  if (collected_items & kCollectedItems_MorphBall) {
     enemy_gfx_drawn_hook.addr = FUNC16(BlueBrinstarFaceBlock_Func_1);
-    EnemyData *v1 = gEnemyData(cur_enemy_index);
-    variables_for_enemy_graphics_drawn_hook[0] = ((16 * v1->palette_index) & 0xFF00) >> 8;
-    if (!v1->ai_var_A) {
-      uint16 SamusEnemyDelta_Y = GetSamusEnemyDelta_Y(cur_enemy_index);
-      if ((int16)(Abs16(SamusEnemyDelta_Y) - v1->parameter_1) < 0) {
-        uint16 SamusEnemyDelta_X = GetSamusEnemyDelta_X(cur_enemy_index);
-        v1->ai_var_B = SamusEnemyDelta_X;
-        if ((int16)(Abs16(SamusEnemyDelta_X) - v1->parameter_1) < 0 && (v1->ai_var_B & 0x8000) != v1->parameter_2) {
-          uint16 v4 = addr_kBlueBrinstarFaceBlock_Ilist_E80C;
-          if ((v1->ai_var_B & 0x8000) == 0)
-            v4 = addr_kBlueBrinstarFaceBlock_Ilist_E81A;
-          v1->current_instruction = v4;
-          v1->instruction_timer = 1;
-          v1->ai_var_A = 1;
-          variables_for_enemy_graphics_drawn_hook[2] = 16;
+    EnemyData *E = gEnemyData(cur_enemy_index);
+    variables_for_enemy_graphics_drawn_hook[0] = ((16 * E->palette_index) & 0xFF00) >> 8;
+    if (!E->ai_var_A) {
+      uint16 samus_delta_y = GetSamusEnemyDelta_Y(cur_enemy_index);
+      if ((int16)(Abs16(samus_delta_y) - E->parameter_1) < 0) {
+        uint16 samus_delta_x = GetSamusEnemyDelta_X(cur_enemy_index);
+        E->ai_var_B = samus_delta_x;
+        if ((int16)(Abs16(samus_delta_x) - E->parameter_1) < 0 && sign16(E->ai_var_B) != E->parameter_2) {
+          uint16 ilist = addr_kBlueBrinstarFaceBlock_Ilist_E80C;
+          if (!sign16(E->ai_var_B))
+            ilist = addr_kBlueBrinstarFaceBlock_Ilist_E81A;
+          E->current_instruction = ilist;
+          E->instruction_timer = 1;
+          E->ai_var_A = 1;
+          variables_for_enemy_graphics_drawn_hook[2] = kBlueBrinstarFaceBlockCycleTimer;
         }
       }
     }
@@ -62,6 +77,5 @@ void BlueBrinstarFaceBlock_Main(void) {  // 0xA8E8AE
 }
 
 void BlueBrinstarFaceBlock_Shot(void) {  // 0xA8E91D
-  projectile_dir[collision_detection_index] &= ~0x10;
+  projectile_dir[collision_detection_index] &= ~kProjectileDir_Hit;
 }
-
