@@ -1113,20 +1113,30 @@ static EnemyInstrFn EnemyInstrFromAddr(uint32 ea) {
   return hit->fn;
 }
 
+static EnemyAiFn BindAiSlot(uint32 ea) {
+  EnemyAiFn fn = LookupEnemyAi(ea);
+  if (!fn) {
+    /* Same loud miss as CallEnemyAi's default: do not silently skip AI. */
+    Unreachable();
+    return EnemyAi_Nop;
+  }
+  return fn;
+}
+
 void BindEnemyDefAi(EnemyDef *ed, EnemyDefAiFns *fns) {
   uint32 bank;
   if (!ed || !fns)
     return;
   bank = (uint32)ed->bank << 16;
-  fns->ai_init = ed->ai_init ? LookupEnemyAi(bank | ed->ai_init) : NULL;
-  fns->main_ai = ed->main_ai ? LookupEnemyAi(bank | ed->main_ai) : NULL;
-  fns->grapple_ai = ed->grapple_ai ? LookupEnemyAi(bank | ed->grapple_ai) : NULL;
-  fns->hurt_ai = ed->hurt_ai ? LookupEnemyAi(bank | ed->hurt_ai) : NULL;
-  fns->frozen_ai = ed->frozen_ai ? LookupEnemyAi(bank | ed->frozen_ai) : NULL;
-  fns->time_is_frozen_ai = ed->time_is_frozen_ai ? LookupEnemyAi(bank | ed->time_is_frozen_ai) : NULL;
-  fns->powerbomb_reaction = LookupEnemyAi(bank | (ed->powerbomb_reaction ? ed->powerbomb_reaction : 0x8037));
-  fns->touch_ai = ed->touch_ai ? LookupEnemyAi(bank | ed->touch_ai) : NULL;
-  fns->shot_ai = ed->shot_ai ? LookupEnemyAi(bank | ed->shot_ai) : NULL;
+  fns->ai_init = ed->ai_init ? BindAiSlot(bank | ed->ai_init) : NULL;
+  fns->main_ai = ed->main_ai ? BindAiSlot(bank | ed->main_ai) : NULL;
+  fns->grapple_ai = ed->grapple_ai ? BindAiSlot(bank | ed->grapple_ai) : NULL;
+  fns->hurt_ai = ed->hurt_ai ? BindAiSlot(bank | ed->hurt_ai) : NULL;
+  fns->frozen_ai = ed->frozen_ai ? BindAiSlot(bank | ed->frozen_ai) : NULL;
+  fns->time_is_frozen_ai = ed->time_is_frozen_ai ? BindAiSlot(bank | ed->time_is_frozen_ai) : NULL;
+  fns->powerbomb_reaction = BindAiSlot(bank | (ed->powerbomb_reaction ? ed->powerbomb_reaction : 0x8037));
+  fns->touch_ai = ed->touch_ai ? BindAiSlot(bank | ed->touch_ai) : NULL;
+  fns->shot_ai = ed->shot_ai ? BindAiSlot(bank | ed->shot_ai) : NULL;
 }
 
 void EnemyRunPreInstr(uint16 off) {
