@@ -24,25 +24,6 @@
 
 // Shared Bank $A5 reaction wrappers (used by Draygon and Spore Spawn enemy defs).
 
-void Enemy_GrappleReact_NoInteract_A5(void) {  // 0xA58000
-  SwitchEnemyAiToMainAi();
-}
-
-void Enemy_GrappleReact_CancelBeam_A5(void) {  // 0xA5800F
-  Enemy_SwitchToFrozenAi();
-}
-
-void Enemy_NormalTouchAI_A5(void) {  // 0xA58023
-  NormalEnemyTouchAi();
-}
-
-void Enemy_NormalShotAI_A5(void) {  // 0xA5802D
-  NormalEnemyShotAi();
-}
-
-void Enemy_NormalFrozenAI_A5(void) {  // 0xA58041
-  NormalEnemyFrozenAI();
-}
 
 void Draygon_Init(void) {  // 0xA58687
   uint16 j;

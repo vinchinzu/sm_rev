@@ -38,7 +38,6 @@
 #define kDeadMonsters_TileData RomPtr_B7(addr_kDeadMonsters_TileData)
 
 
-
 static const uint16 g_word_A98B5D[5] = { 0x10, 0x10, 8, 8, 0x10 };
 static const uint16 g_word_A98B67[5] = { 0x20, 0x20, 0x18, 0x18, 0x20 };
 static const uint16 g_word_A98B71[5] = { 0xf8, 0xf8, 0xf0, 0xf0, 0xf6 };
@@ -260,13 +259,7 @@ void CallMotherBrainFunc(uint32 ea) {
   default: Unreachable();
   }
 }
-void Enemy_GrappleReact_CancelBeam_A9(void) {  // 0xA9800F
-  Enemy_SwitchToFrozenAi();
-}
 
-void Enemy_NormalFrozenAI_A9(void) {  // 0xA98041
-  NormalEnemyFrozenAI();
-}
 
 void MotherBrainsBody_Init(void) {  // 0xA98687
   for (int i = 4094; i >= 0; i -= 2)

@@ -5,6 +5,7 @@
 #include "variables.h"
 #include "funcs.h"
 #include "enemy_types.h"
+#include "enemy_ai_canon.h"
 
 #define kEnemyLayerToQueuePtr ((uint16*)RomFixedPtr(0xa0b133))
 
@@ -279,12 +280,12 @@ void SetAllEnemiesToShakeFor2Frames(void) {  // 0xA08712
 }
 
 void CallEnemyGfxDrawHook(uint32 ea) {
+  ea = CanonicalizeEnemyHandler(ea);
   switch (ea) {
   case fnnullsub_170: return;  // 0xa0804c
   case fnReflec_Func_1: Reflec_Func_1(); return;  // 0xa3db0c
   case fnDraygon_Func_36: Draygon_Func_36(); return;  // 0xa59342
   case fnRidley_A2F2: Ridley_A2F2(); return;  // 0xa6a2f2
-  case fnnullsub_170_A8: return;  // 0xa8804c
   case fnNorfairLavaMan_Func_6: NorfairLavaMan_Func_6(); return;  // 0xa8b0b2
   case fnWreckedShipRobot_Func_1: WreckedShipRobot_Func_1(); return;  // 0xa8cc67
   case fnBlueBrinstarFaceBlock_Func_1: BlueBrinstarFaceBlock_Func_1(); return;  // 0xa8e86e

@@ -32,7 +32,7 @@ const uint16 *Metroid_Instr_1(uint16 k, const uint16 *jp) {  // 0xA3EAB1
 }
 
 void Metroid_Frozen(void) {  // 0xA3EAE6
-  Enemy_NormalFrozenAI_A3();
+  NormalEnemyFrozenAI();
   Enemy_Metroid *E = Get_Metroid(cur_enemy_index);
   if (E->metroid_var_E) {
     --E->metroid_var_E;
@@ -282,7 +282,7 @@ void Metroid_Shot(void) {  // 0xA3EF07
     if (v3 == 256 || v3 == 512) {
       special_death_item_drop_x_origin_pos = E->base.x_pos;
       special_death_item_drop_y_origin_pos = E->base.y_pos;
-      Enemy_NormalShotAI_SkipSomeParts_A3();
+      NormalEnemyShotAiSkipDeathAnim_CurEnemy();
       if (!E->base.health) {
         E->metroid_var_B = 0;
         EnemyDeathAnimation(cur_enemy_index, 4);

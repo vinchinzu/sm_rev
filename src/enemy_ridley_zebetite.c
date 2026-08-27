@@ -127,25 +127,6 @@ static const uint8 g_byte_A6D61F[16] = { 0x10, 0xf, 0xe, 0xd, 0xc, 0xb, 0xa, 9, 
 static const uint8 g_byte_A6D712[16] = { 0x10, 0xf, 0xe, 0xd, 0xc, 0xb, 0xa, 9, 8, 7, 6, 5, 4, 3, 2, 1 };
 static const uint16 g_word_A6D9ED[8] = { 0xc, 0xe, 0x10, 0x12, 0x1c, 0x20, 0x28, 0x30 };
 
-void Enemy_GrappleReact_NoInteract_A6(void) {  // 0xA68000
-  SwitchEnemyAiToMainAi();
-}
-
-void Enemy_GrappleReact_CancelBeam_A6(void) {  // 0xA6800F
-  Enemy_SwitchToFrozenAi();
-}
-
-void Enemy_NormalTouchAI_A6(void) {  // 0xA68023
-  NormalEnemyTouchAi();
-}
-
-void Enemy_NormalShotAI_A6(void) {  // 0xA6802D
-  NormalEnemyShotAi();
-}
-
-void Enemy_NormalFrozenAI_A6(void) {  // 0xA68041
-  NormalEnemyFrozenAI();
-}
 
 void Boulder_Init(void) {  // 0xA686F5
   int16 boulder_parameter_2_high;

@@ -138,12 +138,12 @@ void Mochtroid_Touch(void) {  // 0xA3A953
   if (!sign16(E->mochtr_var_20 - 80)) {
     E->mochtr_var_20 = 0;
 deal_damage:
-    Enemy_NormalTouchAI_A3();
+    NormalEnemyTouchAi();
     samus_invincibility_timer = 0;
     samus_knockback_timer = 0;
   }
 }
 
 void Mochtroid_Shot(void) {  // 0xA3A9A8
-  Enemy_NormalShotAI_A3();
+  NormalEnemyShotAi();
 }

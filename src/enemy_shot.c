@@ -6,6 +6,7 @@
 #include "enemy_types.h"
 #include "torizo_config.h"
 #include "samus_status.h"
+#include "enemy_ai_canon.h"
 
 void SamusProjectileInteractionHandler(void) {  // 0xA09785
   enemy_processing_stage = 10;

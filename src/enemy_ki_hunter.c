@@ -35,7 +35,6 @@
 #define g_off_A8F3B0 ((uint16*)RomFixedPtr(0xa8f3b0))
 
 
-
 static const int16 g_word_A890CA[4] = { -8, 8, 0, 0 };
 static const int16 g_word_A890D2[4] = { 0, 0, -8, 8 };
 static const uint16 g_word_A89050 = 0x80;
@@ -54,7 +53,6 @@ static const uint16 g_word_A89ACC[17] = { 1, 8, 1, 8, 1, 7, 1, 7, 2, 6, 2, 6, 3,
 static const uint16 kWreckedShipGhost_Palette[16] = { 0x3800, 0x57ff, 0x42f7, 0x929, 0xa5, 0x4f5a, 0x36b5, 0x2610, 0x1dce, 0x1df, 0x1f, 0x18, 0xa, 0x6b9, 0xea, 0x45 };
 static const uint16 g_word_A89D32 = 1;
 static const uint16 g_word_A89D34 = 1;
-
 
 
 static const int16 g_word_A8C277[3] = { -12, -16, -20 };
@@ -102,41 +100,6 @@ static const uint16 g_word_A8F182 = 0xe000;
 static const uint16 g_word_A8F184 = 0;
 static const uint8 g_byte_A8F186 = 0x30;
 
-void Enemy_GrappleReact_NoInteract_A8(void) {  // 0xA88000
-  SwitchEnemyAiToMainAi();
-}
-
-void Enemy_GrappleReact_KillEnemy_A8(void) {  // 0xA8800A
-  EnemyGrappleDeath();
-}
-
-void Enemy_GrappleReact_CancelBeam_A8(void) {  // 0xA8800F
-  Enemy_SwitchToFrozenAi();
-}
-
-void Enemy_GrappleReact_SamusLatchesNoInvinc_A8(void) {  // 0xA88014
-  SamusLatchesOnWithGrappleNoInvinc();
-}
-
-void Enemy_GrappleReact_HurtSamus_A8(void) {  // 0xA8801E
-  SamusHurtFromGrapple();
-}
-
-void Enemy_NormalTouchAI_A8(void) {  // 0xA88023
-  NormalEnemyTouchAi();
-}
-
-void Enemy_NormalShotAI_A8(void) {  // 0xA8802D
-  NormalEnemyShotAi();
-}
-
-void Enemy_NormalPowerBombAI_A8(void) {  // 0xA88037
-  NormalEnemyPowerBombAi();
-}
-
-void Enemy_NormalFrozenAI_A8(void) {  // 0xA88041
-  NormalEnemyFrozenAI();
-}
 
 const uint16 *MiniDraygon_Instr_2(uint16 k, const uint16 *jp) {  // 0xA8878F
   QueueSfx2_Max6(0x5E);
@@ -366,12 +329,12 @@ void MiniDraygon_Func_12(void) {  // 0xA88AE8
 }
 
 void MiniDraygon_Touch(void) {  // 0xA88B06
-  Enemy_NormalTouchAI_A8();
+  NormalEnemyTouchAi();
   MiniDraygon_Func_13();
 }
 
 void MiniDraygon_Powerbomb(void) {  // 0xA88B0C
-  Enemy_NormalPowerBombAI_A8();
+  NormalEnemyPowerBombAi();
   MiniDraygon_Func_13();
 }
 
@@ -1243,7 +1206,7 @@ void YappingMaw_Shot(void) {  // 0xA8A7BD
 }
 
 void YappingMaw_Frozen(void) {  // 0xA8A835
-  Enemy_NormalFrozenAI_A8();
+  NormalEnemyFrozenAI();
   Enemy_YappingMaw *E = Get_YappingMaw(cur_enemy_index);
   YappingMaw_Func_18(E->ymw_var_40);
   YappingMaw_Func_18(E->ymw_var_41);
@@ -1748,12 +1711,12 @@ void NorfairLavaMan_Func_20(void) {  // 0xA8B3E5
 }
 
 void NorfairLavaMan_Powerbomb(void) {  // 0xA8B400
-  Enemy_NormalPowerBombAI_A8();
+  NormalEnemyPowerBombAi();
   NorfairLavaMan_Common();
 }
 
 void NorfairLavaMan_Touch(void) {  // 0xA8B406
-  Enemy_NormalTouchAI_A8();
+  NormalEnemyTouchAi();
   NorfairLavaMan_Common();
 }
 
@@ -2259,14 +2222,14 @@ void Beetom_Touch(void) {  // 0xA8BE2E
     QueueSfx3_Max6(0x2D);
   if ((E->base.frame_counter & 0x3F) == 63) {
 LABEL_11:
-    Enemy_NormalTouchAI_A8();
+    NormalEnemyTouchAi();
     samus_invincibility_timer = 0;
     samus_knockback_timer = 0;
   }
 }
 
 void Beetom_Shot(void) {  // 0xA8BEAC
-  Enemy_NormalShotAI_A8();
+  NormalEnemyShotAi();
   Enemy_Beetom *E = Get_Beetom(cur_enemy_index);
   if (E->base.frozen_timer
       && (E->beetom_var_C == FUNC16(Beetom_Func_33)
@@ -2592,7 +2555,7 @@ void MaridiaFloater_Shot(void) {  // 0xA8C5EF
 }
 
 void MaridiaFloater_Powerbomb(void) {  // 0xA8C63F
-  Enemy_NormalPowerBombAI_A8();
+  NormalEnemyPowerBombAi();
   Enemy_MaridiaFloater *E = Get_MaridiaFloater(cur_enemy_index);
   if (E->base.health) {
     int v1 = cur_enemy_index >> 1;
@@ -3120,7 +3083,7 @@ void MaridiaPuffer_Func_9(uint16 k) {  // 0xA8DA92
 void MaridiaPuffer_Shot(void) {  // 0xA8DB14
   Enemy_MaridiaPuffer *E = Get_MaridiaPuffer(cur_enemy_index);
   E->mpr_var_40 = E->base.health;
-  Enemy_NormalShotAI_A8();
+  NormalEnemyShotAi();
   if (E->base.health == E->mpr_var_40 && !E->mpr_var_03) {
     E->base.instruction_timer = 1;
     E->base.timer = 0;

@@ -21,55 +21,8 @@
 #define g_word_B3E730 ((uint16*)RomFixedPtr(0xb3e730))
 
 
-
-
 static const int16 g_word_B39E77[3] = { 2, 3, 4 };
 
-void Enemy_GrappleReact_NoInteract_B3(void) {  // 0xB38000
-  SwitchEnemyAiToMainAi();
-}
-
-void Enemy_GrappleReact_KillEnemy_B3(void) {  // 0xB3800A
-  EnemyGrappleDeath();
-}
-
-void Enemy_GrappleReact_CancelBeam_B3(void) {  // 0xB3800F
-  Enemy_SwitchToFrozenAi();
-}
-
-void Enemy_NormalTouchAI_B3(void) {  // 0xB38023
-  NormalEnemyTouchAi();
-}
-
-void Enemy_NormalTouchAI_SkipDeathAnim_B3(void) {  // 0xB38028
-  NormalEnemyTouchAiSkipDeathAnim_CurEnemy();
-}
-
-void Enemy_NormalShotAI_B3(void) {  // 0xB3802D
-  NormalEnemyShotAi();
-}
-
-void Enemy_NormalShotAI_SkipSomeParts_B3(void) {  // 0xB38032
-  NormalEnemyShotAiSkipDeathAnim_CurEnemy();
-}
-
-void Enemy_NormalPowerBombAI_SkipDeathAnim_B3(void) {  // 0xB3803C
-  NormalEnemyPowerBombAiSkipDeathAnim_CurEnemy();
-}
-
-void Enemy_NormalFrozenAI_B3(void) {  // 0xB38041
-  NormalEnemyFrozenAI();
-}
-
-const uint16 *Enemy_SetAiPreInstr_B3(uint16 k, const uint16 *jp) {  // 0xB3806B
-  gEnemyData(k)->ai_preinstr = jp[0];
-  return jp + 1;
-}
-
-const uint16 *Enemy_ClearAiPreInstr_B3(uint16 k, const uint16 *jp) {  // 0xB38074
-  gEnemyData(k)->ai_preinstr = FUNC16(nullsub_171_B3);
-  return jp;
-}
 
 void UnusedSpinningTurtleEye_Init(void) {  // 0xB386FB
   EnemyData *v0 = gEnemyData(cur_enemy_index);
@@ -1240,7 +1193,7 @@ void Botwoon_Func_31(uint16 k) {  // 0xB39F93
 }
 
 void Botwoon_Touch(void) {  // 0xB39FFF
-  Enemy_NormalTouchAI_SkipDeathAnim_B3();
+  NormalEnemyTouchAiSkipDeathAnim_CurEnemy();
   Enemy_Botwoon *E = Get_Botwoon(cur_enemy_index);
   if (!E->base.health) {
     E->botwoon_var_2F = 1;
@@ -1251,7 +1204,7 @@ void Botwoon_Touch(void) {  // 0xB39FFF
 void Botwoon_Shot(void) {  // 0xB3A016
   Enemy_Botwoon *E = Get_Botwoon(cur_enemy_index);
   E->botwoon_var_4C = E->base.health;
-  Enemy_NormalShotAI_SkipSomeParts_B3();
+  NormalEnemyShotAiSkipDeathAnim_CurEnemy();
   if (!E->base.health) {
     E->botwoon_var_2F = 1;
     Botwoon_Func_4();
@@ -1259,7 +1212,7 @@ void Botwoon_Shot(void) {  // 0xB3A016
 }
 
 void Botwoon_Powerbomb(void) {  // 0xB3A041
-  Enemy_NormalPowerBombAI_SkipDeathAnim_B3();
+  NormalEnemyPowerBombAiSkipDeathAnim_CurEnemy();
   Enemy_Botwoon *E = Get_Botwoon(cur_enemy_index);
   if (!E->base.health) {
     E->botwoon_var_2F = 1;

@@ -134,26 +134,6 @@ const uint16 *EnemyInstr_Call_A7(uint16 k, const uint16 *jp) {  // 0xA7808A
 }
 
 
-void Enemy_GrappleReact_NoInteract_A7(void) {  // 0xA78000
-  SwitchEnemyAiToMainAi();
-}
-
-void Enemy_GrappleReact_CancelBeam_A7(void) {  // 0xA7800F
-  Enemy_SwitchToFrozenAi();
-}
-
-void Enemy_NormalShotAI_A7(void) {  // 0xA7802D
-  NormalEnemyShotAi();
-}
-
-void Enemy_NormalPowerBombAI_SkipDeathAnim_A7(void) {  // 0xA7803C
-  NormalEnemyPowerBombAiSkipDeathAnim_CurEnemy();
-}
-
-void Enemy_NormalFrozenAI_A7(void) {  // 0xA78041
-  NormalEnemyFrozenAI();
-}
-
 const uint16 *Kraid_Instr_9(uint16 k, const uint16 *jp) {  // 0xA78A8F
   Enemy_Kraid *E = Get_Kraid(0);
   if ((int16)(E->base.health - E->kraid_healths_8ths[3]) < 0) {

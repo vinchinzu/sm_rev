@@ -25,7 +25,6 @@
 #define g_word_A499D9 ((uint16*)RomFixedPtr(0xa499d9))
 
 
-
 static const uint16 g_word_A48692 = 8;
 static const uint16 g_word_A48694 = 8;
 static const uint16 g_word_A48696 = 0;
@@ -37,21 +36,6 @@ static const uint16 g_word_A486A0 = 8;
 static const uint16 g_word_A486A2 = 0x300;
 static const uint16 g_word_A486A4 = 0x640;
 
-void Enemy_GrappleReact_SamusLatchesOn_A4(void) {  // 0xA48005
-  SamusLatchesOnWithGrapple();
-}
-
-void Enemy_NormalTouchAI_A4(void) {  // 0xA48023
-  NormalEnemyTouchAi();
-}
-
-void Enemy_NormalShotAI_A4(void) {  // 0xA4802D
-  NormalEnemyShotAi();
-}
-
-void Enemy_NormalFrozenAI_A4(void) {  // 0xA48041
-  NormalEnemyFrozenAI();
-}
 
 void Crocomire_Hurt(void) {  // 0xA48687
   Crocomire_Func_27(cur_enemy_index);

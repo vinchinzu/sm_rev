@@ -42,23 +42,6 @@ static const int16 kChozoStatue_Palettes3[16] = {
   0x27ff, 0x1af7,  0xdce,   0xc6, 0x3fff, 0x2b39, 0x5294,    1,
 };
 
-void Enemy_GrappleReact_CancelBeam_AA(void) {  // 0xAA800F
-  Enemy_SwitchToFrozenAi();
-}
-
-void Enemy_NormalFrozenAI_AA(void) {  // 0xAA8041
-  NormalEnemyFrozenAI();
-}
-
-const uint16 *Enemy_ClearAiPreInstr_AA(uint16 k, const uint16 *jp) {  // 0xAA8074
-  gEnemyData(k)->ai_preinstr = FUNC16(nullsub_171_AA);
-  return jp;
-}
-
-const uint16 *Enemy_SetAiPreInstr_AA(uint16 k, const uint16 *jp) {  // 0xAA806B
-  gEnemyData(k)->ai_preinstr = jp[0];
-  return jp + 1;
-}
 
 void TourianEntranceStatue_Init(void) {  // 0xAAD7C8
   EnemyData *v0 = gEnemyData(cur_enemy_index);

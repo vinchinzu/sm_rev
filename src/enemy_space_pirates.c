@@ -9,16 +9,6 @@
 #define g_off_B2F959 ((uint16*)RomFixedPtr(0xb2f959))
 
 
-
-
-void Enemy_GrappleReact_CancelBeam_B2(void) {  // 0xB2800F
-  Enemy_SwitchToFrozenAi();
-}
-
-void Enemy_NormalFrozenAI_B2(void) {  // 0xB28041
-  NormalEnemyFrozenAI();
-}
-
 void WalkingSpacePirates_Powerbomb(void) {  // 0xB28767
   NormalEnemyPowerBombAi();
 }

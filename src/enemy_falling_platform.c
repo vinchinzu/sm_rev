@@ -5,37 +5,6 @@
 #include "funcs.h"
 #include "enemy_types.h"
 
-void Enemy_GrappleReact_NoInteract_A3(void) {  // 0xA38000
-  SwitchEnemyAiToMainAi();
-}
-
-void Enemy_GrappleReact_KillEnemy_A3(void) {  // 0xA3800A
-  EnemyGrappleDeath();
-}
-
-void Enemy_GrappleReact_CancelBeam_A3(void) {  // 0xA3800F
-  Enemy_SwitchToFrozenAi();
-}
-
-void Enemy_NormalTouchAI_A3(void) {  // 0xA38023
-  NormalEnemyTouchAi();
-}
-
-void Enemy_NormalShotAI_A3(void) {  // 0xA3802D
-  NormalEnemyShotAi();
-}
-
-void Enemy_NormalShotAI_SkipSomeParts_A3(void) {  // 0xA38032
-  NormalEnemyShotAiSkipDeathAnim_CurEnemy();
-}
-
-void Enemy_NormalPowerBombAI_A3(void) {  // 0xA38037
-  NormalEnemyPowerBombAi();
-}
-
-void Enemy_NormalFrozenAI_A3(void) {  // 0xA38041
-  NormalEnemyFrozenAI();
-}
 
 const uint16 *PlatformThatFallsWithSamus_Instr_3(uint16 k, const uint16 *jp) {  // 0xA39C6B
   Get_PlatformThatFallsWithSamus(cur_enemy_index)->ptfwss_var_02 = 0;
@@ -225,7 +194,7 @@ void PlatformThatFallsWithSamus_Func_10(void) {  // 0xA39EE1
 }
 
 void FastMovingSlowSinkingPlatform_Shot(void) {  // 0xA39F08
-  Enemy_NormalShotAI_A3();
+  NormalEnemyShotAi();
   Enemy_PlatformThatFallsWithSamus *E = Get_PlatformThatFallsWithSamus(cur_enemy_index);
   if (E->base.frozen_timer) {
     if (E->ptfwss_var_02)

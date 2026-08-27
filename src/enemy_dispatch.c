@@ -25,13 +25,6 @@ void CallEnemyAi(uint32 ea) {
   case fnCreateADudShot: CreateADudShot(); return;
   case fnnullsub_169: return;
   case fnnullsub_170: return;
-  case fnEnemy_GrappleReact_SamusLatchesOn_A2: Enemy_GrappleReact_SamusLatchesOn_A2(); return;
-  case fnEnemy_GrappleReact_KillEnemy_A2: Enemy_GrappleReact_KillEnemy_A2(); return;
-  case fnEnemy_GrappleReact_CancelBeam_A2: Enemy_GrappleReact_CancelBeam_A2(); return;
-  case fnEnemy_NormalTouchAI_A2: Enemy_NormalTouchAI_A2(); return;
-  case fnEnemy_NormalShotAI_A2: Enemy_NormalShotAI_A2(); return;
-  case fnEnemy_NormalFrozenAI_A2: Enemy_NormalFrozenAI_A2(); return;
-  case fnnullsub_170_A2: return;
   case fnBouncingGoofball_Init: BouncingGoofball_Init(); return;
   case fnBouncingGoofball_Main: BouncingGoofball_Main(); return;
   case fnMiniCrocomire_Init: MiniCrocomire_Init(); return;
@@ -106,13 +99,6 @@ void CallEnemyAi(uint32 ea) {
   case fnHorizontalShootableShutter_Touch: HorizontalShootableShutter_Touch(); return;
   case fnHorizontalShootableShutter_Shot: HorizontalShootableShutter_Shot(); return;
   case fnHorizontalShootableShutter_Powerbomb: HorizontalShootableShutter_Powerbomb(); return;
-  case fnEnemy_GrappleReact_NoInteract_A3: Enemy_GrappleReact_NoInteract_A3(); return;
-  case fnEnemy_GrappleReact_KillEnemy_A3: Enemy_GrappleReact_KillEnemy_A3(); return;
-  case fnEnemy_GrappleReact_CancelBeam_A3: Enemy_GrappleReact_CancelBeam_A3(); return;
-  case fnEnemy_NormalTouchAI_A3: Enemy_NormalTouchAI_A3(); return;
-  case fnEnemy_NormalShotAI_A3: Enemy_NormalShotAI_A3(); return;
-  case fnEnemy_NormalFrozenAI_A3: Enemy_NormalFrozenAI_A3(); return;
-  case fnnullsub_170_A3: return;
   case fnWaver_Init: Waver_Init(); return;
   case fnWaver_Main: Waver_Main(); return;
   case fnMetalee_Init: Metalee_Init(); return;
@@ -171,11 +157,6 @@ void CallEnemyAi(uint32 ea) {
   case fnMetroid_Touch: Metroid_Touch(); return;
   case fnMetroid_Shot: Metroid_Shot(); return;
   case fnMetroid_Powerbomb: Metroid_Powerbomb(cur_enemy_index); return;
-  case fnEnemy_GrappleReact_SamusLatchesOn_A4: Enemy_GrappleReact_SamusLatchesOn_A4(); return;
-  case fnEnemy_NormalTouchAI_A4: Enemy_NormalTouchAI_A4(); return;
-  case fnEnemy_NormalShotAI_A4: Enemy_NormalShotAI_A4(); return;
-  case fnEnemy_NormalFrozenAI_A4: Enemy_NormalFrozenAI_A4(); return;
-  case fnnullsub_170_A4: return;
   case fnCrocomire_Hurt: Crocomire_Hurt(); return;
   case fnCrocomire_Init: Crocomire_Init(); return;
   case fnCrocomire_Main: Crocomire_Main(); return;
@@ -188,13 +169,6 @@ void CallEnemyAi(uint32 ea) {
   case fnCrocomire_Powerbomb: Crocomire_Powerbomb(); return;
   case fnCrocomireTongue_Init: CrocomireTongue_Init(); return;
   case fnCrocomireTongue_Main: CrocomireTongue_Main(); return;
-  case fnEnemy_GrappleReact_NoInteract_A5: Enemy_GrappleReact_NoInteract_A5(); return;
-  case fnEnemy_GrappleReact_CancelBeam_A5: Enemy_GrappleReact_CancelBeam_A5(); return;
-  case fnEnemy_NormalTouchAI_A5: Enemy_NormalTouchAI_A5(); return;
-  case fnEnemy_NormalShotAI_A5: Enemy_NormalShotAI_A5(); return;
-  case fnCreateADudShot_A5: CreateADudShot(); return;
-  case fnEnemy_NormalFrozenAI_A5: Enemy_NormalFrozenAI_A5(); return;
-  case fnnullsub_170_A5: return;
   case fnDraygon_Init: Draygon_Init(); return;
   case fnDraygon_Main: Draygon_Main(); return;
   case fnDraygon_Hurt: Draygon_Hurt(); return;
@@ -212,12 +186,6 @@ void CallEnemyAi(uint32 ea) {
   case fnSporeSpawn_Shot: SporeSpawn_Shot(); return;
   case fnSporeSpawn_Touch: SporeSpawn_Touch(); return;
   case fnnullsub_39: return;
-  case fnEnemy_GrappleReact_NoInteract_A6: Enemy_GrappleReact_NoInteract_A6(); return;
-  case fnEnemy_GrappleReact_CancelBeam_A6: Enemy_GrappleReact_CancelBeam_A6(); return;
-  case fnEnemy_NormalTouchAI_A6: Enemy_NormalTouchAI_A6(); return;
-  case fnEnemy_NormalShotAI_A6: Enemy_NormalShotAI_A6(); return;
-  case fnEnemy_NormalFrozenAI_A6: Enemy_NormalFrozenAI_A6(); return;
-  case fnnullsub_170_A6: return;
   case fnBoulder_Init: Boulder_Init(); return;
   case fnBoulder_Main: Boulder_Main(); return;
   case fnSpikeyPlatform_Init: SpikeyPlatform_Init(); return;
@@ -253,12 +221,6 @@ void CallEnemyAi(uint32 ea) {
   case fnZebetites_Main: Zebetites_Main(); return;
   case fnZebetites_Touch: Zebetites_Touch(); return;
   case fnZebetites_Shot: Zebetites_Shot(); return;
-  case fnEnemy_GrappleReact_NoInteract_A7: Enemy_GrappleReact_NoInteract_A7(); return;
-  case fnEnemy_GrappleReact_CancelBeam_A7: Enemy_GrappleReact_CancelBeam_A7(); return;
-  case fnEnemy_NormalShotAI_A7: Enemy_NormalShotAI_A7(); return;
-  case fnEnemy_NormalPowerBombAI_SkipDeathAnim_A7: Enemy_NormalPowerBombAI_SkipDeathAnim_A7(); return;
-  case fnEnemy_NormalFrozenAI_A7: Enemy_NormalFrozenAI_A7(); return;
-  case fnnullsub_170_A7: return;
   case fnnullsub_44: return;
   case fnKraid_Touch_ArmFoot: Kraid_Touch_ArmFoot(); return;
   case fnKraidsArm_Touch: KraidsArm_Touch(); return;
@@ -294,15 +256,6 @@ void CallEnemyAi(uint32 ea) {
   case fnEtecoon_Main: Etecoon_Main(); return;
   case fnDachora_Init: Dachora_Init(); return;
   case fnDachora_Main: Dachora_Main(); return;
-  case fnEnemy_GrappleReact_NoInteract_A8: Enemy_GrappleReact_NoInteract_A8(); return;
-  case fnEnemy_GrappleReact_KillEnemy_A8: Enemy_GrappleReact_KillEnemy_A8(); return;
-  case fnEnemy_GrappleReact_CancelBeam_A8: Enemy_GrappleReact_CancelBeam_A8(); return;
-  case fnEnemy_GrappleReact_SamusLatchesNoInvinc_A8: Enemy_GrappleReact_SamusLatchesNoInvinc_A8(); return;
-  case fnEnemy_GrappleReact_HurtSamus_A8: Enemy_GrappleReact_HurtSamus_A8(); return;
-  case fnEnemy_NormalTouchAI_A8: Enemy_NormalTouchAI_A8(); return;
-  case fnEnemy_NormalShotAI_A8: Enemy_NormalShotAI_A8(); return;
-  case fnEnemy_NormalFrozenAI_A8: Enemy_NormalFrozenAI_A8(); return;
-  case fnnullsub_170_A8: return;
   case fnMiniDraygon_Init: MiniDraygon_Init(); return;
   case fnEvirProjectile_Init: EvirProjectile_Init(); return;
   case fnMiniDraygon_Main: MiniDraygon_Main(); return;
@@ -363,9 +316,6 @@ void CallEnemyAi(uint32 ea) {
   case fnKiHunter_Main: KiHunter_Main(); return;
   case fnKiHunterWings_Main: KiHunterWings_Main(); return;
   case fnKiHunter_Shot: KiHunter_Shot(); return;
-  case fnEnemy_GrappleReact_CancelBeam_A9: Enemy_GrappleReact_CancelBeam_A9(); return;
-  case fnEnemy_NormalFrozenAI_A9: Enemy_NormalFrozenAI_A9(); return;
-  case fnnullsub_170_A9: return;
   case fnMotherBrainsBody_Init: MotherBrainsBody_Init(); return;
   case fnMotherBrainsBrain_Init: MotherBrainsBrain_Init(); return;
   case fnMotherBrainsBody_Hurt: MotherBrainsBody_Hurt(); return;
@@ -403,9 +353,6 @@ void CallEnemyAi(uint32 ea) {
   case fnShitroid_Main: Shitroid_Main(); return;
   case fnShitroid_Touch: Shitroid_Touch(); return;
   case fnShitroid_Shot: Shitroid_Shot(); return;
-  case fnEnemy_GrappleReact_CancelBeam_AA: Enemy_GrappleReact_CancelBeam_AA(); return;
-  case fnEnemy_NormalFrozenAI_AA: Enemy_NormalFrozenAI_AA(); return;
-  case fnnullsub_170_AA: return;
   case fnTorizo_Hurt: Torizo_Hurt(); return;
   case fnTorizo_Main: Torizo_Main(); return;
   case fnTorizo_Init: Torizo_Init(); return;
@@ -427,9 +374,6 @@ void CallEnemyAi(uint32 ea) {
   case fnChozoStatue_Main: ChozoStatue_Main(); return;
   case fnnullsub_51: return;
   case fnnullsub_52: return;
-  case fnEnemy_GrappleReact_CancelBeam_B2: Enemy_GrappleReact_CancelBeam_B2(); return;
-  case fnEnemy_NormalFrozenAI_B2: Enemy_NormalFrozenAI_B2(); return;
-  case fnnullsub_170_B2: return;
   case fnWalkingSpacePirates_Powerbomb: WalkingSpacePirates_Powerbomb(); return;
   case fnWalkingSpacePirates_Touch: WalkingSpacePirates_Touch(); return;
   case fnWalkingSpacePirates_Shot: WalkingSpacePirates_Shot(); return;
@@ -441,13 +385,6 @@ void CallEnemyAi(uint32 ea) {
   case fnNinjaSpacePirates_Main: NinjaSpacePirates_Main(); return;
   case fnWalkingSpacePirates_Init: WalkingSpacePirates_Init(); return;
   case fnWalkingSpacePirates_Main: WalkingSpacePirates_Main(); return;
-  case fnEnemy_GrappleReact_NoInteract_B3: Enemy_GrappleReact_NoInteract_B3(); return;
-  case fnEnemy_GrappleReact_KillEnemy_B3: Enemy_GrappleReact_KillEnemy_B3(); return;
-  case fnEnemy_GrappleReact_CancelBeam_B3: Enemy_GrappleReact_CancelBeam_B3(); return;
-  case fnEnemy_NormalTouchAI_B3: Enemy_NormalTouchAI_B3(); return;
-  case fnEnemy_NormalShotAI_B3: Enemy_NormalShotAI_B3(); return;
-  case fnEnemy_NormalFrozenAI_B3: Enemy_NormalFrozenAI_B3(); return;
-  case fnnullsub_170_B3: return;
   case fnUnusedSpinningTurtleEye_Init: UnusedSpinningTurtleEye_Init(); return;
   case fnUnusedSpinningTurtleEye_Main: UnusedSpinningTurtleEye_Main(); return;
   case fnBrinstarPipeBug_Init: BrinstarPipeBug_Init(); return;
@@ -465,18 +402,7 @@ void CallEnemyAi(uint32 ea) {
   case fnEscapeEtecoon_Init: EscapeEtecoon_Init(); return;
   case fnEscapeDachora_Init: EscapeDachora_Init(); return;
   case fnnullsub_54: return;
-  case fnEnemy_NormalPowerBombAI_A0:
-  case fnEnemy_NormalPowerBombAI_A2:
-  case fnEnemy_NormalPowerBombAI_A3:
-  case fnEnemy_NormalPowerBombAI_A4:
-  case fnEnemy_NormalPowerBombAI_A5:
-  case fnEnemy_NormalPowerBombAI_A6:
-  case fnEnemy_NormalPowerBombAI_A7:
-  case fnEnemy_NormalPowerBombAI_A8:
-  case fnEnemy_NormalPowerBombAI_A9:
-  case fnEnemy_NormalPowerBombAI_AA:
-  case fnEnemy_NormalPowerBombAI_B2:
-  case fnEnemy_NormalPowerBombAI_B3: NormalEnemyPowerBombAi(); return;
+  case fnEnemy_NormalPowerBombAI_A0: NormalEnemyPowerBombAi(); return;
   default: Unreachable();
   }
 }
@@ -485,7 +411,6 @@ void CallEnemyPreInstr(uint32 ea) {
   ea = CanonicalizeEnemyHandler(ea);
   switch (ea) {
   case fnnullsub_171: return;  // 0xa0807b
-  case fnnullsub_171_A2: return;  // 0xa2807b
   case fnMiniCrocomire_PreInstr5: MiniCrocomire_PreInstr5(k); return;  // 0xa28a43
   case fnMiniCrocomire_PreInstr6: MiniCrocomire_PreInstr6(k); return;  // 0xa28a5c
   case fnnullsub_175: return;  // 0xa28a75
@@ -646,8 +571,6 @@ void CallEnemyPreInstr(uint32 ea) {
   case fnnullsub_344: return;  // 0xaac95e
   case fnnullsub_274: return;  // 0xaadcaa
   case fnnullsub_276: return;  // 0xaae7a6
-  case fnnullsub_171_AA: return;  // 0xaa807b
-  case fnnullsub_171_B3: return;  // 0xb3807b
   case fnBrinstarPipeBug_PreInstr_1: BrinstarPipeBug_PreInstr_1(k); return;  // 0xb38880
   case fnBrinstarPipeBug_PreInstr_2: BrinstarPipeBug_PreInstr_2(k); return;  // 0xb38890
   case fnBrinstarPipeBug_PreInstr_3: BrinstarPipeBug_PreInstr_3(k); return;  // 0xb388e3
@@ -703,12 +626,6 @@ const uint16 *CallEnemyInstr(uint32 ea, uint16 k, const uint16 *j) {
   case fnEnemyInstr_CopyToVram: return EnemyInstr_CopyToVram(k, j);
   case fnEnemyInstr_EnableOffScreenProcessing: return EnemyInstr_EnableOffScreenProcessing(k, j);
   case fnEnemyInstr_DisableOffScreenProcessing: return EnemyInstr_DisableOffScreenProcessing(k, j);
-  case fnEnemyInstr_Goto_A2: return EnemyInstr_Goto(k, j);
-  case fnEnemyInstr_DecTimerAndGoto2_A2: return EnemyInstr_DecTimerAndGoto(k, j);
-  case fnEnemyInstr_SetTimer_A2: return EnemyInstr_SetTimer(k, j);
-  case fnEnemyInstr_Sleep_A2: return EnemyInstr_Sleep(k, j);
-  case fnEnemyInstr_EnableOffScreenProcessing_A2: return EnemyInstr_EnableOffScreenProcessing(k, j);
-  case fnEnemyInstr_DisableOffScreenProcessing_A2: return EnemyInstr_DisableOffScreenProcessing(k, j);
   case fnBouncingGoofball_Instr_88C5: return BouncingGoofball_Instr_88C5(k, j);
   case fnBouncingGoofball_Instr_88C6: return BouncingGoofball_Instr_88C6(k, j);
   case fnMiniCrocomire_Instr_897E: return MiniCrocomire_Instr_897E(k, j);
@@ -752,10 +669,6 @@ const uint16 *CallEnemyInstr(uint32 ea, uint16 k, const uint16 *j) {
   case fnMaridiaLargeSnail_Instr_CCBE: return MaridiaLargeSnail_Instr_CCBE(k, j);
   case fnMaridiaLargeSnail_Instr_CCC9: return MaridiaLargeSnail_Instr_CCC9(k, j);
   case fnLavaSeahorse_Instr_E5FB: return LavaSeahorse_Instr_E5FB(k, j);
-  case fnEnemyInstr_Goto_A3: return EnemyInstr_Goto(k, j);
-  case fnEnemyInstr_Sleep_A3: return EnemyInstr_Sleep(k, j);
-  case fnEnemyInstr_EnableOffScreenProcessing_A3: return EnemyInstr_EnableOffScreenProcessing(k, j);
-  case fnEnemyInstr_DisableOffScreenProcessing_A3: return EnemyInstr_DisableOffScreenProcessing(k, j);
   case fnWaver_Instr_1: return Waver_Instr_1(k, j);
   case fnMetalee_Instr_1: return Metalee_Instr_1(k, j);
   case fnMaridiaFish_Instr_3: return MaridiaFish_Instr_3(k, j);
@@ -783,8 +696,6 @@ const uint16 *CallEnemyInstr(uint32 ea, uint16 k, const uint16 *j) {
   case fnZoomer_Instr_SetPreinstr: return Zoomer_Instr_SetPreinstr(k, j);
   case fnMetroid_Instr_2: return Metroid_Instr_2(k, j);
   case fnMetroid_Instr_1: return Metroid_Instr_1(k, j);
-  case fnEnemyInstr_Goto_A4: return EnemyInstr_Goto(k, j);
-  case fnEnemyInstr_Sleep_A4: return EnemyInstr_Sleep(k, j);
   case fnCrocomire_Instr_1: return Crocomire_Instr_1(k, j);
   case fnCrocomire_Instr_14: return Crocomire_Instr_14(k, j);
   case fnCrocomire_Instr_11: return Crocomire_Instr_11(k, j);
@@ -812,12 +723,6 @@ const uint16 *CallEnemyInstr(uint32 ea, uint16 k, const uint16 *j) {
   case fnCrocomire_Instr_25: return Crocomire_Instr_25(k, j);
   case fnCrocomire_Instr_26: return Crocomire_Instr_26(k, j);
   case fnCrocomire_Instr_27: return Crocomire_Instr_27(k, j);
-  case fnEnemyInstr_StopScript_A5: return EnemyInstr_StopScript(k, j);
-  case fnEnemyInstr_Goto_A5: return EnemyInstr_Goto(k, j);
-  case fnEnemyInstr_DecTimerAndGoto2_A5: return EnemyInstr_DecTimerAndGoto(k, j);
-  case fnEnemyInstr_SetTimer_A5: return EnemyInstr_SetTimer(k, j);
-  case fnEnemyInstr_Sleep_A5: return EnemyInstr_Sleep(k, j);
-  case fnEnemyInstr_WaitNframes_A5: return EnemyInstr_WaitNframes(k, j);
   case fnDraygon_Instr_1: return Draygon_Instr_1(k, j);
   case fnDraygon_Instr_13: return Draygon_Instr_13(k, j);
   case fnDraygon_Instr_8: return Draygon_Instr_8(k, j);
@@ -848,8 +753,6 @@ const uint16 *CallEnemyInstr(uint32 ea, uint16 k, const uint16 *j) {
   case fnDraygon_Instr_19: return Draygon_Instr_19(k, j);
   case fnDraygon_Instr_28: return Draygon_Instr_28(k, j);
   case fnDraygon_Instr_26: return Draygon_Instr_26(k, j);
-  case fnEnemyInstr_Goto_A6: return EnemyInstr_Goto(k, j);
-  case fnEnemyInstr_Sleep_A6: return EnemyInstr_Sleep(k, j);
   case fnFireGeyser_Instr_1: return FireGeyser_Instr_1(k, j);
   case fnFireGeyser_Instr_2: return FireGeyser_Instr_2(k, j);
   case fnFireGeyser_Instr_3: return FireGeyser_Instr_3(k, j);
@@ -909,10 +812,6 @@ const uint16 *CallEnemyInstr(uint32 ea, uint16 k, const uint16 *j) {
   case fnCeresDoor_Instr_2: return CeresDoor_Instr_2(k, j);
   case fnCeresDoor_Instr_7: return CeresDoor_Instr_7(k, j);
   case fnEnemyInstr_Call_A7: return EnemyInstr_Call_A7(k, j);
-  case fnEnemyInstr_Goto_A7: return EnemyInstr_Goto(k, j);
-  case fnEnemyInstr_DecTimerAndGoto2_A7: return EnemyInstr_DecTimerAndGoto(k, j);
-  case fnEnemyInstr_SetTimer_A7: return EnemyInstr_SetTimer(k, j);
-  case fnEnemyInstr_Sleep_A7: return EnemyInstr_Sleep(k, j);
   case fnKraid_Instr_9: return Kraid_Instr_9(k, j);
   case fnKraid_Instr_1: return Kraid_Instr_1(k, j);
   case fnKraid_Instr_DecYpos: return Kraid_Instr_DecYpos(k, j);
@@ -922,12 +821,6 @@ const uint16 *CallEnemyInstr(uint32 ea, uint16 k, const uint16 *j) {
   case fnKraid_Instr_XposMinus3b: return Kraid_Instr_XposMinus3b(k, j);
   case fnKraid_Instr_XposPlus3: return Kraid_Instr_XposPlus3(k, j);
   case fnKraid_Instr_MoveHimRight: return Kraid_Instr_MoveHimRight(k, j);
-  case fnEnemyInstr_Goto_A8: return EnemyInstr_Goto(k, j);
-  case fnEnemyInstr_DecTimerAndGoto2_A8: return EnemyInstr_DecTimerAndGoto(k, j);
-  case fnEnemyInstr_SetTimer_A8: return EnemyInstr_SetTimer(k, j);
-  case fnEnemyInstr_Sleep_A8: return EnemyInstr_Sleep(k, j);
-  case fnEnemyInstr_EnableOffScreenProcessing_A8: return EnemyInstr_EnableOffScreenProcessing(k, j);
-  case fnEnemyInstr_DisableOffScreenProcessing_A8: return EnemyInstr_DisableOffScreenProcessing(k, j);
   case fnMiniDraygon_Instr_2: return MiniDraygon_Instr_2(k, j);
   case fnMiniDraygon_Instr_1: return MiniDraygon_Instr_1(k, j);
   case fnMiniDraygon_Instr_3: return MiniDraygon_Instr_3(k, j);
@@ -994,7 +887,6 @@ const uint16 *CallEnemyInstr(uint32 ea, uint16 k, const uint16 *j) {
   case fnKiHunter_Instr_3: return KiHunter_Instr_3(k, j);
   case fnKiHunter_Instr_4: return KiHunter_Instr_4(k, j);
   case fnKiHunter_Instr_5: return KiHunter_Instr_5(k, j);
-  case fnEnemyInstr_Sleep_A9: return EnemyInstr_Sleep(k, j);
   case fnShitroid_Instr_1: return Shitroid_Instr_1(k, j);
   case fnShitroid_Instr_2: return Shitroid_Instr_2(k, j);
   case fnsub_A9ECD0: return sub_A9ECD0(k, j);
@@ -1002,15 +894,6 @@ const uint16 *CallEnemyInstr(uint32 ea, uint16 k, const uint16 *j) {
   case fnShitroid_Instr_4: return Shitroid_Instr_4(k, j);
   case fnShitroid_Instr_6: return Shitroid_Instr_6(k, j);
   case fnShitroid_Instr_5: return Shitroid_Instr_5(k, j);
-  case fnEnemy_SetAiPreInstr_AA: return Enemy_SetAiPreInstr_AA(k, j);
-  case fnEnemy_ClearAiPreInstr_AA: return Enemy_ClearAiPreInstr_AA(k, j);
-  case fnEnemyInstr_StopScript_AA: return EnemyInstr_StopScript(k, j);
-  case fnEnemyInstr_Goto_AA: return EnemyInstr_Goto(k, j);
-  case fnEnemyInstr_DecTimerAndGoto2_AA: return EnemyInstr_DecTimerAndGoto(k, j);
-  case fnEnemyInstr_SetTimer_AA: return EnemyInstr_SetTimer(k, j);
-  case fnEnemyInstr_Sleep_AA: return EnemyInstr_Sleep(k, j);
-  case fnEnemyInstr_WaitNframes_AA: return EnemyInstr_WaitNframes(k, j);
-  case fnEnemyInstr_CopyToVram_AA: return EnemyInstr_CopyToVram(k, j);
   case fnTorizo_Instr_3: return Torizo_Instr_3(k, j);
   case fnTorizo_Instr_31: return Torizo_Instr_31(k, j);
   case fnTorizo_Instr_33: return Torizo_Instr_33(k, j);
@@ -1088,11 +971,6 @@ const uint16 *CallEnemyInstr(uint32 ea, uint16 k, const uint16 *j) {
   case fnShaktool_Instr_12: return Shaktool_Instr_12(k, j);
   case fnShaktool_Instr_7: return Shaktool_Instr_7(k, j);
   case fnShaktool_Instr_14: return Shaktool_Instr_14(k, j);
-  case fnEnemyInstr_Goto_B2: return EnemyInstr_Goto(k, j);
-  case fnEnemyInstr_DecTimerAndGoto2_B2: return EnemyInstr_DecTimerAndGoto(k, j);
-  case fnEnemyInstr_SetTimer_B2: return EnemyInstr_SetTimer(k, j);
-  case fnEnemyInstr_Sleep_B2: return EnemyInstr_Sleep(k, j);
-  case fnEnemyInstr_WaitNframes_B2: return EnemyInstr_WaitNframes(k, j);
   case fnSpacePirates_Instr_MovePixelsDownAndChangeDirFaceRight: return SpacePirates_Instr_MovePixelsDownAndChangeDirFaceRight(k, j);
   case fnSpacePirates_Instr_MovePixelsDownAndChangeDirFaceLeft: return SpacePirates_Instr_MovePixelsDownAndChangeDirFaceLeft(k, j);
   case fnSpacePirates_Instr_RandomNewDirFaceR: return SpacePirates_Instr_RandomNewDirFaceR(k, j);
@@ -1114,12 +992,6 @@ const uint16 *CallEnemyInstr(uint32 ea, uint16 k, const uint16 *j) {
   case fnSpacePirates_Instr_14: return SpacePirates_Instr_14(k, j);
   case fnSpacePirates_Instr_11: return SpacePirates_Instr_11(k, j);
   case fnSpacePirates_Instr_13: return SpacePirates_Instr_13(k, j);
-  case fnEnemy_SetAiPreInstr_B3: return Enemy_SetAiPreInstr_B3(k, j);
-  case fnEnemy_ClearAiPreInstr_B3: return Enemy_ClearAiPreInstr_B3(k, j);
-  case fnEnemyInstr_Goto_B3: return EnemyInstr_Goto(k, j);
-  case fnEnemyInstr_DecTimerAndGoto2_B3: return EnemyInstr_DecTimerAndGoto(k, j);
-  case fnEnemyInstr_SetTimer_B3: return EnemyInstr_SetTimer(k, j);
-  case fnEnemyInstr_Sleep_B3: return EnemyInstr_Sleep(k, j);
   case fnBotwoon_Instr_1: return Botwoon_Instr_1(k, j);
   case fnBotwoon_Instr_2: return Botwoon_Instr_2(k, j);
   case fnBotwoon_Instr_3: return Botwoon_Instr_3(k, j);

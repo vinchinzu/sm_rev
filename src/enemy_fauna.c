@@ -221,7 +221,7 @@ void Metalee_Shot(void) {  // 0xA38B0F
   Enemy_Metalee *E = Get_Metalee(cur_enemy_index);
   uint16 varE2A = E->base.vram_tiles_index;
   uint16 varE2C = E->base.palette_index;
-  Enemy_NormalShotAI_A3();
+  NormalEnemyShotAi();
   if (!Get_Metalee(cur_enemy_index)->base.health) {
     E->base.vram_tiles_index = varE2A;
     E->base.palette_index = varE2C;
@@ -309,19 +309,19 @@ void Fireflea_Main(void) {  // 0xA38DEE
 void Fireflea_Touch(uint16 k) {  // 0xA38E6B
   uint16 v1 = 0;
 
-  Enemy_NormalTouchAI_A3();
+  NormalEnemyTouchAi();
   EnemyDeathAnimation(k, v1);
   if (sign16(fireflea_darkness_level - 12))
     fireflea_darkness_level += 2;
 }
 
 void Fireflea_Powerbomb(void) {  // 0xA38E83
-  Enemy_NormalPowerBombAI_A3();
+  NormalEnemyPowerBombAi();
   Fireflea_Common();
 }
 
 void Fireflea_Shot(void) {  // 0xA38E89
-  Enemy_NormalShotAI_A3();
+  NormalEnemyShotAi();
   Fireflea_Common();
 }
 
@@ -1491,7 +1491,7 @@ void Skree_Func_5(void) {  // 0xA3C7D5
 }
 
 void Skree_Shot(void) {  // 0xA3C7F5
-  Enemy_NormalShotAI_SkipSomeParts_A3();
+  NormalEnemyShotAiSkipDeathAnim_CurEnemy();
   Enemy_Skree *E = Get_Skree(cur_enemy_index);
   if (!E->base.health) {
     uint16 v1 = cur_enemy_index;
@@ -1904,7 +1904,7 @@ void MaridiaSnail_Touch(void) {  // 0xA3D3B0
     if (E->msl_var_F == 0xD1B3)
       QueueSfx2_Max3(0x70);
   } else if (E->msl_var_F != 0xCF5F && E->msl_var_08 != 4 && E->msl_var_08 != 3) {
-    Enemy_NormalTouchAI_A3();
+    NormalEnemyTouchAi();
     E->msl_parameter_1 = E->msl_var_06;
     if (E->msl_var_08)
       MaridiaSnail_Func_19(cur_enemy_index);
@@ -1932,7 +1932,7 @@ uint8 MaridiaSnail_Func_21(uint16 k) {  // 0xA3D446
 void MaridiaSnail_Shot(void) {  // 0xA3D469
   uint16 v0 = projectile_type[collision_detection_index] & 0xFF00;
   if (v0 == 768 || v0 == 1280) {
-    Enemy_NormalShotAI_A3();
+    NormalEnemyShotAi();
   } else {
     uint16 msl_var_08 = Get_MaridiaSnail(cur_enemy_index)->msl_var_08;
     if (msl_var_08 != 3 && msl_var_08 != 4)
@@ -2019,7 +2019,7 @@ void Reflec_Shot(void) {
     printf("Possible bug. What is X?\n");
     Enemy_Reflec *ET = Get_Reflec(v2);
     if (ET->base.health) {
-      Enemy_NormalShotAI_SkipSomeParts_A3();
+      NormalEnemyShotAiSkipDeathAnim_CurEnemy();
       if (!ET->base.health) {
         ET->base.current_instruction = g_off_A3DCA6[ET->reflec_parameter_2];
         ET->base.instruction_timer = 1;

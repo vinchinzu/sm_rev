@@ -41,8 +41,6 @@
 #define g_off_A2F107 ((uint16*)RomFixedPtr(0xa2f107))
 
 
-
-
 static const uint16 g_word_A28D50 = 0x30;
 static const uint16 g_word_A28D52 = 1;
 static const uint16 g_word_A28D5E = 3;
@@ -63,33 +61,6 @@ static const int16 g_word_A28E80[48] = {
    -4,  -3,  -3,  -2,   0,   0,   0,   0,
 };
 
-void Enemy_GrappleReact_CancelBeam_A2(void) {  // 0xA2800F
-  Enemy_SwitchToFrozenAi();
-}
-
-void Enemy_GrappleReact_KillEnemy_A2(void) {  // 0xA2800A
-  EnemyGrappleDeath();
-}
-
-void Enemy_GrappleReact_SamusLatchesOn_A2(void) {  // 0xA28005
-  SamusLatchesOnWithGrapple();
-}
-
-void Enemy_NormalFrozenAI_A2(void) {  // 0xA28041
-  NormalEnemyFrozenAI();
-}
-
-void Enemy_NormalPowerBombAI_A2(void) {  // 0xA28037
-  NormalEnemyPowerBombAi();
-}
-
-void Enemy_NormalTouchAI_A2(void) {  // 0xA28023
-  NormalEnemyTouchAi();
-}
-
-void Enemy_NormalShotAI_A2(void) {  // 0xA2802D
-  NormalEnemyShotAi();
-}
 
 void BouncingGoofball_Init(void) {  // 0xA2871C
   Enemy_BouncingGoofball *E = Get_BouncingGoofball(cur_enemy_index);
@@ -647,7 +618,7 @@ void MiniMaridiaBeybladeTurtle_Func7(void) {  // 0xA2925E
 void MaridiaBeybladeTurtle_Touch(void) {  // 0xA29281
   Enemy_MiniMaridiaTurtle *E = Get_MiniMaridiaTurtle(cur_enemy_index);
   if ((E->base.properties & kEnemyProps_SolidToSamus) == 0) {
-    Enemy_NormalTouchAI_A2();
+    NormalEnemyTouchAi();
     E->mmte_var_A = FUNC16(MaridiaBeybladeTurtle_Func11);
     E->mmte_var_04 = 2;
   }
@@ -1299,7 +1270,7 @@ const uint16 *MaridiaSpikeyShell_Instr_A571(uint16 k, const uint16 *jp) {  // 0x
 void MaridiaSpikeyShell_Shot(void) {  // 0xA2A579
   Enemy_MaridiaSpikeyShell *E = Get_MaridiaSpikeyShell(cur_enemy_index);
   if (sign16(E->mssl_var_E - 1))
-    Enemy_NormalShotAI_A2();
+    NormalEnemyShotAi();
 }
 
 void Flies_Init(void) {  // 0xA2B06B
@@ -2576,7 +2547,7 @@ void MaridiaLargeSnail_Func_11(void) {  // 0xA2CFFF
 }
 
 void MaridiaLargeSnail_Func_12(void) {  // 0xA2D388
-  Enemy_NormalTouchAI_A2();
+  NormalEnemyTouchAi();
   MaridiaLargeSnail_Touch();
 }
 
@@ -2759,7 +2730,7 @@ uint8 Gripper_Func_2(uint16 k) {  // 0xA2E28A
 }
 
 void Gripper_Func_3(void) {  // 0xA2E29B
-  Enemy_NormalFrozenAI_A2();
+  NormalEnemyFrozenAI();
 }
 
 void Gripper_Func_4(void) {  // 0xA2E2A4
@@ -2815,7 +2786,7 @@ void JetPowerRipper_Main(void) {  // 0xA2E353
 }
 
 void Ripper_Func_1(void) {  // 0xA2E3A0
-  Enemy_NormalFrozenAI_A2();
+  NormalEnemyFrozenAI();
 }
 
 void JetPowerRipper_Shot(void) {  // 0xA2E3A9
@@ -2991,17 +2962,17 @@ void LavaSeahorse_Func_7(void) {  // 0xA2E7A5
 }
 
 void LavaSeahorse_Touch(void) {  // 0xA2E7C8
-  Enemy_NormalTouchAI_A2();
+  NormalEnemyTouchAi();
   LavaSeahorse_E7DA();
 }
 
 void LavaSeahorse_Shot(void) {  // 0xA2E7CE
-  Enemy_NormalShotAI_A2();
+  NormalEnemyShotAi();
   LavaSeahorse_E7DA();
 }
 
 void LavaSeahorse_Powerbomb(void) {  // 0xA2E7D4
-  Enemy_NormalPowerBombAI_A2();
+  NormalEnemyPowerBombAi();
   LavaSeahorse_E7DA();
 }
 
