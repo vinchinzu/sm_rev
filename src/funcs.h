@@ -3071,6 +3071,7 @@ void NuclearWaffle_Func_4(uint16 varE32);
 void NuclearWaffle_Func_7(uint16 r30);
 void NuclearWaffle_Init(void);
 void NuclearWaffle_Main(void);
+void CallRidleyFunc(uint32 ea);
 void Ridley_A2DC(void);
 void Ridley_A2F2(void);
 void Ridley_B455(void);
