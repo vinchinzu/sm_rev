@@ -2244,6 +2244,8 @@ enum Consts_A7 {
   addr_kKraid_Ilist_8B04 = 0x8B04,
   addr_kKraid_Ilist_8B0A = 0x8B0A,
   addr_kKraid_Sprmap_8C6C = 0x8C6C,
+  addr_kKraid_Sprmap_A617 = 0xA617,
+  addr_kKraid_MouthInstrList = 0x96D2,
   addr_stru_A796DA = 0x96DA,
   addr_stru_A7974A = 0x974A,
   addr_stru_A79764 = 0x9764,
