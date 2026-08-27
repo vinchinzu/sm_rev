@@ -2554,11 +2554,6 @@ struct RoomDefRoomstate; static inline RoomDefRoomstate *get_RoomDefRoomstate(ui
 struct TileSet; static inline TileSet *get_TileSet(uint16 a) { return (TileSet *)RomPtr(0x8F0000 | a); }
 #include "enemy_config.h"
 struct EnemyDef;
-static inline EnemyDef *get_EnemyDef_A2(uint16 a) {
-  EnemyDef *override = GetEnemyDefOverride(a);
-  if (override) return override;
-  return (EnemyDef *)RomPtr(0xA00000 | a);
-}
 struct EnemyTileset; static inline EnemyTileset *get_EnemyTileset(uint16 a) { return (EnemyTileset *)RomPtr(0xB40000 | a); }
 struct RoomPlmEntry; static inline RoomPlmEntry *get_RoomPlmEntry(uint16 a) { return (RoomPlmEntry *)RomPtr(0x8F0000 | a); }
 struct EprojDef; static inline EprojDef *get_EprojDef(uint16 a) { return (EprojDef *)RomPtr(0x860000 | a); }

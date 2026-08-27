@@ -64,6 +64,7 @@ answer: "where did this logic live before we split it?"
 | --- | --- | --- |
 | `src/enemy_main.c` | `../sm/src/sm_a0.c` | Shared enemy lifecycle, spawn/load path, `EnemyMain` frame loop, and draw/runtime plumbing after the Bank `$A0` split. ROM-address switches now live in `enemy_dispatch.c` |
 | `src/enemy_dispatch.c` | `../sm/src/sm_a0.c` | `CallEnemyAi`, `CallEnemyPreInstr`, and `CallEnemyInstr` ROM-address switches peeled out of `enemy_main.c` |
+| `src/enemy_ai_canon.c` | `../sm/src/sm_a0.c` plus per-bank identity copies (`../sm/src/sm_a2.c`, `sm_a3.c`, …) | Load/dispatch canonicalize of bank-local `Enemy_Normal*`, `Enemy_GrappleReact_*`, nullsub-as-AI, and shared `EnemyInstr_*` wrappers onto the Bank `$A0` handlers |
 | `src/enemy_tiles.c` | `../sm/src/sm_a0.c` | Shared enemy tileset selection, palette staging, RAM tile assembly, and enemy-VRAM transfer helpers extracted from Bank `$A0` |
 | `src/enemy_gunship.c` | `../sm/src/sm_a2.c` | Gunship-only enemy runtime: landing-site idle/save interaction, event-driven departure, and takeoff choreography |
 | `src/enemy_elevator.c` | `../sm/src/sm_a3.c` | Elevator runtime peeled from the mixed Bank `$A3` file; owns the Samus/platform sync state machine and elevator-triggered transition handoff |

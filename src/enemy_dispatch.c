@@ -4,11 +4,27 @@
 #include "sm_rtl.h"
 #include "funcs.h"
 #include "enemy_types.h"
+#include "enemy_ai_canon.h"
 
 void CallEnemyAi(uint32 ea) {
+  ea = CanonicalizeEnemyHandler(ea);
   switch (ea) {
+  case fnEnemy_GrappleReact_NoInteract_A0: Enemy_GrappleReact_NoInteract_A0(); return;
+  case fnEnemy_GrappleReact_SamusLatchesOn_A0: Enemy_GrappleReact_SamusLatchesOn_A0(); return;
+  case fnEnemy_GrappleReact_KillEnemy_A0: Enemy_GrappleReact_KillEnemy_A0(); return;
+  case fnEnemy_GrappleReact_CancelBeam_A0: Enemy_GrappleReact_CancelBeam_A0(); return;
+  case fnEnemy_GrappleReact_SamusLatchesNoInvinc_A0: Enemy_GrappleReact_SamusLatchesNoInvinc_A0(); return;
+  case fnEnemy_GrappleReact_SamusLatchesParalyze_A0: Enemy_GrappleReact_SamusLatchesParalyze_A0(); return;
+  case fnEnemy_GrappleReact_HurtSamus_A0: Enemy_GrappleReact_HurtSamus_A0(); return;
   case fnEnemy_NormalTouchAI_A0: Enemy_NormalTouchAI_A0(); return;
+  case 0xA08028: Enemy_NormalTouchAI_SkipDeathAnim_A0(); return;
   case fnEnemy_NormalShotAI_A0: Enemy_NormalShotAI_A0(); return;
+  case 0xA08032: Enemy_NormalShotAI_SkipSomeParts_A0(); return;
+  case 0xA0803C: Enemy_NormalPowerBombAI_SkipDeathAnim_A0(); return;
+  case fnEnemy_NormalFrozenAI: Enemy_NormalFrozenAI(); return;
+  case fnCreateADudShot: CreateADudShot(); return;
+  case fnnullsub_169: return;
+  case fnnullsub_170: return;
   case fnEnemy_GrappleReact_SamusLatchesOn_A2: Enemy_GrappleReact_SamusLatchesOn_A2(); return;
   case fnEnemy_GrappleReact_KillEnemy_A2: Enemy_GrappleReact_KillEnemy_A2(); return;
   case fnEnemy_GrappleReact_CancelBeam_A2: Enemy_GrappleReact_CancelBeam_A2(); return;
@@ -466,6 +482,7 @@ void CallEnemyAi(uint32 ea) {
 }
 void CallEnemyPreInstr(uint32 ea) {
   uint16 k = cur_enemy_index;
+  ea = CanonicalizeEnemyHandler(ea);
   switch (ea) {
   case fnnullsub_171: return;  // 0xa0807b
   case fnnullsub_171_A2: return;  // 0xa2807b
@@ -672,7 +689,20 @@ void CallEnemyPreInstr(uint32 ea) {
 }
 
 const uint16 *CallEnemyInstr(uint32 ea, uint16 k, const uint16 *j) {
+  ea = CanonicalizeEnemyHandler(ea);
   switch (ea) {
+  case 0xA0806B: return EnemyInstr_SetAiPreInstr(k, j);
+  case 0xA08074: return EnemyInstr_ClearAiPreInstr(k, j);
+  case fnEnemyInstr_StopScript: return EnemyInstr_StopScript(k, j);
+  case fnEnemyInstr_Goto: return EnemyInstr_Goto(k, j);
+  case fnEnemyInstr_DecTimerAndGoto: return EnemyInstr_DecTimerAndGoto(k, j);
+  case fnEnemyInstr_DecTimerAndGoto2: return EnemyInstr_DecTimerAndGoto(k, j);
+  case fnEnemyInstr_SetTimer: return EnemyInstr_SetTimer(k, j);
+  case fnEnemyInstr_Sleep: return EnemyInstr_Sleep(k, j);
+  case fnEnemyInstr_WaitNframes: return EnemyInstr_WaitNframes(k, j);
+  case fnEnemyInstr_CopyToVram: return EnemyInstr_CopyToVram(k, j);
+  case fnEnemyInstr_EnableOffScreenProcessing: return EnemyInstr_EnableOffScreenProcessing(k, j);
+  case fnEnemyInstr_DisableOffScreenProcessing: return EnemyInstr_DisableOffScreenProcessing(k, j);
   case fnEnemyInstr_Goto_A2: return EnemyInstr_Goto(k, j);
   case fnEnemyInstr_DecTimerAndGoto2_A2: return EnemyInstr_DecTimerAndGoto(k, j);
   case fnEnemyInstr_SetTimer_A2: return EnemyInstr_SetTimer(k, j);

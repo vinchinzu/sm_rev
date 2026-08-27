@@ -9,5 +9,6 @@ typedef struct EnemyDef EnemyDef;
 void LoadEnemyConfig(void);
 void CheckEnemyConfigReload(void);
 EnemyDef *GetEnemyDefOverride(uint16 addr);
+EnemyDef *get_EnemyDef_A2(uint16 a);
 
 #endif

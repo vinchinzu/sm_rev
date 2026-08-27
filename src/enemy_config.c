@@ -1,5 +1,6 @@
 #include "enemy_config.h"
 #include "ida_types.h"
+#include "enemy_ai_canon.h"
 #include "../third_party/cJSON.h"
 #include "sm_rtl.h"
 #include <stdio.h>
@@ -10,11 +11,16 @@
 #include <time.h>
 
 #define MAX_ENEMY_OVERRIDES 256
+#define MAX_ENEMY_DEF_CACHE 256
 
 static EnemyDef g_enemy_overrides[MAX_ENEMY_OVERRIDES];
 static uint16 g_enemy_override_addrs[MAX_ENEMY_OVERRIDES];
 static int g_num_enemy_overrides = 0;
 static time_t g_last_enemy_config_time;
+
+static EnemyDef g_enemy_def_cache[MAX_ENEMY_DEF_CACHE];
+static uint16 g_enemy_def_cache_addrs[MAX_ENEMY_DEF_CACHE];
+static int g_num_enemy_def_cache = 0;
 
 typedef struct EnemySpeciesName {
   const char *name;
@@ -57,6 +63,32 @@ EnemyDef *GetEnemyDefOverride(uint16 addr) {
     }
   }
   return NULL;
+}
+
+EnemyDef *get_EnemyDef_A2(uint16 a) {
+  EnemyDef *override = GetEnemyDefOverride(a);
+  if (override)
+    return override;
+
+  for (int i = 0; i < g_num_enemy_def_cache; i++) {
+    if (g_enemy_def_cache_addrs[i] == a)
+      return &g_enemy_def_cache[i];
+  }
+
+  const uint8 *rom_ptr = RomPtr(0xA00000 | a);
+  if (g_num_enemy_def_cache >= MAX_ENEMY_DEF_CACHE) {
+    static EnemyDef overflow;
+    memcpy(&overflow, rom_ptr, sizeof(EnemyDef));
+    CanonicalizeEnemyDef(&overflow);
+    return &overflow;
+  }
+
+  EnemyDef *slot = &g_enemy_def_cache[g_num_enemy_def_cache];
+  memcpy(slot, rom_ptr, sizeof(EnemyDef));
+  CanonicalizeEnemyDef(slot);
+  g_enemy_def_cache_addrs[g_num_enemy_def_cache] = a;
+  g_num_enemy_def_cache++;
+  return slot;
 }
 
 static uint16 parse_json_hex_or_int(cJSON *obj) {
@@ -139,6 +171,7 @@ void LoadEnemyConfig(void) {
       const uint8 *rom_ptr = RomPtr(0xA00000 | addr);
       EnemyDef *target = &g_enemy_overrides[g_num_enemy_overrides];
       memcpy(target, rom_ptr, sizeof(EnemyDef));
+      CanonicalizeEnemyDef(target);
       g_enemy_override_addrs[g_num_enemy_overrides] = addr;
 
       cJSON *health = cJSON_GetObjectItem(item, "health");

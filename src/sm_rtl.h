@@ -180,6 +180,8 @@ extern const int16 kSinCosTable8bit_Sext[320];
 void CallEnemyAi(uint32 ea);
 void CallEnemyPreInstr(uint32 ea);
 const uint16 *CallEnemyInstr(uint32 ea, uint16 k, const uint16 *jp);
+const uint16 *EnemyInstr_SetAiPreInstr(uint16 k, const uint16 *jp);
+const uint16 *EnemyInstr_ClearAiPreInstr(uint16 k, const uint16 *jp);
 const uint16 *EnemyInstr_StopScript(uint16 k, const uint16 *jp);
 const uint16 *EnemyInstr_Goto(uint16 k, const uint16 *jp);
 const uint16 *EnemyInstr_DecTimerAndGoto(uint16 k, const uint16 *jp);
