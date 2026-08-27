@@ -16,7 +16,7 @@ to find the current home of any function.
 | `sm_82.c` | split + `menu_assets.h` |
 | `sm_84.c` | `plm_core.c`, `plm_blocks.c`, `plm_rooms.c`, `plm_preinstr.c`, `plm_draw.c`, `plm_dispatch.c` |
 | `sm_85.c` | `message_box.c` |
-| `sm_86.c` | `eproj_core.c`, `eproj_environment.c`, `eproj_tourian.c`, `eproj_combat.c` |
+| `sm_86.c` | `eproj_core.c`, `eproj_environment.c`, `eproj_tourian.c`, family files (`eproj_skree.c`, `eproj_draygon.c`, `eproj_crocomire.c`, `eproj_kraid.c`, `eproj_pirate.c`, `eproj_ki_hunter.c`, `eproj_botwoon.c`, `eproj_pickup.c`), leftover `eproj_combat.c` (dispatch + drain list) |
 | `sm_87.c` | `anim_tiles.c` |
 | `sm_88.c` | `hdma_core.c`, `hdma_power_bomb.c`, `room_fx_hdma.c`, `boss_hdma.c`, `cinematic_hdma.c` |
 | `sm_89.c` / `sm_8f.c` | split |
@@ -24,15 +24,15 @@ to find the current home of any function.
 | `sm_8d.c` | `palette_fx.c` |
 | `sm_90.c` / `sm_91.c` / `sm_92.c` / `sm_93.c` | `samus_*.c` cluster |
 | `sm_9b.c` | `samus_death.c`, `samus_grapple.c`, projectile helpers |
-| `sm_a0.c` | `enemy_main.c`, `enemy_collision.c`, `enemy_math.c`, `enemy_drops.c` |
-| `sm_a2.c` | `enemy_a2_misc.c` |
-| `sm_a3.c` | `enemy_mochtroid.c`, `enemy_elevator.c`, `enemy_metroid.c`, `enemy_fauna.c`, `enemy_falling_platform.c` |
+| `sm_a0.c` | `enemy_main.c`, `enemy_ai_canon.c`, `enemy_ai_table.c`, `enemy_touch.c`, `enemy_shot.c`, `enemy_block_collision.c`, `enemy_math.c`, `enemy_drops.c`, `samus_status.c` |
+| `sm_a2.c` | `enemy_gunship.c` plus family files (`enemy_shutter.c`, `enemy_goofball_rio.c`, `enemy_rinka.c`, `enemy_beyblade_turtle.c`, `enemy_hopping_blobs.c`, …) |
+| `sm_a3.c` | `enemy_mochtroid.c`, `enemy_elevator.c`, `enemy_metroid.c`, `enemy_falling_platform.c` plus family files (`enemy_roach.c`, `enemy_maridia_snail.c`, `enemy_sidehopper.c`, `enemy_bang.c`, `enemy_zoomer.c`, …) |
 | `sm_a4.c` | `enemy_crocomire.c` |
-| `sm_a5.c` | `enemy_draygon_spore.c` |
-| `sm_a6.c` | `enemy_ridley_zebetite.c` |
-| `sm_a7.c` | `enemy_kraid_phantoon.c` |
-| `sm_a8.c` | `enemy_ki_hunter.c` |
-| `sm_a9.c` | `enemy_mother_brain.c` |
+| `sm_a5.c` | `enemy_draygon.c`, `enemy_spore_spawn.c` |
+| `sm_a6.c` | `enemy_ridley.c`, `enemy_ceres_ridley.c`, `enemy_zebetite.c`, plus Ceres door/steam, baby metroid, typewriter, waffle, fake Kraid, boulder, fire geyser |
+| `sm_a7.c` | `enemy_kraid.c`, `enemy_phantoon.c` |
+| `sm_a8.c` | `enemy_ki_hunter.c` (Ki-Hunter only) plus family files (`enemy_beetom.c`, `enemy_wrecked_ship.c`, `enemy_yapping_maw.c`, …) |
+| `sm_a9.c` | `enemy_mother_brain.c`, `enemy_shitroid.c`, `enemy_dead_monsters.c` |
 | `sm_aa.c` | `enemy_torizo.c`, `enemy_chozo_shaktool.c` |
 | `sm_ad.c` | `mother_brain_hdma.c` |
 | `sm_b2.c` | `enemy_space_pirates.c` |
@@ -41,20 +41,20 @@ to find the current home of any function.
 
 ## Optional follow-up splits (do only when a topic blocks you)
 
-These combined files are large but topical, not bank-shaped. They can stay
-combined indefinitely. Split only if you're working in one and the size hurts.
+Leftover bank-remainder dumps are gone. The remaining large files are topical,
+not mixed-bank leftovers. Split only if you're working in one and the size hurts.
 
 - `cinematics.c` (~6400 LOC, ex `sm_8b.c`) — could split into `cinematic_ppu.c`,
   `cinematic_bg.c`, `cinematic_sprite.c`, `cinematic_palette.c`, `cinematic_intro.c`,
-  `cinematic_ending.c` + `credits.c`.
-- `enemy_draygon_spore.c` — could split into `enemy_draygon.c` + `enemy_spore_spawn.c`.
-- `enemy_kraid_phantoon.c` — could split into `enemy_kraid.c` + `enemy_phantoon.c`.
-- `enemy_ridley_zebetite.c` — could split into `enemy_ridley.c` + `enemy_zebetite.c`.
-- `enemy_a2_misc.c` — could split shutter / Norfair / Maridia clusters apart.
-- `enemy_mother_brain.c` — could split into `enemy_mother_brain.c` + `enemy_shitroid.c`.
-- `enemy_ki_hunter.c` — could split by behavior.
+  `cinematic_ending.c` + `credits.c`. Presentation-only; not the vanilla-gameplay
+  cleanliness path.
+- `eproj_combat.c` (~999 LOC) — leftover `$86` dispatch plus a drain list in
+  `docs/bank_origin_map.md` (Phantoon fireballs, walking lava seahorse, remaining
+  Torizo/Chozo handlers).
+- `enemy_mother_brain.c` (~3643 LOC) and `enemy_ridley.c` (~2765 LOC) are now
+  single-boss files; C-ify in place rather than splitting for line count.
 
-None of these are required. The mini-build / Samus-physics path doesn't depend on them.
+The mini-build / Samus-physics path doesn't depend on these.
 
 ## Refactor protocol (still applies for any future work)
 

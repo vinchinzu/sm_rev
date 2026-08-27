@@ -4,7 +4,7 @@ Function coverage is complete (5,156 fns, 0 missing). This file is now a **struc
 audit: which bank-shaped files still exist, how big they are, and what they contain.
 The actionable porting plan lives in [port_triage.md](port_triage.md).
 
-Last refreshed: 2026-04-26.
+Last refreshed: 2026-08-27.
 
 ## Extracted topical modules
 
@@ -35,26 +35,24 @@ into them, don't recreate bank-shaped files.
 | `samus_xray.c` | 749 | X-ray HDMA + activation |
 | `cinematics.c` | 6395 | Title/intro/ending/credits cinematic runtime and Mode 7 scene flow |
 | `hdma_core.c` / `hdma_power_bomb.c` / `room_fx_hdma.c` / `boss_hdma.c` / `cinematic_hdma.c` | ~2400 total | Bank `$88` HDMA split by runtime family |
-| `enemy_main.c` | 1321 | Shared enemy lifecycle, draw path, and frame dispatch from Bank `$A0` |
-| `enemy_collision.c` | 920 | Shared enemy/Samus/projectile/block collision layer from Bank `$A0` |
+| `enemy_main.c` | 807 | Shared enemy lifecycle, draw path, and frame dispatch from Bank `$A0` |
+| `enemy_ai_canon.c` / `enemy_ai_table.c` | 95 / 1152 | Load-time EnemyDef alias table + leftover unique addr→fn rows (`CallEnemyAi` is gone) |
+| `enemy_touch.c` / `enemy_shot.c` / `enemy_block_collision.c` | 271 / 509 / (block movers) | Bank `$A0` collision peel; `enemy_collision.c` husk deleted |
 | `enemy_drops.c` | 467 | Enemy drops, grapple-death hooks, and respawn helpers from Bank `$A0` |
-| `enemy_gunship.c` | 453 | Gunship-only enemy runtime peeled from Bank `$A2` |
-| `enemy_elevator.c` | 126 | Samus-linked elevator enemy runtime peeled from Bank `$A3` |
-| `enemy_fauna.c` | 2330 | Remaining Bank `$A3` fauna and hazard runtime |
-| `enemy_metroid.c` | 346 | Metroid runtime peeled from Bank `$A3` |
-| `enemy_mochtroid.c` | 149 | Mochtroid runtime peeled from Bank `$A3` |
-| `enemy_falling_platform.c` | 237 | Falling/sinking platform runtime + shared A3 wrappers from Bank `$A3` |
+| `enemy_gunship.c` | 454 | Gunship-only enemy runtime peeled from Bank `$A2` |
+| Bank `$A2` family files | ~3800 | `enemy_shutter.c`, `enemy_goofball_rio.c`, `enemy_rinka.c`, `enemy_beyblade_turtle.c`, `enemy_hopping_blobs.c`, plus remaining A2 fauna; `enemy_a2_misc.c` is gone |
+| `enemy_elevator.c` / `enemy_metroid.c` / `enemy_mochtroid.c` / `enemy_falling_platform.c` | 126 / 346 / 149 / 206 | Early A3 peels |
+| Bank `$A3` family files | ~2500 | `enemy_roach.c`, `enemy_maridia_snail.c`, `enemy_sidehopper.c`, `enemy_bang.c`, `enemy_zoomer.c`, and the rest of the A3 remainder; `enemy_fauna.c` is gone |
 | `enemy_torizo.c` | 1034 | Bomb/Golden Torizo runtime peeled from Bank `$AA` |
 | `enemy_chozo_shaktool.c` | 516 | Tourian Entrance Statue, Shaktool, Chozo Statue runtimes from Bank `$AA` |
 | `enemy_crocomire.c` | 1646 | Crocomire boss runtime peeled from Bank `$A4` |
-| `enemy_draygon_spore.c` | 1603 | Draygon + Spore Spawn boss runtimes peeled from Bank `$A5` |
+| `enemy_draygon.c` / `enemy_spore_spawn.c` | 1342 / 251 | Draygon and Spore Spawn; `enemy_draygon_spore.c` is gone |
 | `enemy_space_pirates.c` | 775 | Walking/Ninja/Wall Space Pirate runtimes peeled from Bank `$B2` |
 | `enemy_botwoon.c` | 1403 | Botwoon boss runtime peeled from Bank `$B3` |
-| `enemy_a2_misc.c` | 3693 | Bank `$A2` remainder: shutters, Norfair/Maridia fauna, small enemies (gunship in `enemy_gunship.c`) |
-| `enemy_ridley_zebetite.c` | 4944 | Ridley boss + zebetites peeled from Bank `$A6` |
-| `enemy_kraid_phantoon.c` | 3918 | Kraid + Phantoon bosses peeled from Bank `$A7` |
-| `enemy_ki_hunter.c` | 4068 | Ki-Hunter and remaining Bank `$A8` enemies |
-| `enemy_mother_brain.c` | 6499 | Mother Brain + Shitroid + dead-monster props peeled from Bank `$A9` |
+| Bank `$A6` family files | ~5040 | `enemy_ridley.c` (2765), `enemy_ceres_ridley.c`, `enemy_zebetite.c`, plus door/steam/baby/typewriter/waffle/fake-Kraid/boulder/geyser; `enemy_ridley_zebetite.c` is gone |
+| `enemy_kraid.c` / `enemy_phantoon.c` | 2082 / 1888 | Kraid and Phantoon; `enemy_kraid_phantoon.c` is gone |
+| Bank `$A8` family files | ~4150 | `enemy_ki_hunter.c` is Ki-Hunter only (494); Beetom/Wrecked Ship/Yapping Maw/etc. have their own files |
+| `enemy_mother_brain.c` / `enemy_shitroid.c` / `enemy_dead_monsters.c` | 3643 / 1345 / 1520 | Bank `$A9` split |
 | `physics.c` | 492 | Movement-type dispatch table |
 | `physics_config.c` | 181 | `PhysicsParams` + `sm_physics.json` hot-reload |
 | `plm_core.c` | 1212 | PLM core + instruction byte-code handlers |
@@ -92,10 +90,11 @@ remaining `src/sm_*.c` files are the C runtime shim (see Infrastructure above).
 
 ## What's driving priority next
 
-The remaining cleanup is **topical** — splitting combined-boss files (e.g.
-`enemy_kraid_phantoon.c` → `enemy_kraid.c` + `enemy_phantoon.c`) and breaking up
-the heterogeneous `enemy_a2_misc.c` and `enemy_ki_hunter.c` files. These are
-optional and lower priority than the bank-retirement campaign that is now done.
+The remaining vanilla-gameplay cleanup is **C-ify** of already-topical creature
+files (named tables, no `v0`/`LABEL_`, `kSfx_*` / `kProjectileType_*`) and
+carving `funcs.h`. Do not treat leftover bank dumps as the remaining work —
+those remainder files are gone. `cinematics.c` / menus / `spc_player.c` stay
+last.
 
 ## Non-coverage scope still open
 
