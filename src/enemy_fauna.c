@@ -782,7 +782,7 @@ void Sidehopper_Init(void) {  // 0xA3AB09
   E->sideh_var_03 = 0;
   E->sideh_var_04 = 0;
   E->sideh_var_05 = 0;
-  uint16 v2 = 2 * get_EnemyDef_A2(E->base.enemy_ptr)->extra_ai_4;
+  uint16 v2 = 2 * get_EnemyDef_A2(E->base.enemy_ptr)->field_2A;
   E->sideh_var_06 = v2;
   uint16 v4;
   if (E->sideh_parameter_1)
@@ -791,7 +791,7 @@ void Sidehopper_Init(void) {  // 0xA3AB09
     v4 = g_off_A3AAC2[E->sideh_var_06 >> 1];
   E->sideh_var_00 = v4;
   Sidehopper_Func_3();
-  if (get_EnemyDef_A2(E->base.enemy_ptr)->extra_ai_4)
+  if (get_EnemyDef_A2(E->base.enemy_ptr)->field_2A)
     E->sideh_var_05 = 2;
   int v6 = E->sideh_var_05 >> 1;
   E->sideh_var_01 = Sidehopper_Func_2(g_word_A3AAEE[v6], g_word_A3AAE6[v6]);

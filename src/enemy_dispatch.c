@@ -7,6 +7,8 @@
 
 void CallEnemyAi(uint32 ea) {
   switch (ea) {
+  case fnEnemy_NormalTouchAI_A0: Enemy_NormalTouchAI_A0(); return;
+  case fnEnemy_NormalShotAI_A0: Enemy_NormalShotAI_A0(); return;
   case fnEnemy_GrappleReact_SamusLatchesOn_A2: Enemy_GrappleReact_SamusLatchesOn_A2(); return;
   case fnEnemy_GrappleReact_KillEnemy_A2: Enemy_GrappleReact_KillEnemy_A2(); return;
   case fnEnemy_GrappleReact_CancelBeam_A2: Enemy_GrappleReact_CancelBeam_A2(); return;
@@ -57,6 +59,7 @@ void CallEnemyAi(uint32 ea) {
   case fnLowerNorfairRio_Main: LowerNorfairRio_Main(); return;
   case fnMaridiaLargeSnail_Init: MaridiaLargeSnail_Init(); return;
   case fnMaridiaLargeSnail_Main: MaridiaLargeSnail_Main(); return;
+  case fnMaridiaLargeSnail_Func_12: MaridiaLargeSnail_Func_12(); return;
   case fnMaridiaLargeSnail_Touch: MaridiaLargeSnail_Touch(); return;
   case fnMaridiaLargeSnail_Shot: MaridiaLargeSnail_Shot(); return;
   case fnHirisingSlowfalling_Init: HirisingSlowfalling_Init(); return;
@@ -161,6 +164,11 @@ void CallEnemyAi(uint32 ea) {
   case fnCrocomire_Init: Crocomire_Init(); return;
   case fnCrocomire_Main: Crocomire_Main(); return;
   case fnnullsub_34: return;
+  case fnCrocomire_Func_92: Crocomire_Func_92(); return;
+  case fnCrocomire_Func_93: Crocomire_Func_93(); return;
+  case fnCrocomire_Func_94: Crocomire_Func_94(); return;
+  case fnCrocomire_Func_95: Crocomire_Func_95(); return;
+  case fnCrocomire_Func_1: Crocomire_Func_1(); return;
   case fnCrocomire_Powerbomb: Crocomire_Powerbomb(); return;
   case fnCrocomireTongue_Init: CrocomireTongue_Init(); return;
   case fnCrocomireTongue_Main: CrocomireTongue_Main(); return;
@@ -168,6 +176,7 @@ void CallEnemyAi(uint32 ea) {
   case fnEnemy_GrappleReact_CancelBeam_A5: Enemy_GrappleReact_CancelBeam_A5(); return;
   case fnEnemy_NormalTouchAI_A5: Enemy_NormalTouchAI_A5(); return;
   case fnEnemy_NormalShotAI_A5: Enemy_NormalShotAI_A5(); return;
+  case fnCreateADudShot_A5: CreateADudShot(); return;
   case fnEnemy_NormalFrozenAI_A5: Enemy_NormalFrozenAI_A5(); return;
   case fnnullsub_170_A5: return;
   case fnDraygon_Init: Draygon_Init(); return;
@@ -216,6 +225,7 @@ void CallEnemyAi(uint32 ea) {
   case fnRidleysExplosion_Init: RidleysExplosion_Init(); return;
   case fnRidleysExplosion_Main: RidleysExplosion_Main(); return;
   case fnRidley_Shot: Ridley_Shot(); return;
+  case fnsub_A6DF59: sub_A6DF59(); return;
   case fnRidley_Powerbomb: Ridley_Powerbomb(); return;
   case fnCeresSteam_Init: CeresSteam_Init(); return;
   case fnCeresSteam_Main: CeresSteam_Main(); return;
@@ -234,6 +244,7 @@ void CallEnemyAi(uint32 ea) {
   case fnEnemy_NormalFrozenAI_A7: Enemy_NormalFrozenAI_A7(); return;
   case fnnullsub_170_A7: return;
   case fnnullsub_44: return;
+  case fnKraid_Touch_ArmFoot: Kraid_Touch_ArmFoot(); return;
   case fnKraidsArm_Touch: KraidsArm_Touch(); return;
   case fnKraid_Touch: Kraid_Touch(); return;
   case fnnullsub_43: return;
@@ -384,6 +395,8 @@ void CallEnemyAi(uint32 ea) {
   case fnTorizo_Init: Torizo_Init(); return;
   case fnGoldTorizo_Touch: GoldTorizo_Touch(); return;
   case fnTorizo_Shot: Torizo_Shot(); return;
+  case fnnullsub_271: return;
+  case fnTorizo_Func_8: Torizo_Func_8(); return;
   case fnGoldTorizo_Main: GoldTorizo_Main(); return;
   case fnGoldTorizo_Hurt: GoldTorizo_Hurt(); return;
   case fnGoldTorizo_Shot: GoldTorizo_Shot(); return;
@@ -404,6 +417,8 @@ void CallEnemyAi(uint32 ea) {
   case fnWalkingSpacePirates_Powerbomb: WalkingSpacePirates_Powerbomb(); return;
   case fnWalkingSpacePirates_Touch: WalkingSpacePirates_Touch(); return;
   case fnWalkingSpacePirates_Shot: WalkingSpacePirates_Shot(); return;
+  case fnWalkingSpacePirates_87C8: WalkingSpacePirates_87C8(); return;
+  case fnWalkingSpacePirates_883E: WalkingSpacePirates_883E(); return;
   case fnWallSpacePirates_Init: WallSpacePirates_Init(); return;
   case fnWallSpacePirates_Main: WallSpacePirates_Main(); return;
   case fnNinjaSpacePirates_Init: NinjaSpacePirates_Init(); return;

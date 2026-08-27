@@ -56,6 +56,7 @@ answer: "where did this logic live before we split it?"
 | `src/samus_projectile_state.c` | `../sm/src/sm_90.c` | Projectile slot reset/clear/kill lifecycle from `ResetProjectileData` `0x90AD22`, `ClearProjectile` `0x90ADB7`, and `KillProjectile` `0x90AE06` |
 | `src/samus_projectile_weapon.c` | `../sm/src/sm_90.c` | Beam palette/cooldown/fire setup from `Samus_HandleCooldown` `0x90AC1C`, `UpdateBeamTilesAndPalette` `0x90AC8D`, `FireUnchargedBeam` `0x90B8D6`, `FireChargedBeam` `0x90B99E`, `InitProjectilePositionDirection` `0x90BA56`, `FireHyperBeam` `0x90BCD1`, and `ProjectileReflection` `0x90BE00` |
 | `src/samus_projectile_core.c` / `src/samus_projectile_beam.c` / `src/samus_projectile_block.c` / `src/samus_projectile_view.c` | `../sm/src/sm_90.c`, `../sm/src/sm_93.c`, and Bank `$94` code paths | Remaining projectile instruction/pre-instruction runtime, projectile draw/explosion helpers, beam/missile/bomb/SBA HUD behavior, block reactions, and read-only mini projectile views |
+| `src/samus_status.c` | `../sm/src/sm_a0.c` (`SuitDamageDivision`); lockout extracted from Torizo freeze in `../sm/src/sm_aa.c` | Generic Samus lockout plus suit-scaled contact damage `SuitDamageDivision` `0xA0A45E` |
 
 ## Enemy / Combat Helpers
 
@@ -84,10 +85,9 @@ answer: "where did this logic live before we split it?"
 | `src/enemy_kraid_phantoon.c` | `../sm/src/sm_a7.c` | Kraid + Phantoon bosses lifted whole from Bank `$A7`; retires Bank `$A7` |
 | `src/enemy_ki_hunter.c` | `../sm/src/sm_a8.c` | Ki-Hunter and remaining Bank `$A8` enemies lifted whole; retires Bank `$A8` |
 | `src/enemy_mother_brain.c` | `../sm/src/sm_a9.c` | Mother Brain + Shitroid + dead-monster props lifted whole from Bank `$A9`; retires Bank `$A9` |
-| `src/enemy_collision.c` | `../sm/src/sm_a0.c` | `EnemyCollisionHandler` orchestrator plus `SuitDamageDivision` after the Bank `$A0` collision split |
-| `src/enemy_touch.c` | `../sm/src/sm_a0.c` | Samus contact, grapple latch/react table, and `NormalEnemyTouchAi*` peeled from `enemy_collision.c` |
-| `src/enemy_shot.c` | `../sm/src/sm_a0.c` | Projectile/bomb/power-bomb reactions, `NormalEnemyShotAi*`, eproj-vs-Samus, and death animation peeled from `enemy_collision.c` |
-| `src/enemy_block_collision.c` | `../sm/src/sm_a0.c` | Enemy-vs-block/slope movers (`Enemy_MoveRight_*`, `Enemy_MoveDown`, `CalculateBlockContainingPixelPos`) peeled from `enemy_collision.c` |
+| `src/enemy_touch.c` | `../sm/src/sm_a0.c` | `EnemyCollisionHandler` `0xA09758` plus Samus contact, grapple latch/react table, and `NormalEnemyTouchAi*` from Bank `$A0` |
+| `src/enemy_shot.c` | `../sm/src/sm_a0.c` | Projectile/bomb/power-bomb reactions, `NormalEnemyShotAi*`, eproj-vs-Samus, and death animation from Bank `$A0` |
+| `src/enemy_block_collision.c` | `../sm/src/sm_a0.c` | Enemy-vs-block/slope movers (`Enemy_MoveRight_*`, `Enemy_MoveDown`, `CalculateBlockContainingPixelPos`) from Bank `$A0` |
 | `src/enemy_drops.c` | `../sm/src/sm_a0.c` | Enemy drops, grapple-death hooks, and respawn/item-drop helpers extracted from Bank `$A0` |
 | `src/eproj_core.c` | `../sm/src/sm_86.c` | Enemy-projectile lifecycle, generic instruction handlers, shared block-collision/movement helpers, draw path, and screen-shake helpers |
 | `src/eproj_environment.c` | `../sm/src/sm_86.c` | Environment/facility enemy-projectile families; currently owns the fake-wall / dust-cloud / shot-gate cluster (`EprojInit_TourianEscapeShaftFakeWallExplode`, `EprojInit_DustCloudOrExplosion`, `EprojPreInstr_DustCloudOrExplosion`, `EprojInit_SpawnedShotGate`, `EprojInit_ClosedDownwardsShotGate`, `EprojInit_ClosedUpwardsShotGate`, `EprojPreInstr_E605`, `CheckIfEprojIsOffScreen`), the lava / fireball cluster (`EprojInit_LavaSeahorseFireball`, `sub_86B535`, `EprojInit_NamiFuneFireball`, `EprojPreInstr_NamiFuneFireball`, `EprojInit_LavaThrownByLavaman`, `sub_86E049`), the eye-door/save-station cluster (`EprojInit_EyeDoorProjectile`, `EprojInit_EyeDoorSweat`, `EprojPreInstr_EyeDoorProjectile`, `EprojPreInstr_EyeDoorSweat`, `EprojInit_EyeDoorSmoke`, `EprojInit_SaveStationElectricity`), `EprojInit_NuclearWaffleBody`, and the Norfair lavaquake rocks cluster (`EprojInit_NorfairLavaquakeRocks` through `EprojPreInstr_NorfairLavaquakeRocks_Inner2`) |

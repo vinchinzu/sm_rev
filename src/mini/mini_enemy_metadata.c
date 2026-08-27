@@ -79,29 +79,24 @@ static bool MiniEnemyHasRealReaction(uint16 reaction_ai) {
          reaction_ai != FUNC16(nullsub_169);
 }
 
-static bool MiniEnemyDefLooksUnusable(const EnemyDef *def) {
-  return def == NULL ||
-         (def->tile_data_size == 0 && def->health == 0 && def->bank == 0 &&
-          def->ai_init == 0 && def->main_ai == 0 &&
-          def->touch_ai == 0 && def->shot_ai == 0);
+static uint16 MiniEnemyReactionAi(const MiniEnemyRuntimeState *enemy, bool shot) {
+  const MiniEnemySpeciesMetadata *meta = MiniEnemyMetadataForSpecies(enemy->species_id);
+  if (meta != NULL)
+    return shot ? meta->shot_ai : meta->touch_ai;
+  const EnemyDef *def = get_EnemyDef_A2(enemy->species_id);
+  return shot ? def->shot_ai : def->touch_ai;
 }
 
 bool MiniEnemyTakesProjectileDamage(const MiniEnemyRuntimeState *enemy) {
   if (enemy->species_id == 0)
     return false;
-  const EnemyDef *def = get_EnemyDef_A2(enemy->species_id);
-  if (MiniEnemyDefLooksUnusable(def))
-    return enemy->behavior != kMiniEnemyBehavior_Passive;
-  return MiniEnemyHasRealReaction(def->shot_ai);
+  return MiniEnemyHasRealReaction(MiniEnemyReactionAi(enemy, true));
 }
 
 bool MiniEnemyDoesTouchDamage(const MiniEnemyRuntimeState *enemy) {
   if (enemy->species_id == 0)
     return false;
-  const EnemyDef *def = get_EnemyDef_A2(enemy->species_id);
-  if (MiniEnemyDefLooksUnusable(def))
-    return enemy->behavior != kMiniEnemyBehavior_Passive;
-  return MiniEnemyHasRealReaction(def->touch_ai);
+  return MiniEnemyHasRealReaction(MiniEnemyReactionAi(enemy, false));
 }
 
 const char *MiniEnemyBehaviorName(MiniEnemyBehavior behavior) {

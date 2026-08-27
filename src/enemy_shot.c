@@ -5,6 +5,7 @@
 #include "funcs.h"
 #include "enemy_types.h"
 #include "torizo_config.h"
+#include "samus_status.h"
 
 void SamusProjectileInteractionHandler(void) {  // 0xA09785
   enemy_processing_stage = 10;
@@ -20,20 +21,20 @@ void SamusProjectileInteractionHandler(void) {  // 0xA09785
     return;
   for (int pidx = 0; pidx != num_colls_to_check;pidx++) {
     collision_detection_index = pidx;
-    if (!projectile_damage[pidx] || sign16(projectile_type[pidx]) || !sign16((projectile_type[pidx] & 0xF00) - 1792))
+    if (!projectile_damage[pidx] || sign16(projectile_type[pidx]) ||
+        !sign16((projectile_type[pidx] & kProjectileType_TypeMask) - kProjectileType_BeamExplosion))
       continue;
     if ((projectile_dir[pidx] & 0x10) != 0)
       continue;
     if (abs16(projectile_x_pos[pidx] - samus_x_pos) - projectile_x_radius[pidx] < samus_x_radius &&
         abs16(projectile_y_pos[pidx] - samus_y_pos) - projectile_y_radius[pidx] < samus_y_radius) {
-      if ((projectile_type[pidx] & 0xFF00) != 768 && (projectile_type[pidx] & 0xFF00) != 1280) {
+      if ((projectile_type[pidx] & 0xFF00) != kProjectileType_PowerBomb &&
+          (projectile_type[pidx] & 0xFF00) != kProjectileType_Bomb) {
         projectile_dir[pidx] |= 0x10;
         Samus_DealDamage(SuitDamageDivision(projectile_damage[pidx]));
         samus_invincibility_timer = 96;
         samus_knockback_timer = 5;
-        assert(0);
-        uint16 v0 = 0;
-        knockback_x_dir = (int16)(samus_x_pos - eproj_x_pos[v0 >> 1]) >= 0;
+        knockback_x_dir = (int16)(samus_x_pos - projectile_x_pos[pidx]) >= 0;
         return;
       }
       if (projectile_variables[pidx] == 8) {
@@ -62,20 +63,19 @@ void EprojSamusCollDetect(void) {  // 0xA09894
 }
 
 void HandleEprojCollWithSamus(uint16 k) {  // 0xA09923
+  int i = k >> 1;
   samus_invincibility_timer = 96;
   samus_knockback_timer = 5;
-  int v3 = k >> 1;
-  uint16 eproj_def = eproj_id[v3];
-  uint16 v1 = *((uint16 *)RomPtr_86(*(uint16 *)((uint8 *)eproj_id + k)) + 5);
-  if (v1) {
-    int v2 = k >> 1;
-    eproj_instr_list_ptr[v2] = v1;
-    eproj_instr_timers[v2] = 1;
+  uint16 eproj_def = eproj_id[i];
+  uint16 hit_instr = get_EprojDef(eproj_def)->hit_instruction_list;
+  if (hit_instr) {
+    eproj_instr_list_ptr[i] = hit_instr;
+    eproj_instr_timers[i] = 1;
   }
-  if ((eproj_properties[v3] & 0x4000) == 0)
-    *(uint16 *)((uint8 *)eproj_id + k) = 0;
-  Samus_DealDamage(SuitDamageDivision(eproj_properties[v3] & 0xFFF));
-  knockback_x_dir = (int16)(samus_x_pos - eproj_x_pos[v3]) >= 0;
+  if ((eproj_properties[i] & 0x4000) == 0)
+    eproj_id[i] = 0;
+  Samus_DealDamage(SuitDamageDivision(eproj_properties[i] & 0xFFF));
+  knockback_x_dir = (int16)(samus_x_pos - eproj_x_pos[i]) >= 0;
   if (TorizoConfig_IsChozoOrbEproj(eproj_def))
     TorizoConfig_OnChozoOrbHitSamus();
 }
@@ -91,7 +91,9 @@ void EprojProjCollDet(void) {  // 0xA0996C
       if (eproj_flags[i] == 2)
         break;
       uint16 v4 = projectile_type[j];
-      if (v4 && (v4 & 0xF00) != 768 && (v4 & 0xF00) != 1280 && sign16((v4 & 0xF00) - 1792)) {
+      if (v4 && (v4 & kProjectileType_TypeMask) != kProjectileType_PowerBomb &&
+          (v4 & kProjectileType_TypeMask) != kProjectileType_Bomb &&
+          sign16((v4 & kProjectileType_TypeMask) - kProjectileType_BeamExplosion)) {
         if ((eproj_x_pos[i] & 0xFFE0) == (projectile_x_pos[j] & 0xFFE0) && 
             (eproj_y_pos[i] & 0xFFE0) == (projectile_y_pos[j] & 0xFFE0)) {
           HandleEprojCollWithProj(i * 2, j * 2);
@@ -102,54 +104,28 @@ void EprojProjCollDet(void) {  // 0xA0996C
 }
 
 void HandleEprojCollWithProj(uint16 k, uint16 j) {  // 0xA099F9
-  int i = j >> 1;
-  if ((projectile_type[i] & 8) == 0)
-    projectile_dir[i] |= 0x10;
-  if (eproj_flags[k >> 1] == 1) {
-    int v4 = k >> 1;
-    CreateSpriteAtPos(projectile_x_pos[v4], projectile_y_pos[v4], 6, 0);
+  int pidx = j >> 1;
+  int eidx = k >> 1;
+  if ((projectile_type[pidx] & 8) == 0)
+    projectile_dir[pidx] |= 0x10;
+  if (eproj_flags[eidx] == 1) {
+    CreateSpriteAtPos(projectile_x_pos[eidx], projectile_y_pos[eidx], 6, 0);
     QueueSfx1_Max6(0x3D);
   } else {
-    int j = k >> 1;
-    eproj_G[j] = projectile_type[i];
-    eproj_instr_list_ptr[j] = get_EprojDef(eproj_id[j])->shot_instruction_list;
-    eproj_instr_timers[j] = 1;
-    eproj_pre_instr[j] = FUNC16(EprojPreInstr_nullsub_83);
-    eproj_properties[j] &= 0xFFF;
+    eproj_G[eidx] = projectile_type[pidx];
+    eproj_instr_list_ptr[eidx] = get_EprojDef(eproj_id[eidx])->shot_instruction_list;
+    eproj_instr_timers[eidx] = 1;
+    eproj_pre_instr[eidx] = FUNC16(EprojPreInstr_nullsub_83);
+    eproj_properties[eidx] &= 0xFFF;
   }
 }
 
-void CallHitboxShot(uint32 ea, uint16 j) {  // 0xA09D17
-  switch (ea) {
-  case fnEnemy_NormalShotAI_A0: Enemy_NormalShotAI_A0(); return;  // 0xa0802d
-  case fnnullsub_170_A2: return;  // 0xa2804c
-  case fnMaridiaLargeSnail_Shot: MaridiaLargeSnail_Shot(); return;  // 0xa2d3b4
-  case fnEnemy_NormalShotAI_A4: Enemy_NormalShotAI_A4(); return;  // 0xa4802d
-  case fnCrocomire_Func_93: Crocomire_Func_93(); return;  // 0xa4b951
-  case fnCrocomire_Func_94: Crocomire_Func_94(); return;  // 0xa4b968
-  case fnCrocomire_Func_95: Crocomire_Func_95(); return;  // 0xa4ba05
-  case fnCrocomire_Func_1: Crocomire_Func_1(); return;  // 0xa4bab4
-  case fnEnemy_NormalShotAI_A5: Enemy_NormalShotAI_A5(); return;  // 0xa5802d
-  case fnCreateADudShot_A5: CreateADudShot(); return;  // 0xa58046
-  case fnnullsub_170_A5: return;  // 0xa5804c
-  case fnDraygon_Shot: Draygon_Shot(); return;  // 0xa595f0
-  case fnSporeSpawn_Shot: SporeSpawn_Shot(); return;  // 0xa5ed5a
-  case fnnullsub_170_A6: return;  // 0xa6804c
-  case fnRidley_Shot: Ridley_Shot(); return;  // 0xa6df8a
-  case fnnullsub_170_A7: return;  // 0xa7804c
-  case fnnullsub_43: return;  // 0xa794b5
-  case fnKraid_Arm_Shot: Kraid_Arm_Shot(j); return;  // 0xa794b6
-  case fnPhantoon_Shot: Phantoon_Shot(); return;  // 0xa7dd9b
-  case fnMotherBrainsBody_Shot: MotherBrainsBody_Shot(); return;  // 0xa9b503
-  case fnMotherBrainsBrain_Shot: MotherBrainsBrain_Shot(); return;  // 0xa9b507
-  case fnTorizo_Shot: Torizo_Shot(); return;  // 0xaac97c
-  case fnnullsub_271: return;  // 0xaac9c1
-  case fnTorizo_Func_8: Torizo_Func_8(); return;  // 0xaac9c2
-  case fnWalkingSpacePirates_Shot: WalkingSpacePirates_Shot(); return;  // 0xb28779
-  case fnWalkingSpacePirates_87C8: WalkingSpacePirates_87C8(); return;  // 0xb287c8
-  case fnWalkingSpacePirates_883E: WalkingSpacePirates_883E(); return;  // 0xb2883e
-  default: Unreachable();
+static void CallHitboxShot(uint32 ea, uint16 j) {  // 0xA09D17
+  if (ea == fnKraid_Arm_Shot) {
+    Kraid_Arm_Shot(j);
+    return;
   }
+  CallEnemyAi(ea);
 }
 
 void EprojCollHandler_Multibox(void) {  // 0xA09B7F
@@ -164,7 +140,9 @@ void EprojCollHandler_Multibox(void) {  // 0xA09B7F
     return;
   for(int pidx = 0; pidx < 5; pidx++) {
     uint16 v4 = projectile_type[pidx];
-    if (!(v4 && (v4 & 0xF00) != 768 && (v4 & 0xF00) != 1280 && sign16((v4 & 0xF00) - 1792)))
+    if (!(v4 && (v4 & kProjectileType_TypeMask) != kProjectileType_PowerBomb &&
+          (v4 & kProjectileType_TypeMask) != kProjectileType_Bomb &&
+          sign16((v4 & kProjectileType_TypeMask) - kProjectileType_BeamExplosion)))
       continue;
     if (!sign16(E->spritemap_pointer))
       Unreachable();
@@ -179,7 +157,7 @@ void EprojCollHandler_Multibox(void) {  // 0xA09B7F
             (int16)(projectile_x_pos[pidx] - projectile_x_radius[pidx] - (coll_x_pos + hb->right)) < 0 &&
             (int16)(projectile_y_radius[pidx] + projectile_y_pos[pidx] - (coll_y_pos + hb->top)) >= 0 &&
             (int16)(projectile_y_pos[pidx] - projectile_y_radius[pidx] - (coll_y_pos + hb->bottom)) < 0) {
-          if ((projectile_type[pidx] & 0xF00) == 512) {
+          if ((projectile_type[pidx] & kProjectileType_TypeMask) == kProjectileType_SuperMissile) {
             earthquake_timer = 30;
             earthquake_type = 18;
           }
@@ -206,7 +184,7 @@ void EnemyBombCollHandler_Multibox(void) {  // 0xA09D23
     if (!projectile_x_pos[pidx])
       continue;
     uint16 v4 = projectile_type[pidx];
-    if (!(v4 && (v4 & 0xF00) == 1280 && !projectile_variables[pidx]))
+    if (!(v4 && (v4 & kProjectileType_TypeMask) == kProjectileType_Bomb && !projectile_variables[pidx]))
       continue;
     if (!sign16(E->spritemap_pointer))
       Unreachable();
@@ -241,12 +219,14 @@ void EprojCollHandler(void) {  // 0xA0A143
     return;
   for (int pidx = 0; pidx < 5; pidx++) {
     uint16 j = projectile_type[pidx];
-    if (j && (j & 0xF00) != 768 && (j & 0xF00) != 1280 && sign16((j & 0xF00) - 1792)) {
+    if (j && (j & kProjectileType_TypeMask) != kProjectileType_PowerBomb &&
+        (j & kProjectileType_TypeMask) != kProjectileType_Bomb &&
+        sign16((j & kProjectileType_TypeMask) - kProjectileType_BeamExplosion)) {
       uint16 x = abs16(projectile_x_pos[pidx] - E->x_pos);
       uint16 y = abs16(projectile_y_pos[pidx] - E->y_pos);
       if (x - projectile_x_radius[pidx] < E->x_width) {
         if (y - projectile_y_radius[pidx] < E->y_height) {
-          if ((projectile_type[pidx] & 0xF00) == 512) {
+          if ((projectile_type[pidx] & kProjectileType_TypeMask) == kProjectileType_SuperMissile) {
             earthquake_timer = 30;
             earthquake_type = 18;
           }
@@ -269,7 +249,8 @@ void EnemyBombCollHandler(void) {  // 0xA0A236
     return;
   for(int pidx = 5; pidx < 10; pidx++) {
     if (!projectile_type[pidx] || projectile_variables[pidx] ||
-        (projectile_type[pidx] & 0xF00) != 1280 && (projectile_type[pidx] & 0x8000) == 0)
+        (projectile_type[pidx] & kProjectileType_TypeMask) != kProjectileType_Bomb &&
+        (projectile_type[pidx] & kProjectileType_DontInteractWithSamus) == 0)
       continue;
     if (abs16(projectile_x_pos[pidx] - E->x_pos) - projectile_x_radius[pidx] < E->x_width && 
         abs16(projectile_y_pos[pidx] - E->y_pos) - projectile_y_radius[pidx] < E->y_height) {
@@ -430,15 +411,15 @@ uint16 NormalEnemyShotAiSkipDeathAnim(void) {  // 0xA0A6DE
   if (!vulnerability_ptr)
     vulnerability_ptr = addr_stru_B4EC1C;
   uint16 r20 = vulnerability_ptr;
-  if ((r18 & 0xF00) != 0) {
-    v5 = r18 & 0xF00;
-    if ((r18 & 0xF00) == 256 || v5 == 512) {
-      v6 = (r18 & 0xF00) >> 8;
+  if ((r18 & kProjectileType_TypeMask) != 0) {
+    v5 = r18 & kProjectileType_TypeMask;
+    if ((r18 & kProjectileType_TypeMask) == kProjectileType_Missile || v5 == kProjectileType_SuperMissile) {
+      v6 = (r18 & kProjectileType_TypeMask) >> 8;
       varE32 = get_Vulnerability(r20 + v6)->plasma_ice_wave & 0x7F;
-    } else if (v5 == 1280) {
+    } else if (v5 == kProjectileType_Bomb) {
       varE32 = get_Vulnerability(r20)->bomb & 0x7F;
     } else {
-      if (v5 != 768)
+      if (v5 != kProjectileType_PowerBomb)
         goto LABEL_18;
       varE32 = get_Vulnerability(r20)->power_bomb & 0x7F;
     }
