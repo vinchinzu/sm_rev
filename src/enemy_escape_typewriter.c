@@ -5,6 +5,22 @@
 #include "funcs.h"
 #include "enemy_types.h"
 
+enum {
+  kTypewriterCmd_SetTimer = 1,
+  kTypewriterCmd_Newline = 13,
+  kTypewriterChar_Space = 32,
+  kTypewriterChar_Exclamation = 33,
+  kTypewriterExclamationTile = 91,
+  kTypewriterLetterBase = 65,
+  kTypewriterVramSrcBank = 0x7E00,
+  kTypewriterTileBytes = 2,
+  kTypewriterQueueEntrySize = 7,
+  kTypewriterStrokePeriod = 2,
+  kArea_Ceres = 6,
+  kSfx2_TypewriterCeres = 0x45,
+  kSfx3_TypewriterIntro = 0xD,
+};
+
 void SetupZebesEscapeTypewriter(void) {  // 0xA6C23F
   palette_buffer[157] = palette_buffer[125];
   palette_buffer[158] = palette_buffer[126];
@@ -19,87 +35,82 @@ void SetupZebesEscapeTypewriter(void) {  // 0xA6C23F
 }
 
 uint8 ProcessEscapeTimerTileTransfers(void) {  // 0xA6C26E
-  VramWriteEntry *v4;
-
-  EnemyData *v0 = gEnemyData(0);
-  uint16 ai_var_E = v0->ai_var_E;
-  uint16 v2 = vram_write_queue_tail;
-  const uint8 *v3 = RomPtr_A6(ai_var_E);
-  uint8 result = 1;
-  if (GET_WORD(v3)) {
-    v4 = gVramWriteEntry(vram_write_queue_tail);
-    v4->size = GET_WORD(v3);
-    *(VoidP *)((uint8 *)&v4->src.addr + 1) = GET_WORD(v3 + 3);
-    v4->src.addr = GET_WORD(v3 + 2);
-    v4->vram_dst = GET_WORD(v3 + 5);
-    vram_write_queue_tail = v2 + 7;
-    v0->ai_var_E = ai_var_E + 7;
-    if (*(uint16 *)RomPtr_A6(v0->ai_var_E))
+  EnemyData *E = gEnemyData(0);
+  uint16 list_ip = E->ai_var_E;
+  uint16 queue_tail = vram_write_queue_tail;
+  const uint8 *entry = RomPtr_A6(list_ip);
+  uint8 finished = 1;
+  if (GET_WORD(entry)) {
+    VramWriteEntry *q = gVramWriteEntry(vram_write_queue_tail);
+    q->size = GET_WORD(entry);
+    *(VoidP *)((uint8 *)&q->src.addr + 1) = GET_WORD(entry + 3);
+    q->src.addr = GET_WORD(entry + 2);
+    q->vram_dst = GET_WORD(entry + 5);
+    vram_write_queue_tail = queue_tail + kTypewriterQueueEntrySize;
+    E->ai_var_E = list_ip + kTypewriterQueueEntrySize;
+    if (*(uint16 *)RomPtr_A6(E->ai_var_E))
       return 0;
   }
-  return result;
+  return finished;
 }
 
 uint8 HandleTypewriterText_Ext(uint16 a) {  // 0xA6C2A7
-  uint16 r18 = a;
-  int16 v4;
-  VramWriteEntry *v12;
-
+  uint16 base_tile = a;
   Enemy_MotherBrain *E = Get_MotherBrain(0);
-  uint16 mbn_var_3D = E->mbn_var_3D;
-  if (mbn_var_3D) {
-    E->mbn_var_3D = mbn_var_3D - 1;
+  uint16 instr_timer = E->mbn_var_3D;
+  if (instr_timer) {
+    E->mbn_var_3D = instr_timer - 1;
     return 0;
-  } else {
-    E->mbn_var_3D = E->mbn_var_3E;
-    int i, v7;
-    for (i = E->mbn_var_3B; ; i = v7 + 2) {
-      while (1) {
-        v4 = *(uint16 *)RomPtr_A6(i);
-        if (!v4)
-          return 1;
-        if (v4 != 1)
-          break;
-        uint16 v5 = i + 2;
-        uint16 v6 = *(uint16 *)RomPtr_A6(v5);
-        E->mbn_var_3E = v6;
-        i = v5 + 2;
-      }
-      if (v4 != 13)
-        break;
-      v7 = i + 2;
-      uint16 v8 = *(uint16 *)RomPtr_A6(v7);
-      E->mbn_var_3C = v8;
-    }
-    v4 = (uint8)v4;
-    if ((uint8)v4 == 32) {
-      ++E->mbn_var_3C;
-      E->mbn_var_3B = i + 1;
-      return 0;
-    } else {
-      if ((uint8)v4 == 33)
-        v4 = 91;
-      E->mbn_var_3B = i + 1;
-      uint16 v11 = vram_write_queue_tail;
-      v12 = gVramWriteEntry(vram_write_queue_tail);
-      v12->size = 2;
-      *(VoidP *)((uint8 *)&v12->src.addr + 1) = 32256;
-      E->mbn_var_3A = r18 + v4 - 65;
-      v12->src.addr = ADDR16_OF_RAM(*extra_enemy_ram8000) + 52;
-      uint16 mbn_var_3C = E->mbn_var_3C;
-      v12->vram_dst = mbn_var_3C;
-      E->mbn_var_3C = mbn_var_3C + 1;
-      vram_write_queue_tail = v11 + 7;
-      uint16 v14 = E->mbn_var_3F + 1;
-      E->mbn_var_3F = v14;
-      if (!sign16(v14 - 2)) {
-        E->mbn_var_3F = 0;
-        if (area_index == 6)
-          QueueSfx2_Max3(0x45);
-        else
-          QueueSfx3_Max3(0xD);
-      }
-      return 0;
-    }
   }
+
+  E->mbn_var_3D = E->mbn_var_3E;
+  uint16 ip = E->mbn_var_3B;
+  int16 cmd;
+  for (;;) {
+    cmd = *(uint16 *)RomPtr_A6(ip);
+    if (!cmd)
+      return 1;
+    if (cmd == kTypewriterCmd_SetTimer) {
+      ip += 2;
+      E->mbn_var_3E = *(uint16 *)RomPtr_A6(ip);
+      ip += 2;
+      continue;
+    }
+    if (cmd != kTypewriterCmd_Newline)
+      break;
+    ip += 2;
+    E->mbn_var_3C = *(uint16 *)RomPtr_A6(ip);
+    ip += 2;
+  }
+
+  uint16 ch = (uint8)cmd;
+  if (ch == kTypewriterChar_Space) {
+    ++E->mbn_var_3C;
+    E->mbn_var_3B = ip + 1;
+    return 0;
+  }
+
+  if (ch == kTypewriterChar_Exclamation)
+    ch = kTypewriterExclamationTile;
+  E->mbn_var_3B = ip + 1;
+  uint16 queue_tail = vram_write_queue_tail;
+  VramWriteEntry *q = gVramWriteEntry(vram_write_queue_tail);
+  q->size = kTypewriterTileBytes;
+  *(VoidP *)((uint8 *)&q->src.addr + 1) = kTypewriterVramSrcBank;
+  E->mbn_var_3A = base_tile + ch - kTypewriterLetterBase;
+  q->src.addr = ADDR16_OF_RAM(*extra_enemy_ram8000) + 52;
+  uint16 vram_dst = E->mbn_var_3C;
+  q->vram_dst = vram_dst;
+  E->mbn_var_3C = vram_dst + 1;
+  vram_write_queue_tail = queue_tail + kTypewriterQueueEntrySize;
+  uint16 stroke = E->mbn_var_3F + 1;
+  E->mbn_var_3F = stroke;
+  if (!sign16(stroke - kTypewriterStrokePeriod)) {
+    E->mbn_var_3F = 0;
+    if (area_index == kArea_Ceres)
+      QueueSfx2_Max3(kSfx2_TypewriterCeres);
+    else
+      QueueSfx3_Max3(kSfx3_TypewriterIntro);
+  }
+  return 0;
 }
