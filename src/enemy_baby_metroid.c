@@ -5,27 +5,33 @@
 #include "funcs.h"
 #include "enemy_types.h"
 
+enum {
+  kSfx3_BabyMetroidCryCeres = 0x24,
+  kBabyMetroidPaletteDest = 0x162,
+  kBabyMetroidPaletteColors = 0xF,
+};
+
 static int BabyMetroid_DBCB_DoubleRetEx(uint16 a);
 
 void DrawBabyMetroid_0(void) {  // 0xA6BF1A
-  int v0 = BabyMetroid_DBCB_DoubleRetEx(ADDR16_OF_RAM(*enemy_ram7800) + 6);
-  if (v0 < 0)
+  int spritemap = BabyMetroid_DBCB_DoubleRetEx(ADDR16_OF_RAM(*enemy_ram7800) + 6);
+  if (spritemap < 0)
     return;
   Enemy_Ridley *E = Get_Ridley(0);
 
-  sub_A6DC13(v0, E->ridley_var_42, E->ridley_var_44, 0);
+  sub_A6DC13(spritemap, E->ridley_var_42, E->ridley_var_44, 0);
 }
 
 uint16 BabyMetroid_Instr_2(uint16 k) {  // 0xA6BFC9
   if (!Get_Ridley(0)->ridley_var_46 && (random_number & 1) != 0)
     return BabyMetroid_Goto(k);
-  QueueSfx3_Max6(0x24);
+  QueueSfx3_Max6(kSfx3_BabyMetroidCryCeres);
   return k + 2;
 }
 
 uint16 BabyMetroid_Instr_3(uint16 k) {  // 0xA6BFE1
-  uint16 v1 = *(uint16 *)RomPtr_A6(k);
-  WriteColorsToPalette(0x162, 0xa6, v1, 0xF);
+  uint16 pal_src = *(uint16 *)RomPtr_A6(k);
+  WriteColorsToPalette(kBabyMetroidPaletteDest, 0xa6, pal_src, kBabyMetroidPaletteColors);
   return k + 2;
 }
 
@@ -58,25 +64,23 @@ typedef struct BabyMetroidExecState {
 static int BabyMetroid_DBCB_DoubleRetEx(uint16 a) {
   BabyMetroidExecState *st = (BabyMetroidExecState *)&g_ram[a];
 
-  if ((st->ip & 0x8000) == 0)
-    return -1;  // double ret
-  uint16 v2 = st->ip;
-  const uint16 *v3 = (uint16 *)RomPtr_A6(v2);
-  if (sign16(v3[0]))
-    goto LABEL_7;
-  if (st->timer != v3[0]) {
-    st->timer++;
-    return v3[1];
+  if (!sign16(st->ip))
+    return -1;
+  uint16 ip = st->ip;
+  const uint16 *instr = (uint16 *)RomPtr_A6(ip);
+  if (!sign16(instr[0])) {
+    if (st->timer != instr[0]) {
+      st->timer++;
+      return instr[1];
+    }
+    ip += 4;
+    instr = (uint16 *)RomPtr_A6(ip);
   }
-  v2 += 4;
-  for (; ; ) {
-    v3 = (uint16 *)RomPtr_A6(v2);
-    if (!sign16(v3[0]))
-      break;
-LABEL_7:
-    v2 = CallBabyMetroidInstr(v3[0] | 0xA60000, v2 + 2);
+  while (sign16(instr[0])) {
+    ip = CallBabyMetroidInstr(instr[0] | 0xA60000, ip + 2);
+    instr = (uint16 *)RomPtr_A6(ip);
   }
   st->timer = 1;
-  st->ip = v2;
-  return v3[1];
+  st->ip = ip;
+  return instr[1];
 }
