@@ -6,8 +6,27 @@
 #include "enemy_types.h"
 #include "enemy_ai_canon.h"
 
-#define g_word_A3B415 ((uint16*)RomFixedPtr(0xa3b415))
-#define g_off_A3B40D ((uint16*)RomFixedPtr(0xa3b40d))
+enum {
+  kMaridiaRefillCandyDetectX = 0x80,
+  kMaridiaRefillCandyDir_Left = 1,
+  kMaridiaRefillCandyDir_Right = 3,
+  kMaridiaRefillCandyRiseSpeed = -0x8000,
+};
+
+static const uint16 kMaridiaRefillCandyIlists[4] = {
+  addr_kMaridiaRefillCandy_Ilist_B3C1,
+  addr_kMaridiaRefillCandy_Ilist_B3D7,
+  addr_kMaridiaRefillCandy_Ilist_B3E7,
+  addr_kMaridiaRefillCandy_Ilist_B3FD,
+};
+
+static const uint16 kMaridiaRefillCandyXSpeed[10] = {
+  0x0000, 0x0000,
+  0x0000, 0x8000,
+  0x0000, 0xa000,
+  0x0002, 0x0000,
+  0x0000, 0x0000,
+};
 
 const uint16 *MaridiaRefillCandy_Instr_1(uint16 k, const uint16 *jp) {  // 0xA3B429
   Get_MaridiaRefillCandy(cur_enemy_index)->mrcy_var_00 = 4;
@@ -51,14 +70,12 @@ void MaridiaRefillCandy_Main(void) {  // 0xA3B47C
 }
 
 void MaridiaRefillCandy_Func_1(void) {  // 0xA3B482
-  int16 v1;
-
-  if (IsSamusWithinEnemy_X(cur_enemy_index, 0x80)) {
-    v1 = 1;
-    if ((GetSamusEnemyDelta_X(cur_enemy_index) & 0x8000) == 0)
-      v1 = 3;
+  if (IsSamusWithinEnemy_X(cur_enemy_index, kMaridiaRefillCandyDetectX)) {
+    uint16 dir = kMaridiaRefillCandyDir_Left;
+    if (!sign16(GetSamusEnemyDelta_X(cur_enemy_index)))
+      dir = kMaridiaRefillCandyDir_Right;
     Enemy_MaridiaRefillCandy *E = Get_MaridiaRefillCandy(cur_enemy_index);
-    E->mrcy_var_D = v1;
+    E->mrcy_var_D = dir;
     MaridiaRefillCandy_Func_4();
     E->mrcy_parameter_1 = FUNC16(MaridiaRefillCandy_Func_2);
   }
@@ -67,8 +84,8 @@ void MaridiaRefillCandy_Func_1(void) {  // 0xA3B482
 void MaridiaRefillCandy_Func_2(uint16 k) {  // 0xA3B4A8
   Enemy_MaridiaRefillCandy *E = Get_MaridiaRefillCandy(k);
   E->base.properties &= ~kEnemyProps_Invisible;
-  if ((GetSamusEnemyDelta_Y(k) & 0x8000) != 0) {
-    AddToHiLo(&E->base.y_pos, &E->base.y_subpos, -0x8000);
+  if (sign16(GetSamusEnemyDelta_Y(k))) {
+    AddToHiLo(&E->base.y_pos, &E->base.y_subpos, kMaridiaRefillCandyRiseSpeed);
   } else {
     --E->mrcy_var_D;
     MaridiaRefillCandy_Func_4();
@@ -79,9 +96,9 @@ void MaridiaRefillCandy_Func_2(uint16 k) {  // 0xA3B4A8
 
 void MaridiaRefillCandy_Func_3(uint16 k) {  // 0xA3B4D6
   Enemy_MaridiaRefillCandy *E = Get_MaridiaRefillCandy(k);
-  int v2 = E->mrcy_var_00 >> 1;
-  int32 v = __PAIR32__(g_word_A3B415[v2], g_word_A3B415[v2 + 1]);
-  AddToHiLo(&E->base.x_pos, &E->base.x_subpos, E->mrcy_var_D ? v : -v);
+  int v = E->mrcy_var_00 >> 1;
+  int32 speed = __PAIR32__(kMaridiaRefillCandyXSpeed[v], kMaridiaRefillCandyXSpeed[v + 1]);
+  AddToHiLo(&E->base.x_pos, &E->base.x_subpos, E->mrcy_var_D ? speed : -speed);
   if (!CheckIfEnemyIsOnScreen()) {
     MaridiaRefillCandy_Func_4();
     return;
@@ -96,10 +113,10 @@ void MaridiaRefillCandy_Func_3(uint16 k) {  // 0xA3B4D6
 
 void MaridiaRefillCandy_Func_4(void) {  // 0xA3B537
   Enemy_MaridiaRefillCandy *E = Get_MaridiaRefillCandy(cur_enemy_index);
-  uint16 mrcy_var_D = E->mrcy_var_D;
-  if (mrcy_var_D != E->mrcy_var_E) {
-    E->mrcy_var_E = mrcy_var_D;
-    E->base.current_instruction = g_off_A3B40D[mrcy_var_D];
+  uint16 dir = E->mrcy_var_D;
+  if (dir != E->mrcy_var_E) {
+    E->mrcy_var_E = dir;
+    E->base.current_instruction = kMaridiaRefillCandyIlists[dir];
     E->base.instruction_timer = 1;
     E->base.timer = 0;
   }
