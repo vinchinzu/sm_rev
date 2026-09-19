@@ -8,6 +8,7 @@ enum {
   BUILD_FULL = 1,
   BUILD_MINI = 2,
   BUILD_MODDABLE = 3,
+  BUILD_PICO = 4,
 };
 
 #ifndef CURRENT_BUILD
@@ -17,8 +18,10 @@ enum {
 #define BUILD_IS_FULL (CURRENT_BUILD == BUILD_FULL)
 #define BUILD_IS_MINI (CURRENT_BUILD == BUILD_MINI)
 #define BUILD_IS_MODDABLE (CURRENT_BUILD == BUILD_MODDABLE)
+#define BUILD_IS_PICO (CURRENT_BUILD == BUILD_PICO)
+#define BUILD_IS_MINI_FAMILY (BUILD_IS_MINI || BUILD_IS_MODDABLE || BUILD_IS_PICO)
 
-#if CURRENT_BUILD == BUILD_MINI || CURRENT_BUILD == BUILD_MODDABLE
+#if BUILD_IS_MINI_FAMILY
 // Mini-family builds link shared game systems and constrain content/runtime
 // entry to the Ceres station plus Landing Site instead of compiling systems out.
 #define MINI_CERES_SCOPE 1

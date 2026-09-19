@@ -326,6 +326,15 @@ static void MiniInitializeSamusRuntime(const MiniRoomInfo *room) {
   if (room->uses_rom_room && room->room_id == kMiniContentScopeRoom_CeresElevator)
     loading_game_state = kLoadingGameState_1F_StartingAtCeres;
 
+  if (g_rom == NULL) {
+    MiniAuthoredMovement_InitializeSamusGlobals();
+    samus_x_pos = room->spawn_x;
+    samus_y_pos = room->spawn_y;
+    samus_prev_x_pos = samus_x_pos;
+    samus_prev_y_pos = samus_y_pos;
+    return;
+  }
+
   Samus_Initialize();
   samus_x_pos = room->spawn_x;
   samus_y_pos = room->spawn_y;
@@ -383,7 +392,8 @@ void MiniGameState_Init(MiniGameState *state, int viewport_width, int viewport_h
   EnablePaletteFx();
   EnableHdmaObjects();
   EnableAnimtiles();
-  SetLiquidPhysicsType();
+  if (g_rom != NULL)
+    SetLiquidPhysicsType();
   if (!(room.uses_rom_room && room.room_id == kMiniContentScopeRoom_CeresElevator)) {
     samus_x_pos = room.spawn_x;
     samus_y_pos = room.spawn_y;

@@ -73,6 +73,42 @@ MODDABLE_SRCS := $(MINI_SRCS)
 MODDABLE_CFLAGS = $(CFLAGS) -DCURRENT_BUILD=BUILD_MODDABLE -ffunction-sections -fdata-sections
 MODDABLE_LDFLAGS = $(MINI_LDFLAGS)
 
+# Pico kernel is a sideline. Do not reuse CFLAGS/MINI_CFLAGS (those pull SDL).
+# Separate objects (*.pico.o) so this never clobbers *.o / *.mini.o / sm_rev_mini.
+# PICO_KERNEL_SRCS comes from src/pico/pico_kernel_sources.mk (ship1 + mini KEEP).
+# Do not fall back to MINI_KERNEL_SRCS if that include fails.
+-include src/pico/pico_kernel_sources.mk
+PICO_CFLAGS := -O2 -fno-strict-aliasing -Werror -DSYSTEM_VOLUME_MIXER_AVAILABLE=0 -I. -iquote src -iquote src/mini -DCURRENT_BUILD=BUILD_PICO -ffunction-sections -fdata-sections
+PICO_LDFLAGS := -lm -Wl,--gc-sections
+PICO_TARGET_EXEC := sm_rev_pico_kernel
+PICO_KERNEL_TEST := sm_rev_pico_kernel_test
+PICO_MOVE_TEST := sm_rev_pico_move_tileset_test
+PICO_FEEL_TEST := sm_rev_pico_feel_test
+PICO_KERNEL_LIB := libsm_rev_pico_kernel.a
+PICO_SDL_EXCLUDE_SRCS := src/config.c src/default_controls.c src/mini/mini_editor_path.c
+PICO_KERNEL_LIB_SRCS := $(filter-out $(PICO_SDL_EXCLUDE_SRCS),$(PICO_KERNEL_SRCS)) \
+  src/pico/pico_config_stub.c \
+  src/pico/pico_editor_path.c \
+  src/pico/pico_stubs.c \
+  third_party/cJSON.c
+PICO_KERNEL_LIB_OBJS := $(PICO_KERNEL_LIB_SRCS:%.c=%.pico.o)
+
+# RP2350 / Pico 2 sideline. Objects live in build/pico2/ (never *.pico.o / *.mini.o).
+PICO_SDK_PATH ?= /home/v/01_projects/13_hardware/pico/pico-sdk
+PICO2_BUILD_DIR := build/pico2
+PICO2_CMAKE_DIR := src/pico/rp2350
+PICO2_TARGET := sm_rev_pico2
+PICO2_PICOTOOL_DIR ?= /home/v/01_projects/13_hardware/pico/gameboy/build/_deps/picotool
+PICO2_PIOASM_DIR ?= /home/v/01_projects/13_hardware/pico/gameboy/build/pioasm-install/pioasm
+PICO2_SKIP_PACKAGES := extra/arm-none-eabi-gcc extra/arm-none-eabi-newlib extra/arm-none-eabi-binutils
+PICO2_ARM_GCC ?= $(shell command -v arm-none-eabi-gcc 2>/dev/null)
+ifeq ($(PICO2_ARM_GCC),)
+PICO2_ARM_GCC := $(wildcard $(HOME)/.local/share/mise/installs/gcc-arm-none-eabi/latest/bin/arm-none-eabi-gcc)
+endif
+ifneq ($(PICO2_ARM_GCC),)
+PICO2_ARM_GCC_DIR := $(dir $(PICO2_ARM_GCC))
+endif
+
 ifeq ($(BUNDLE_ASSETS),1)
   # Regenerate embedded files if sources are newer
   src/embedded/rom_data.c: $(ROM_FILE) scripts/file2c.py
@@ -94,7 +130,7 @@ else
     SDLFLAGS := $(shell sdl2-config --libs) -lm
 endif
 
-.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-predict-test mini-predict-golden mini-wram-peek-test mini-predict-cli mini-rust-host mini-browser-lib mini-browser-server moddable moddable-test mini-enemy-obs-test mini-enemy-hookup-test mini-cli-enemy-test mini-emu-residual hm-test
+.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-predict-test mini-predict-golden mini-wram-peek-test mini-predict-cli mini-rust-host mini-browser-lib mini-browser-server moddable moddable-test mini-enemy-obs-test mini-enemy-hookup-test mini-cli-enemy-test mini-emu-residual hm-test pico-kernel pico-kernel-test pico-kernel-size pico-kernel-rp2350 pico-move-test pico-feel-test
 
 all: $(TARGET_EXEC)
 
@@ -193,9 +229,87 @@ moddable-test: moddable
 mini-mac: NATIVE_MAC=1
 mini-mac: mini
 
+pico-kernel: $(PICO_TARGET_EXEC)
+
+%.pico.o: %.c
+	$(CC) -c $(PICO_CFLAGS) $< -o $@
+
+src/pico/pico_stubs.pico.o: src/pico/pico_stubs.c src/pico/pico_stubs_generated.inc
+	$(CC) -c $(PICO_CFLAGS) $< -o $@
+
+$(PICO_KERNEL_LIB): $(PICO_KERNEL_LIB_OBJS) $(MINI_ASSET_DEPS)
+	$(if $(PICO_KERNEL_SRCS),,$(error PICO_KERNEL_SRCS is not defined; failed to include src/pico/pico_kernel_sources.mk (do not fall back to MINI_KERNEL_SRCS)))
+	@$(RM) $@
+	$(AR) rcs $@ $(PICO_KERNEL_LIB_OBJS)
+
+$(PICO_TARGET_EXEC): src/pico/pico_kernel_main.c $(PICO_KERNEL_LIB)
+	$(if $(PICO_KERNEL_SRCS),,$(error PICO_KERNEL_SRCS is not defined; failed to include src/pico/pico_kernel_sources.mk (do not fall back to MINI_KERNEL_SRCS)))
+	$(CC) $(PICO_CFLAGS) src/pico/pico_kernel_main.c -o $@ -L. -lsm_rev_pico_kernel $(PICO_LDFLAGS)
+
+pico-kernel-test: $(PICO_KERNEL_TEST)
+	./$(PICO_KERNEL_TEST)
+
+$(PICO_KERNEL_TEST): tests/test_pico_kernel.c $(PICO_KERNEL_LIB)
+	$(CC) $(PICO_CFLAGS) tests/test_pico_kernel.c -o $@ -L. -lsm_rev_pico_kernel $(PICO_LDFLAGS)
+
+pico-kernel-size: $(PICO_TARGET_EXEC)
+	@echo "=== pico-kernel size (host gcc sideline; not sm_rev_mini) ==="
+	size $(PICO_TARGET_EXEC)
+	@echo "g_ram=128KiB. Pico game chip: no 4MiB g_mini_rom, no 64KiB g_mini_vram."
+	@echo "MiniSaveState full blob is not allocated by pico-kernel main."
+	@echo "Leftover BSS owners if over 200KiB: g_mini_editor_tiles4bpp, g_samus_bank92 (display-side GFX)."
+
+# Sideline: not a dependency of mini / all / pico-kernel / pico-kernel-test.
+# Cross objects stay in $(PICO2_BUILD_DIR); never overwrite *.pico.o or sm_rev_mini.
+$(PICO2_BUILD_DIR)/pico_kernel_lib_srcs.cmake: src/pico/pico_kernel_sources.mk Makefile
+	$(if $(PICO_KERNEL_SRCS),,$(error PICO_KERNEL_SRCS is not defined; failed to include src/pico/pico_kernel_sources.mk (do not fall back to MINI_KERNEL_SRCS)))
+	@mkdir -p $(PICO2_BUILD_DIR)
+	@printf 'set(PICO_KERNEL_LIB_SRCS\n' > $@
+	@for f in $(PICO_KERNEL_LIB_SRCS); do printf '  $${SM_REV_ROOT}/%s\n' "$$f"; done >> $@
+	@printf ')\n' >> $@
+
+pico-kernel-rp2350: $(PICO2_BUILD_DIR)/pico_kernel_lib_srcs.cmake
+ifeq ($(PICO2_ARM_GCC),)
+	@echo "skip: pico-kernel-rp2350: arm-none-eabi-gcc not found. Install Arch packages: $(PICO2_SKIP_PACKAGES)"
+else ifeq ($(wildcard $(PICO_SDK_PATH)/pico_sdk_init.cmake),)
+	@echo "skip: pico-kernel-rp2350: PICO_SDK_PATH missing pico_sdk_init.cmake (tried $(PICO_SDK_PATH)). Install Arch packages: $(PICO2_SKIP_PACKAGES)"
+else
+	PATH="$(PICO2_ARM_GCC_DIR):$$PATH" PICO_SDK_PATH="$(PICO_SDK_PATH)" cmake -S $(PICO2_CMAKE_DIR) -B $(PICO2_BUILD_DIR) \
+	  -DPICO_SDK_PATH="$(PICO_SDK_PATH)" \
+	  -DPICO_BOARD=pico2 \
+	  -DCMAKE_BUILD_TYPE=Release \
+	  $(if $(wildcard $(PICO2_PICOTOOL_DIR)/picotoolConfig.cmake),-Dpicotool_DIR="$(PICO2_PICOTOOL_DIR)") \
+	  $(if $(wildcard $(PICO2_PIOASM_DIR)/pioasmConfig.cmake),-Dpioasm_DIR="$(PICO2_PIOASM_DIR)")
+	PATH="$(PICO2_ARM_GCC_DIR):$$PATH" cmake --build $(PICO2_BUILD_DIR) --target $(PICO2_TARGET) -j
+	@echo "=== pico-kernel-rp2350 size (RP2350 / Pico 2; not host gcc, not sm_rev_mini) ==="
+	PATH="$(PICO2_ARM_GCC_DIR):$$PATH" arm-none-eabi-size $(PICO2_BUILD_DIR)/$(PICO2_TARGET).elf
+	@echo "ELF: $(PICO2_BUILD_DIR)/$(PICO2_TARGET).elf"
+	@echo "UF2: $(PICO2_BUILD_DIR)/$(PICO2_TARGET).uf2"
+endif
+
+# Sideline: not a dependency of mini / all / test. Display TUs stay off PICO_KERNEL_LIB_SRCS.
+pico-move-test: $(PICO_MOVE_TEST)
+	./$(PICO_MOVE_TEST)
+
+$(PICO_MOVE_TEST): tests/test_pico_move_tileset.c src/pico/pico_oam_from_samus.c \
+		src/pico/pico_frame_wire.c src/pico/pico_frame_packet.c \
+		src/pico/pico_ls_assets.c src/pico/scanline_mode1.c $(PICO_KERNEL_LIB)
+	$(CC) $(PICO_CFLAGS) -Isrc/pico tests/test_pico_move_tileset.c \
+		src/pico/pico_oam_from_samus.c src/pico/pico_frame_wire.c \
+		src/pico/pico_frame_packet.c src/pico/pico_ls_assets.c \
+		src/pico/scanline_mode1.c -o $@ -L. -lsm_rev_pico_kernel $(PICO_LDFLAGS)
+
+# Sideline: not a dependency of mini / all / test.
+pico-feel-test: $(PICO_FEEL_TEST)
+	./$(PICO_FEEL_TEST)
+
+$(PICO_FEEL_TEST): tests/test_pico_feel.c $(PICO_KERNEL_LIB)
+	$(CC) $(PICO_CFLAGS) tests/test_pico_feel.c -o $@ -L. -lsm_rev_pico_kernel $(PICO_LDFLAGS)
+
 clean: clean_obj
 clean_obj:
-	@$(RM) $(OBJS) $(TARGET_EXEC) $(MINI_TARGET_EXEC) $(MODDABLE_TARGET_EXEC) $(MINI_KERNEL_OBJS) $(MINI_KERNEL_LIB) $(MINI_BROWSER_LIB) $(MINI_ROLLBACK_TEST) $(MINI_PREDICT_TEST) $(MINI_PREDICT_GOLDEN) $(MINI_WRAM_PEEK_TEST) $(MINI_PREDICT_CLI) $(MINI_RUST_HOST) src/embedded/*.o src/embedded/*.c
+	@$(RM) $(OBJS) $(TARGET_EXEC) $(MINI_TARGET_EXEC) $(MODDABLE_TARGET_EXEC) $(MINI_KERNEL_OBJS) $(MINI_KERNEL_LIB) $(MINI_BROWSER_LIB) $(MINI_ROLLBACK_TEST) $(MINI_PREDICT_TEST) $(MINI_PREDICT_GOLDEN) $(MINI_WRAM_PEEK_TEST) $(MINI_PREDICT_CLI) $(MINI_RUST_HOST) src/embedded/*.o src/embedded/*.c $(PICO_KERNEL_LIB_OBJS) $(PICO_KERNEL_LIB) $(PICO_TARGET_EXEC) $(PICO_KERNEL_TEST) $(PICO_MOVE_TEST) $(PICO_FEEL_TEST) src/pico/*.pico.o
+	@$(RM) -r $(PICO2_BUILD_DIR)
 
 test: all
 	$(PYTHON) tests/run_tests.py -v

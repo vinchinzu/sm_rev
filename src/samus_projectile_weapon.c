@@ -153,6 +153,8 @@ uint8 Samus_CanFireSuperMissile(void) {  // 0x90AC5A
 }
 
 void UpdateBeamTilesAndPalette(void) {  // 0x90AC8D
+  if (g_rom == NULL)
+    return;
   uint16 v0 = 2 * (equipped_beams & kBeamEquipmentMask);
   uint16 v1 = vram_write_queue_tail;
   gVramWriteEntry(vram_write_queue_tail)->size = 256;

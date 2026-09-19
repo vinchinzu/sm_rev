@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "features.h"
 #include "funcs.h"
 #include "ida_types.h"
 #include "mini_asset_bootstrap.h"
@@ -28,10 +29,16 @@ enum {
 };
 
 static uint8 g_mini_sram[kMiniSramSize];
+#if !BUILD_IS_PICO
 static uint8 g_mini_rom[kMiniRomCapacity];
+#endif
 
 uint8 *g_sram = g_mini_sram;
+#if BUILD_IS_PICO
+const uint8 *g_rom = NULL;
+#else
 const uint8 *g_rom = g_mini_rom;
+#endif
 
 static const char *const kMiniRomCandidates[] = {
   "sm.smc",
@@ -50,6 +57,10 @@ static void MiniRomBootstrap_SetRoomLabel(MiniRoomInfo *info, const char *handle
 }
 
 static bool MiniRomBootstrap_LoadRomFile(const char *path) {
+#if BUILD_IS_PICO
+  (void)path;
+  return false;
+#else
   FILE *f = fopen(path, "rb");
   if (f == NULL)
     return false;
@@ -78,6 +89,7 @@ static bool MiniRomBootstrap_LoadRomFile(const char *path) {
   bool ok = fread(g_mini_rom, 1, rom_size, f) == rom_size;
   fclose(f);
   return ok;
+#endif
 }
 
 bool MiniRomBootstrap_LoadAnyRom(void) {
@@ -178,9 +190,13 @@ static void MiniRomBootstrap_ApplyDemoLoadout(void) {
 
 void MiniRomBootstrap_Reset(void) {
   memset(g_mini_sram, 0, sizeof(g_mini_sram));
-  memset(g_mini_rom, 0, sizeof(g_mini_rom));
   g_sram = g_mini_sram;
+#if BUILD_IS_PICO
+  g_rom = NULL;
+#else
+  memset(g_mini_rom, 0, sizeof(g_mini_rom));
   g_rom = g_mini_rom;
+#endif
 }
 
 void MiniRomBootstrap_TryLoadRoomHeaderMetadata(uint16 room_id) {

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "features.h"
 #include "physics_config.h"
 #include "types.h"
 #include "variables.h"
@@ -59,9 +60,11 @@ PairU16 MakePairU16(uint16 k, uint16 j) {
   return pair;
 }
 
+#if !BUILD_IS_PICO
 const uint8 *RomPtr(uint32_t addr) {
   return &g_rom[(((addr >> 16) << 15) | (addr & 0x7fff)) & 0x3fffff];
 }
+#endif
 
 uint16 Mult8x8(uint8 a, uint8 b) {
   return a * b;

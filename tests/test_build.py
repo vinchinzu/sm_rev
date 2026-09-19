@@ -18,6 +18,8 @@ SM_REV_DIR = Path(__file__).parent.parent
 BINARY = SM_REV_DIR / "sm_rev"
 MINI_BINARY = SM_REV_DIR / "sm_rev_mini"
 MODDABLE_BINARY = SM_REV_DIR / "sm_rev_moddable"
+PICO_BINARY = SM_REV_DIR / "sm_rev_pico_kernel"
+RUN_PICO_BUILD_TESTS = os.environ.get("SM_REV_RUN_PICO_BUILD_TESTS") == "1"
 EDITOR_LANDING_SITE_EXPORT = SM_REV_DIR.parent / "super_metroid_editor" / "export" / "sm_nav" / "rooms" / "room_91F8.json"
 LANDING_SITE_ROOM_ID = 0x91F8
 RUN_SLOW_BUILD_TESTS = os.environ.get("SM_REV_RUN_SLOW_BUILD_TESTS") == "1"
@@ -527,3 +529,27 @@ class TestBuildModdable:
         assert payload["rom_room"] is False
         assert payload["original_runtime"] is False
         assert payload["samus_world_x"] > 64
+
+
+class TestBuildPico:
+    """Pico kernel is a sideline. These tests must not rebuild sm_rev_mini."""
+
+    def test_pico_target_is_a_separate_binary(self):
+        makefile = (SM_REV_DIR / "Makefile").read_text(encoding="utf-8")
+        assert "MINI_TARGET_EXEC := sm_rev_mini" in makefile
+        assert "PICO_TARGET_EXEC := sm_rev_pico_kernel" in makefile
+        assert "$(MINI_TARGET_EXEC): $(MINI_SRCS) $(MINI_ASSET_DEPS)" in makefile
+        assert "PICO_TARGET_EXEC := sm_rev_mini" not in makefile
+        assert PICO_BINARY != MINI_BINARY
+
+    def test_pico_kernel_smoke(self):
+        if not PICO_BINARY.exists() and not RUN_PICO_BUILD_TESTS:
+            return
+        if not PICO_BINARY.exists():
+            r_build = run(["make", "pico-kernel"])
+            assert r_build.returncode == 0, (
+                f"make pico-kernel failed:\n{r_build.stderr}\n{r_build.stdout}"
+            )
+        r = run([str(PICO_BINARY), "8"])
+        assert r.returncode == 0, f"pico-kernel smoke failed:\n{r.stderr}\n{r.stdout}"
+        assert "samus_x_pos=" in r.stdout

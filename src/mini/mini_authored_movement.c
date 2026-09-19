@@ -5,6 +5,7 @@
 #include "ida_types.h"
 #include "mini_door_transition.h"
 #include "physics_config.h"
+#include "sm_rtl.h"
 #include "variables.h"
 
 enum {
@@ -50,12 +51,16 @@ static void MiniAuthoredSetBallState(MiniGameState *state, bool is_ball) {
 }
 
 bool MiniAuthoredMovement_ShouldUseRoom(const MiniRoomInfo *room) {
+  if (g_rom == NULL)
+    return true;
   return room->room_source == kMiniRoomSource_EditorExport &&
          !room->uses_rom_room &&
          !room->has_editor_room_visuals;
 }
 
 bool MiniAuthoredMovement_ShouldUseState(const MiniGameState *state) {
+  if (g_rom == NULL)
+    return true;
   return state->room.room_source == kMiniRoomSource_EditorExport &&
          !state->room.uses_rom_room &&
          !state->room.has_editor_room_visuals;

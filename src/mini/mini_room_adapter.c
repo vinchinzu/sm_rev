@@ -285,7 +285,11 @@ void MiniStubs_ConfigureWorld(int viewport_width, int viewport_height) {
     .camera_x = 0,
     .camera_y = 0,
     .spawn_x = g_mini_world_left + 3 * kMiniBlockSize,
+#if BUILD_IS_PICO
+    .spawn_y = g_mini_world_floor - 16,
+#else
     .spawn_y = g_mini_world_floor,
+#endif
     .camera_target_x_percent = kMiniCameraFollowDefaultTargetPercent,
     .camera_target_y_percent = kMiniCameraFollowDefaultTargetPercent,
   };

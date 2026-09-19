@@ -1,0 +1,349 @@
+{
+  "commit_message": "bd: Pico 2 mini two-chip RP2350 roadmap (kernel link, compile-time cut, scanline, glue, Landing Site, Ceres)",
+  "nodes": [
+    {
+      "key": "pico2",
+      "title": "Mini on two stock Pico 2 (RP2350) boards",
+      "type": "epic",
+      "priority": 0,
+      "labels": ["pico", "mini", "rp2350", "port"],
+      "description": "Validated: the mini C kernel can run on a pair of RP2350s. The full game cannot, not on stock Pico 2 boards. Mini is already the right cut — it is just not Pico-shaped yet.\n\nsm_rev is a snesrev-style Super Metroid decomp. Gameplay is already C. The desktop full build still carries a software SNES PPU/APU. Mini already threw those overboard.\n\nDo not try to run the current sm_rev_mini binary as-is. Linux test bins are ~1.1 MB text because mini still links almost every src/*.c and only fences content at runtime. Mother Brain, Draygon, Kraid, cinematics sit in the image even when you spawn in Landing Site.\n\nTarget: two stock Pico 2 (4 MB flash, 520 KB SRAM). Pimoroni Pico Plus 2 is headroom, not the v1 requirement.\n\nSplit:\n- Pico A Game: Core 0 MiniStep + Samus + collision + in-scope enemies/PLMs; Core 1 decompress / dirty VRAM / pack frame packet. Owns g_ram only. USB or SNES-pad GPIO.\n- Pico B Display: Core 0 Mode 1 BG1/BG2 + sprite scanline; Core 1 / DMA / HSTX 640x480 DVI letterboxed 256x224. Owns VRAM, CGRAM, OAM, HDMA tables. Receives a per-frame packet, not pixels.\n\nShips, not 'port Super Metroid':\n1. Playable kernel: authored room, Samus physics, beams as colored sprites, debug tiles. No ROM.\n2. Landing Site slice: original gameplay loop, visually BG1/BG2 + Samus + enemies + doors. HDMA off until 60 fps holds.\n3. Ceres sequence: elevator, Ridley, countdown, debris, escape. Only after Ship 2 is solid at 60.\n\nOut of scope: audio, rollback, two-player, browser-net, MiniSaveState of 128+64 KB, full Zebes.\n\nAcceptance: Ship 1 runs on one Pico (or host-emulated pico-kernel) with MiniStep; Ship 2 rasters Landing Site at 60 on the display Pico from a frame packet; Ceres is a later epic. Full/mini desktop binaries are never the Pico image."
+    },
+    {
+      "key": "ship1",
+      "title": "[ship 1] Playable kernel: authored room + Samus physics",
+      "type": "epic",
+      "priority": 0,
+      "parent_key": "pico2",
+      "labels": ["pico", "mini", "ship1"],
+      "description": "Samus movement that feels like SM: run, jump, spin, morph, aim, shoot. One authored room. Block collision and slopes from block_reaction.h. Beams as colored sprites. Camera clamp. Looks like a prototype.\n\nThis is MiniAuthoredMovement_* + mini_enemy_runtime.c + editor export. No ROM required. One Pico can do a debug-tile mini by itself.\n\nAPI stays MiniCreate / MiniStep / MiniStepButtons / MiniStateHash. Host and OpenGL live in src/host/ and src/mini/mini_runtime.c and are replaceable. Pico tree is a host + renderer replacement around that API.\n\nKeep developing the kernel on desktop make mini / make mini-test. Pico changes must not break those.\n\nAcceptance: pico-kernel links; MiniStepButtons moves samus_x_pos; authored room collision tiles visible (host or HSTX); spin/morph/slopes/shoot work; flash/SRAM on track for a stock Pico 2."
+    },
+    {
+      "key": "ship2",
+      "title": "[ship 2] Landing Site slice on two Picos",
+      "type": "epic",
+      "priority": 1,
+      "parent_key": "pico2",
+      "labels": ["pico", "mini", "ship2"],
+      "description": "The real goal. ROM-backed or extracted Landing Site. Original gameplay loop already runs in mini: room runtime, PLMs, enemies, OAM draw, Samus, physics, projectiles, palette FX, HDMA objects, Vector_NMI.\n\nVisually: BG1/BG2 + Samus + enemies + doors. Skip heat haze, liquid HDMA, and Mode 7 until 60 fps is stable. Stock 4 MB flash cannot hold sm.smc (3,145,728 bytes) + firmware — extracted tiles/palettes/tilemaps only.\n\nTwo Picos the moment real SM graphics show up: software PPU is the CPU hog and VRAM wants to live next to the rasterizer.\n\nAcceptance: Game Pico steps the Landing Site kernel; display Pico rasters Mode 1 at 60 Hz from the frame packet; character moves across a real tileset; HDMA off; palette FX on."
+    },
+    {
+      "key": "ship3",
+      "title": "[ship 3] Ceres elevator → Ridley → escape",
+      "type": "epic",
+      "priority": 3,
+      "parent_key": "pico2",
+      "labels": ["pico", "mini", "ship3"],
+      "description": "Mini already allows this at the content fence: elevator pad (SamusCode_08), Ceres rooms, Ridley, countdown, debris, escape states 32-37.\n\nGetting it to render on Pico is the hard part: more tilesets, more enemy code, more FX, room transitions 9-11. Do this only after Ship 2 holds 60 fps.\n\nBeyond Ceres+Landing Site is a different project (Kraid, Tourian, cinematics.c 211 KB source, Mother Brain 222 KB source). Keep the runtime fence.\n\nAcceptance: Ceres sequence playable on the two-Pico split with the HDMA channels those rooms actually arm; no Kraid/Tourian/cinematics in the image."
+    },
+    {
+      "key": "pico_hw",
+      "title": "Acquire two Pico 2 boards + HSTX DVI adapter",
+      "type": "task",
+      "priority": 1,
+      "parent_key": "pico2",
+      "labels": ["pico", "hardware"],
+      "description": "Human-owned. Firmware and host-side kernel work do not wait on this.\n\nBuy / use:\n- 2x stock Pico 2 if staying on extracted assets (v1).\n- 2x Pimoroni Pico Plus 2 (16 MB flash + 8 MB PSRAM) if you want headroom / ROM-backed path.\n- One HSTX DVI adapter: Pico DVI Sock, Adafruit DVI breakout, Metro RP2350, or Fruit Jam.\n- SNES-style pad on GPIOs (fewer USB-host headaches).\n\nClose this when both boards, a DVI path, and a pad (or USB fallback) are on the desk.\n\nAcceptance: two RP2350 boards present; HSTX DVI adapter present; input path chosen."
+    },
+    {
+      "key": "p0",
+      "title": "[phase 0] Prove the kernel links without SDL/snes/host",
+      "type": "epic",
+      "priority": 0,
+      "parent_key": "ship1",
+      "labels": ["pico", "mini", "phase0"],
+      "description": "New make pico-kernel. No SDL, no src/snes, no src/host. UART-style printf of samus_x_pos after N MiniStepButtons calls.\n\nCurrent sm_rev_mini is ~1.17 MB .text / ~5.5 MB .bss because the shared engine is still the full src/*.c wildcard. Phase 0 must link a Pico-shaped host around MiniCreate/MiniStep and produce an honest size report. Hitting ~300 KB flash is Phase 1's job; Phase 0 is the baseline + the host that Phase 1 cuts against.\n\nIf pico-sdk / arm-none-eabi-gcc are missing, a host gcc pico-kernel (freestanding-ish, no SDL cflags) is the on-ramp. Cross-compile is a child, not a blocker for the host proof.\n\nGate: pico-kernel binary runs MiniStepButtons; size report checked in (or printed by make pico-kernel-size); no SDL/snes/host in the link.\n\nAcceptance: make pico-kernel builds; test prints samus_x_pos after N steps; size numbers exist; desktop make mini / make mini-test still pass."
+    },
+    {
+      "key": "p0_flag",
+      "title": "Add BUILD_PICO next to BUILD_MINI / BUILD_MODDABLE",
+      "type": "task",
+      "priority": 0,
+      "parent_key": "p0",
+      "labels": ["pico", "mini", "phase0"],
+      "description": "src/features.h currently has BUILD_FULL=1, BUILD_MINI=2, BUILD_MODDABLE=3 and MINI_CERES_SCOPE / NO_SOUND for mini-family.\n\nAdd BUILD_PICO=4. BUILD_IS_PICO. Pico is a mini-family build: MINI_CERES_SCOPE, NO_SOUND, and also no SDL, no rollback blob in SRAM, no browser net.\n\nKeep CURRENT_BUILD compile-time. Do not spray #ifdef BUILD_PICO through unrelated gameplay. Prefer Makefile source lists and a few host shims.\n\nMakefile today always adds sdl2-config --cflags to CFLAGS. Pico objects must not require SDL headers.\n\nEstimate: 45 min\nAcceptance: features.h has BUILD_PICO; mini-family helpers still compile; no SDL include needed for CURRENT_BUILD=BUILD_PICO translation units."
+    },
+    {
+      "key": "p0_host",
+      "title": "make pico-kernel: MiniStep host, no SDL/snes/host",
+      "type": "task",
+      "priority": 0,
+      "parent_key": "p0",
+      "labels": ["pico", "mini", "phase0"],
+      "description": "Replaceable host around the existing MiniCreate / MiniStep / MiniStepButtons / MiniStateHash API.\n\nAdd src/pico/ (or src/mini/pico_*) with a tiny main: MiniCreate, loop MiniStepButtons, printf samus_x_pos / pose / frame, MiniDestroy. No OpenGL, no SDL, no src/snes, no src/host, no mini_runtime.c / mini_renderer.c / mini_record.c / mini_net_bridge.c.\n\nLink the same kernel MiniCreate uses today (libsm_rev_mini_kernel.a is the starting point) so Phase 1 has a binary to cut.\n\nDo not embed sm.smc. Editor-export / authored room path only for this host.\n\nEstimate: 90 min\nAcceptance: `make pico-kernel` produces a host binary; it does not link SDL, src/snes, or src/host; `make mini-test` still passes."
+    },
+    {
+      "key": "p0_step",
+      "title": "pico-kernel test: N MiniStepButtons then print samus_x_pos",
+      "type": "task",
+      "priority": 0,
+      "parent_key": "p0",
+      "labels": ["pico", "mini", "phase0", "testing"],
+      "description": "tests/test_pico_kernel.c (or pytest wrapping the binary): MiniCreate, hold Right for N frames, assert samus_x_pos increased, print x/y/pose/hash. Must work without a ROM (authored/fallback room).\n\nWire `make pico-kernel-test`. Add a cheap TestBuildPico class in tests/test_build.py that does not require pico-sdk.\n\nEstimate: 40 min\nAcceptance: make pico-kernel-test exits 0; stdout contains samus_x_pos; no ROM required."
+    },
+    {
+      "key": "p0_size",
+      "title": "pico-kernel size report (.text/.data/.bss, g_ram, VRAM)",
+      "type": "task",
+      "priority": 0,
+      "parent_key": "p0",
+      "labels": ["pico", "mini", "phase0"],
+      "description": "Measure the Phase 0 image honestly. Current desktop mini is ~1.17 MB text / ~288 KB data / ~5.5 MB bss. Stock Pico 2 is 4 MB flash / 520 KB SRAM. g_ram is 128 KB; g_mini_vram is 64 KB; MiniSaveState snapshots all of that (~200 KB) and must NOT live in Pico SRAM.\n\nAdd `make pico-kernel-size` that runs size(1) (host or arm-none-eabi-size) and prints g_ram / VRAM / save-state sizes. Check the report into docs/pico_kernel_size.md or print-only if we are avoiding extra docs — prefer a test that fails if .bss grows without comment.\n\nPhase 0 does not have to be under 300 KB yet. Record the baseline so Phase 1 has a number to beat.\n\nEstimate: 30 min\nAcceptance: make pico-kernel-size prints text/data/bss; g_ram 128 KB and VRAM 64 KB called out; MiniSaveState full blob is not allocated on the Pico path."
+    },
+    {
+      "key": "p0_cross",
+      "title": "Optional: arm-none-eabi + pico-sdk cross link of pico-kernel",
+      "type": "task",
+      "priority": 2,
+      "parent_key": "p0",
+      "labels": ["pico", "mini", "phase0", "sdk"],
+      "description": "If arm-none-eabi-gcc and pico-sdk are available (PICO_SDK_PATH), add a real RP2350 executable that UART-prints samus_x_pos. No HSTX yet. No hardware required to compile.\n\nIf the toolchain is missing, document the pacman/apt packages and leave the host pico-kernel as the default. Do not block Phase 1 on this.\n\nEstimate: 120 min\nAcceptance: with SDK present, `make pico-kernel-rp2350` produces an .elf/.uf2 and arm-none-eabi-size output; without SDK, the target prints a clear skip."
+    },
+    {
+      "key": "p1",
+      "title": "[phase 1] Compile-time engine cut for Ceres+Landing Site",
+      "type": "epic",
+      "priority": 0,
+      "parent_key": "ship1",
+      "labels": ["pico", "mini", "phase1"],
+      "description": "Hardest part. Do this before pretty pictures. Mini links the shared engine and only rejects rooms at runtime. --gc-sections will not save you; bank-style call tables keep those object files alive.\n\nPico target must NOT compile enemy_mother_brain.c, enemy_draygon.c, enemy_kraid.c, cinematics.c, out-of-scope PLMs, pause/map/equipment, spc_player, etc. Allowlist: Ceres+Landing Site+Samus+projectiles+PLM core+doors+room load.\n\nEverything else is a stub TU: handful of void Foo(void) {}. If a FUNC16() trampoline would land in a ripped file, stub it to a hang/log. Mechanical and ugly. Whole ballgame for flash size.\n\nGate after cut: under ~300 KB flash, g_ram + kernel BSS under ~200 KB SRAM (g_ram 128 KB + ~72 KB other). Display Pico will own VRAM later so Game Pico should drop g_mini_vram if possible.\n\nAcceptance: pico-kernel image does not contain Mother Brain/Draygon/Kraid/cinematics TUs; size under the gate or a listed leftover with a next cut; FUNC16 handlers used by authored-room Samus still resolve; make mini-test still passes on desktop mini."
+    },
+    {
+      "key": "p1_allowlist",
+      "title": "Write pico-kernel source allowlist (Ceres+LS+Samus+PLM+doors)",
+      "type": "task",
+      "priority": 0,
+      "parent_key": "p1",
+      "labels": ["pico", "mini", "phase1"],
+      "description": "Inventory every src/*.c linked by MINI_SHARED_ENGINE_SRCS. Classify: KEEP for Ship 1 (Samus/physics/collision/projectiles/PLM core/doors/room load/authored mini), KEEP for Ship 2 (Landing Site enemies, OAM, palette FX), KEEP for Ship 3 (Ceres Ridley, elevator, escape), STUB (cinematics, menus, out-of-scope bosses/fauna, audio).\n\nFat offenders today (mini.o): cinematics 340 KB, enemy_mother_brain 328 KB, enemy_ridley_zebetite 209 KB, enemy_ki_hunter 165 KB, enemy_a2_misc 156 KB, eproj_combat 133 KB, enemy_fauna 102 KB, enemy_ai_table 91 KB, enemy_kraid 88 KB.\n\nShip 1 allowlist should be brutal. Ridley stays STUB until Ship 3.\n\nOutput: src/pico/pico_kernel_sources.mk (or Makefile section) with PICO_KERNEL_SRCS and PICO_STUB_SRCS. Do not change desktop MINI_SRCS in this task if that would break mini-test — pico-kernel has its own list.\n\nEstimate: 90 min\nAcceptance: every src/*.c is KEEP or STUB with a one-line reason; pico-kernel uses the list; desktop mini still wildcards."
+    },
+    {
+      "key": "p1_stubs",
+      "title": "Stub ripped TUs and keep FUNC16 tables consistent",
+      "type": "task",
+      "priority": 0,
+      "parent_key": "p1",
+      "labels": ["pico", "mini", "phase1"],
+      "description": "For each STUB file, do not compile the real TU. Provide a stub that satisfies link + FUNC16.\n\nFUNC16(Foo) function IDs assume a fat call table. If a trampoline would land in a ripped file, stub to hang/log (Die or a Pico UART panic), not a silent no-op that corrupts Samus.\n\nPrefer one src/pico/pico_stubs.c (or a small family of stubs) over #ifdef in every enemy_*.c. Generated stub list is OK if the generator is checked in and rerunnable.\n\nRomPtr() in mini_ppu_stub.c still walks a ROM image. On Pico, point that at extracted banks or fail closed. Do not embed sm.smc.\n\nEstimate: 180 min\nAcceptance: pico-kernel links with STUB TUs omitted; any FUNC16 into a stub panics clearly; authored-room MiniStep still runs; no sm.smc in the image."
+    },
+    {
+      "key": "p1_size",
+      "title": "Re-size pico-kernel after the cut; hit 300 KB / 200 KB gates",
+      "type": "task",
+      "priority": 0,
+      "parent_key": "p1",
+      "labels": ["pico", "mini", "phase1"],
+      "description": "Re-run make pico-kernel-size. Target: .text under ~300 KB flash for Ship 1; g_ram + kernel BSS under ~200 KB SRAM. Drop the MiniSaveState 128+64 KB blob from the Pico path (save to flash later as a tiny Samus+room struct).\n\nIf still over: next cuts are menus, xray, grapple if unused, enemy_ai_table rows, spare PLMs. List leftovers in the size report.\n\nDo not allocate a 256x224 16-bit framebuffer (112 KB, double-buffered blows the budget). Scanline output is mandatory later; Phase 1 just must not introduce one.\n\nEstimate: 60 min\nAcceptance: size report vs Phase 0 baseline; .text trending under 300 KB or leftover list with owners; no fullscreen framebuffer in BSS; MiniSaveState full blob not in Pico SRAM."
+    },
+    {
+      "key": "p2",
+      "title": "[phase 2] One Pico, ugly picture: debug collision tiles",
+      "type": "epic",
+      "priority": 1,
+      "parent_key": "ship1",
+      "labels": ["pico", "mini", "phase2"],
+      "description": "Editor-export room. Draw collision tiles as colored 8x8 blocks over HSTX or even a cheap SPI LCD. Confirm spin jumps, morph tunnels, slopes, shooting. No second Pico yet.\n\nHost-side proof does not wait on hardware: a pico-kernel --ppm / BMP of the collision map plus Samus rectangle is enough to close the feel checks. HSTX on-device is a child blocked by pico_hw.\n\nAcceptance: authored room boots; Samus rectangle (or sprite) moves on colored tiles; spin/morph/slope/shoot confirmed on host and, when hardware exists, on one Pico."
+    },
+    {
+      "key": "p2_host_tiles",
+      "title": "Host debug view: 8x8 collision tiles + Samus rect + beams",
+      "type": "task",
+      "priority": 1,
+      "parent_key": "p2",
+      "labels": ["pico", "mini", "phase2"],
+      "description": "Do not keep mini_renderer.c (desktop software blitter) on Pico. For Ship 1, a tiny debug compositor is fine: collision materials as colored 8x8, Samus as a rectangle, beams as colored sprites. Write PPM/BMP from pico-kernel for tests.\n\nReuse block_reaction.h materials. Camera clamp to room.\n\nEstimate: 90 min\nAcceptance: pico-kernel can dump a frame; test asserts Samus moved right onto a known tile color; no 112 KB framebuffer required in the game kernel (a debug dump buffer on host gcc is OK)."
+    },
+    {
+      "key": "p2_feel",
+      "title": "Confirm spin, morph tunnels, slopes, shooting on authored room",
+      "type": "task",
+      "priority": 1,
+      "parent_key": "p2",
+      "labels": ["pico", "mini", "phase2", "testing"],
+      "description": "Scripted MiniStepButtons sequences on the editor-export / generated-background room. Assert pose/movement_type changes for spin jump, morph, slope walk, and a projectile slot going live.\n\nThis is the Ship 1 playable-kernel gate on desktop. Hardware feel is the same scripts once UART or a pad exists.\n\nEstimate: 60 min\nAcceptance: pico-kernel-test (or a sibling) covers run/jump/spin/morph/slope/shoot; make mini-test still green."
+    },
+    {
+      "key": "p2_ondevice",
+      "title": "On-device debug tiles via HSTX or SPI LCD (one Pico)",
+      "type": "task",
+      "priority": 2,
+      "parent_key": "p2",
+      "labels": ["pico", "mini", "phase2", "hardware"],
+      "description": "Blocked on pico_hw. One Pico, ugly picture. HSTX DVI or a cheap SPI LCD. Colored 8x8 collision tiles, Samus rect, beams. GPIO SNES pad or UART buttons.\n\nPicoDVI-on-PIO is the fallback and costs more CPU. Prefer HSTX.\n\nAcceptance: visible motion on a TV/monitor from one RP2350; 60 fps not required yet but should not crawl."
+    },
+    {
+      "key": "p3",
+      "title": "[phase 3] Display Pico: Mode 1 scanline + HSTX",
+      "type": "epic",
+      "priority": 1,
+      "parent_key": "ship2",
+      "labels": ["pico", "mini", "phase3"],
+      "description": "mini_renderer.c is a desktop software blitter. You cannot keep that. Write a Mode 1 scanline renderer that emits one 256-pixel line into an HSTX buffer. SM Landing Site is BGMODE 1 (stub already sets reg_BGMODE = 9).\n\nSprites: 128 OAM entries, 32-pixel-per-line budget if you want authenticity, or be sloppy and overdraw.\n\nHDMA is the nasty cousin. Ship 1 ignores it. Ship 2 implements a tiny interpreter for channels Landing Site actually arms. Do not port a general SNES PPU.\n\nGet a static Landing Site screenshot rasterizing at 60 Hz from a dummy packet before attaching the game Pico. Desktop golden vs out/landing_site*.png is the way to start without hardware.\n\nAcceptance: scanline Mode 1 produces a recognizable Landing Site on desktop; HSTX 640x480 letterbox path exists for hardware."
+    },
+    {
+      "key": "p3_scanline",
+      "title": "Desktop Mode 1 scanline renderer (BG1/BG2 + sprites)",
+      "type": "task",
+      "priority": 1,
+      "parent_key": "p3",
+      "labels": ["pico", "mini", "phase3"],
+      "description": "Independent of pico-sdk. Input: VRAM + CGRAM + OAM + scroll regs (the display Pico's state). Output: 256x224 RGB555 or RGB565, one scanline at a time. No 112 KB persistent framebuffer required — tests may retain one.\n\nLanding Site is BGMODE 1. Implement BG1/BG2 4bpp, then sprites. Skip Mode 7, windows, color math until a later bead.\n\nGolden: compare against a captured mini screenshot or out/landing_site_scanlines.* if that fixture is still valid.\n\nEstimate: 240 min\nAcceptance: renderer emits 256-wide lines; a static baked tilemap test passes; no dependency on mini_renderer.c."
+    },
+    {
+      "key": "p3_dummy",
+      "title": "Dummy frame packet: static Landing Site at 60 Hz (host)",
+      "type": "task",
+      "priority": 1,
+      "parent_key": "p3",
+      "labels": ["pico", "mini", "phase3"],
+      "description": "Accept a dummy packet (scroll + OAM + baked tilemap / CGRAM) and raster it in a loop. Host timer or a vsync stub. This is the display Pico's brain before SPI exists.\n\nPacket sketch (game → display, 1/60 s):\n- joypad echo / vsync token\n- scroll regs (BG1HOFS/VOFS, layer2)\n- OAM (544 B) + OAM high table\n- CGRAM dirty (512 B max)\n- VRAM dirty rectangles\n- PPU regs (INIDISP, TM, CGADSUB, BGMODE)\n\nA few KB most frames, tens of KB on room load. Do not stream a framebuffer.\n\nEstimate: 90 min\nAcceptance: documented packet struct in src/pico/; dummy packet rasters a static scene via the scanline renderer."
+    },
+    {
+      "key": "p3_hstx",
+      "title": "HSTX 640x480 DVI letterbox of 256x224 (display Pico)",
+      "type": "task",
+      "priority": 2,
+      "parent_key": "p3",
+      "labels": ["pico", "mini", "phase3", "hardware"],
+      "description": "Blocked on pico_hw. Display Pico Core 1 / DMA / HSTX. 640x480 DVI, 256x224 letterboxed. Scanline buffer into HSTX, not a full framebuffer.\n\nPico DVI Sock / Adafruit DVI / Metro RP2350 / Fruit Jam. PicoDVI-on-PIO is fallback.\n\nAcceptance: static dummy packet visible on a DVI monitor at 60 Hz from one RP2350."
+    },
+    {
+      "key": "p4",
+      "title": "[phase 4] Glue: SPI/PIO frame protocol between the two Picos",
+      "type": "epic",
+      "priority": 1,
+      "parent_key": "ship2",
+      "labels": ["pico", "mini", "phase4"],
+      "description": "Game Pico must finish MiniStep + pack before the display Pico starts the next frame. 16.67 ms budget. Room loads may miss frames; blank via INIDISP. 2-slot command ring so display rasters last frame while game simulates the next.\n\nWire: SPI at 25-50 MHz or PIO parallel + a VBLANK GPIO. Start with UART at 1 Mbaud and a tiny packet so you can debug.\n\nMilestone: character that moves across a real tileset.\n\nAcceptance: OAM + scrolls every frame, VRAM dirty on changes; Samus walks on extracted/baked Landing Site tiles."
+    },
+    {
+      "key": "p4_uart",
+      "title": "UART 1 Mbaud debug protocol for the frame packet",
+      "type": "task",
+      "priority": 1,
+      "parent_key": "p4",
+      "labels": ["pico", "mini", "phase4"],
+      "description": "Host-to-host first: pico-kernel packs a packet, a display-host unpacks and rasters. Then UART between two Picos when hardware exists.\n\nKeep the packet small. vsync token + scrolls + OAM is the first real frame.\n\nEstimate: 90 min\nAcceptance: round-trip of a dummy packet on host; documented wire format; hardware UART is a follow-up note not a blocker."
+    },
+    {
+      "key": "p4_spi",
+      "title": "SPI/PIO + VBLANK GPIO 2-slot command ring",
+      "type": "task",
+      "priority": 2,
+      "parent_key": "p4",
+      "labels": ["pico", "mini", "phase4", "hardware"],
+      "description": "Blocked on pico_hw. Production wire. Display Pico rasters slot N while Game Pico fills slot N^1. VBLANK GPIO is the token.\n\nAcceptance: two boards exchange packets in real time; missed room-load frames blank instead of tearing."
+    },
+    {
+      "key": "p4_move",
+      "title": "Milestone: Samus moves across a real tileset via the packet",
+      "type": "task",
+      "priority": 1,
+      "parent_key": "p4",
+      "labels": ["pico", "mini", "phase4"],
+      "description": "Game Pico (or host pico-kernel) sends OAM + scrolls every frame, VRAM dirty on changes. Display side rasters BG + sprite. Host-paired proof is enough until hardware.\n\nEstimate: 120 min\nAcceptance: a recorded sequence shows Samus x changing on top of baked/extracted tiles; packet size stays a few KB per frame."
+    },
+    {
+      "key": "assets",
+      "title": "Asset extractor: Landing Site / Ceres tiles without sm.smc on-chip",
+      "type": "task",
+      "priority": 1,
+      "parent_key": "ship2",
+      "labels": ["pico", "mini", "assets"],
+      "description": "Two pipelines:\n1. Editor export: collision + small generated background (mini_generated_background_data.inc). Ship 1.\n2. Extractor: Landing Site / Ceres tilemaps, 4bpp tiles, palettes, Samus VRAM halves, enemy tilesets into .c arrays or a filesystem image. Keep them in XIP flash on the display Pico.\n\nDo not embed sm.smc on a 4 MB part.\n\nRomPtr() on Pico points at extracted banks or fails closed.\n\nEstimate: 180 min\nAcceptance: display-side image has Landing Site tiles/palettes without the 3 MB ROM; Ship 1 still uses editor export."
+    },
+    {
+      "key": "p5",
+      "title": "[phase 5] Landing Site parity, visually reduced, 60 fps",
+      "type": "epic",
+      "priority": 2,
+      "parent_key": "ship2",
+      "labels": ["pico", "mini", "phase5"],
+      "description": "Hook uses_original_gameplay_runtime path. Keep Vector_NMI uploads going into mini_ppu_stub / the display Pico's VRAM. Palette FX on. HDMA off. Measure frame time on both chips.\n\nOnly after Phase 4's moving character milestone.\n\nAcceptance: Landing Site original loop on Game Pico; Mode 1 raster on Display Pico at 60; HDMA still off; frame-time numbers recorded."
+    },
+    {
+      "key": "p5_runtime",
+      "title": "Hook original gameplay runtime uploads into the display packet",
+      "type": "task",
+      "priority": 2,
+      "parent_key": "p5",
+      "labels": ["pico", "mini", "phase5"],
+      "description": "Vector_NMI / DMA into mini_ppu_stub must become dirty-rect packets instead of a local 64 KB copy on the game chip if SRAM is tight. Palette FX stay. HDMA off.\n\nEstimate: 180 min\nAcceptance: uses_original_gameplay_runtime path produces packets the scanline renderer can draw; game Pico does not keep a second full VRAM if avoidable."
+    },
+    {
+      "key": "p5_60",
+      "title": "Measure 60 fps on both chips; HDMA still off",
+      "type": "task",
+      "priority": 2,
+      "parent_key": "p5",
+      "labels": ["pico", "mini", "phase5", "hardware"],
+      "description": "Blocked on pico_hw + p5_runtime. UART or GPIO timing. Room loads may miss; INIDISP blank is OK.\n\nAcceptance: steady 60 during Landing Site walk; numbers in the size/perf note."
+    },
+    {
+      "key": "p6",
+      "title": "[phase 6] Ceres sequence on Pico",
+      "type": "epic",
+      "priority": 3,
+      "parent_key": "ship3",
+      "labels": ["pico", "mini", "phase6"],
+      "description": "Only after Phase 5 holds 60 fps. Elevator pad, Ceres rooms, Ridley, countdown, debris, escape states 32-37. Add HDMA channels those rooms actually use, one at a time. decompress.c stays. Door states 9-11 already have mini wrappers. Put decompression on Game Core 1. Stream next tileset during a door wipe if VRAM is tight.\n\nAcceptance: Ceres playable on the two-Pico split; still no Kraid/Tourian/cinematics/audio in the image."
+    },
+    {
+      "key": "p6_elevator",
+      "title": "Ceres elevator pad (SamusCode_08) on pico-kernel",
+      "type": "task",
+      "priority": 3,
+      "parent_key": "p6",
+      "labels": ["pico", "mini", "phase6"],
+      "description": "--start ceres already uses the vanilla elevator pad drop on desktop mini. Bring that path into the pico allowlist (elevator enemy/PLM, SamusCode_08) after Ship 2 is solid.\n\nAcceptance: pico-kernel --start ceres (or equivalent) steps the pad drop without linking out-of-scope bosses."
+    },
+    {
+      "key": "p6_ridley",
+      "title": "Allowlist Ceres Ridley + escape; stub the rest of A6",
+      "type": "task",
+      "priority": 3,
+      "parent_key": "p6",
+      "labels": ["pico", "mini", "phase6"],
+      "description": "enemy_ridley.c / enemy_ceres_ridley.c / zebetite/door/steam as needed. Do not pull fake Kraid, waffle, typewriter, Phantoon, Mother Brain.\n\nAcceptance: Ceres Ridley TUs in pico-kernel; Zebes bosses still stubbed."
+    },
+    {
+      "key": "p6_hdma",
+      "title": "Tiny HDMA interpreter for channels Ceres/Landing Site actually arm",
+      "type": "task",
+      "priority": 3,
+      "parent_key": "p6",
+      "labels": ["pico", "mini", "phase6"],
+      "description": "Do not port a general SNES PPU HDMA. Inventory which channels Landing Site and Ceres rooms arm. Implement those only, on the display Pico, one at a time.\n\nAcceptance: listed channels work; unused HDMA is a no-op; 60 fps still holds or a measured drop is documented."
+    }
+  ],
+  "edges": [
+    {"from_key": "p0_host", "to_key": "p0_flag", "type": "blocks"},
+    {"from_key": "p0_step", "to_key": "p0_host", "type": "blocks"},
+    {"from_key": "p0_size", "to_key": "p0_host", "type": "blocks"},
+    {"from_key": "p0_cross", "to_key": "p0_host", "type": "blocks"},
+    {"from_key": "p1_stubs", "to_key": "p1_allowlist", "type": "blocks"},
+    {"from_key": "p1_stubs", "to_key": "p0_host", "type": "blocks"},
+    {"from_key": "p1_size", "to_key": "p1_stubs", "type": "blocks"},
+    {"from_key": "p1_size", "to_key": "p0_size", "type": "blocks"},
+    {"from_key": "p2_host_tiles", "to_key": "p1_size", "type": "blocks"},
+    {"from_key": "p2_feel", "to_key": "p2_host_tiles", "type": "blocks"},
+    {"from_key": "p2_ondevice", "to_key": "p2_feel", "type": "blocks"},
+    {"from_key": "p2_ondevice", "to_key": "pico_hw", "type": "blocks"},
+    {"from_key": "p3_dummy", "to_key": "p3_scanline", "type": "blocks"},
+    {"from_key": "p3_hstx", "to_key": "p3_dummy", "type": "blocks"},
+    {"from_key": "p3_hstx", "to_key": "pico_hw", "type": "blocks"},
+    {"from_key": "p4_uart", "to_key": "p3_dummy", "type": "blocks"},
+    {"from_key": "p4_uart", "to_key": "p1_size", "type": "blocks"},
+    {"from_key": "p4_spi", "to_key": "p4_uart", "type": "blocks"},
+    {"from_key": "p4_spi", "to_key": "pico_hw", "type": "blocks"},
+    {"from_key": "p4_move", "to_key": "p4_uart", "type": "blocks"},
+    {"from_key": "p4_move", "to_key": "assets", "type": "blocks"},
+    {"from_key": "assets", "to_key": "p0_host", "type": "blocks"},
+    {"from_key": "p5_runtime", "to_key": "p4_move", "type": "blocks"},
+    {"from_key": "p5_60", "to_key": "p5_runtime", "type": "blocks"},
+    {"from_key": "p5_60", "to_key": "pico_hw", "type": "blocks"},
+    {"from_key": "p6_elevator", "to_key": "p5_60", "type": "blocks"},
+    {"from_key": "p6_ridley", "to_key": "p6_elevator", "type": "blocks"},
+    {"from_key": "p6_hdma", "to_key": "p6_ridley", "type": "blocks"}
+  ]
+}

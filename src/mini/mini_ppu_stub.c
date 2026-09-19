@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "features.h"
 #include "sm_rtl.h"
 #include "variables.h"
 
@@ -18,7 +19,17 @@ static struct {
   bool cgram_low_pending;
 } g_mini_ppu;
 
+#if BUILD_IS_PICO
+/* Game Pico does not raster. Display Pico owns VRAM. Keep a 1-byte sink
+ * so DMA helpers can no-op without a 64 KB framebuffer. */
+static uint8 g_mini_vram[1];
+#else
 static uint8 g_mini_vram[kMiniPpuVramSize];
+#endif
+
+static size_t MiniPpuVramLimit(void) {
+  return sizeof(g_mini_vram);
+}
 
 static const uint8 *MiniBusPtr(uint8 bank, uint16 addr) {
   if (bank == 0x7E || bank == 0x7F)
@@ -44,14 +55,14 @@ static void MiniAdvanceVramAddr(bool accessed_high) {
 
 static void MiniWriteVramData(bool high, uint8 value) {
   size_t offset = ((size_t)g_mini_ppu.vram_addr << 1) + (high ? 1 : 0);
-  if (offset < kMiniPpuVramSize)
+  if (offset < MiniPpuVramLimit())
     g_mini_vram[offset] = value;
   MiniAdvanceVramAddr(high);
 }
 
 static uint8 MiniReadVramData(bool high) {
   size_t offset = ((size_t)g_mini_ppu.vram_addr << 1) + (high ? 1 : 0);
-  uint8 value = offset < kMiniPpuVramSize ? g_mini_vram[offset] : 0;
+  uint8 value = offset < MiniPpuVramLimit() ? g_mini_vram[offset] : 0;
   MiniAdvanceVramAddr(high);
   return value;
 }
@@ -128,10 +139,11 @@ void MiniPpu_InitGameplay(void) {
 
 void MiniPpu_CopyVram(uint16 vram_dst, const void *src, size_t size) {
   size_t dst = (size_t)vram_dst << 1;
-  if (dst >= kMiniPpuVramSize || size == 0)
+  size_t limit = MiniPpuVramLimit();
+  if (dst >= limit || size == 0)
     return;
-  if (size > kMiniPpuVramSize - dst)
-    size = kMiniPpuVramSize - dst;
+  if (size > limit - dst)
+    size = limit - dst;
   memcpy(g_mini_vram + dst, src, size);
 }
 
@@ -150,7 +162,10 @@ void MiniPpu_SaveSnapshot(MiniPpuSnapshot *snapshot) {
   snapshot->cgadd = g_mini_ppu.cgadd;
   snapshot->cgram_latch = g_mini_ppu.cgram_latch;
   snapshot->cgram_low_pending = g_mini_ppu.cgram_low_pending;
-  memcpy(snapshot->vram, g_mini_vram, sizeof(snapshot->vram));
+  memset(snapshot->vram, 0, sizeof(snapshot->vram));
+  memcpy(snapshot->vram, g_mini_vram, MiniPpuVramLimit() < sizeof(snapshot->vram)
+                                         ? MiniPpuVramLimit()
+                                         : sizeof(snapshot->vram));
 }
 
 void MiniPpu_LoadSnapshot(const MiniPpuSnapshot *snapshot) {
@@ -164,7 +179,9 @@ void MiniPpu_LoadSnapshot(const MiniPpuSnapshot *snapshot) {
   g_mini_ppu.cgadd = snapshot->cgadd;
   g_mini_ppu.cgram_latch = snapshot->cgram_latch;
   g_mini_ppu.cgram_low_pending = snapshot->cgram_low_pending;
-  memcpy(g_mini_vram, snapshot->vram, sizeof(snapshot->vram));
+  memcpy(g_mini_vram, snapshot->vram, MiniPpuVramLimit() < sizeof(snapshot->vram)
+                                         ? MiniPpuVramLimit()
+                                         : sizeof(snapshot->vram));
 }
 
 void WriteReg(uint16 reg, uint8 value) {

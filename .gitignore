@@ -3,6 +3,7 @@
 *.a
 *.so
 *.dylib
+build/pico2/
 
 # Binaries
 sm_rev
@@ -17,6 +18,12 @@ sm_rev_mini_rust_host
 generate_mss_fixture
 libsm_rev_mini_kernel.a
 libsm_rev_mini_browser.so
+sm_rev_pico_*
+libsm_rev_pico_kernel.a
+
+# Pico host dumps (collision PPM / feel JSON). Not the RP2350 image.
+out/pico_*.ppm
+out/pico_feel_room.json
 
 # Python
 __pycache__/

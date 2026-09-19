@@ -62,6 +62,8 @@ const uint8 *SamusAssetBridge_GetBank92(uint16 addr) {
       return NULL;
     return g_samus_bank92 + (addr - 0x8000);
   }
+  if (g_rom == NULL)
+    return NULL;
   return RomPtr_92(addr);
 }
 
@@ -79,5 +81,7 @@ const uint8 *SamusAssetBridge_GetData(uint32 snes_address, size_t size) {
       return g_samus_data + range->data_offset + delta;
     }
   }
+  if (g_rom == NULL)
+    return NULL;
   return RomPtr(snes_address);
 }
