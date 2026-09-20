@@ -51,11 +51,7 @@ enum {
    *  reset_usb_boot() blinks it; a real hang leaves it steady.            *
    * ------------------------------------------------------------------ */
   kExplorerBootselHoldUs = 3000000,
-  kExplorerBootselWarnUs = 500000,
-  /* BG maps are 64x32 tiles (512x256 px); the viewport is 256x224, so the
-   * camera may travel this far inside the packed window before it runs out. */
-  kPico2MaxScrollX = 512 - kPico2ViewportWidth,
-  kPico2MaxScrollY = 256 - kPico2ViewportHeight
+  kExplorerBootselWarnUs = 500000
 };
 
 static PicoFramePacket s_pkt;
@@ -309,21 +305,17 @@ static void pack_from_samus(PicoFramePacket *pkt, uint32_t frame_id,
    * it needs, so this advances on its own; there is no wall-clock stand-in. */
   int anim = (int)samus_anim_frame;
   int frame_index = PicoOam_SamusFrameIndex(pose, anim);
-  int cam_x = world_x - kPico2ViewportWidth / 2;
-  int cam_y = world_y - kPico2ViewportHeight / 2;
+  int cam_x;
+  int cam_y;
   int sx;
   int sy;
 
-  /* Follow Samus, but never past the edge of the packed window. */
-  if (cam_x < (int)kPicoLsExtractCameraX)
-    cam_x = (int)kPicoLsExtractCameraX;
-  if (cam_x > (int)kPicoLsExtractCameraX + kPico2MaxScrollX)
-    cam_x = (int)kPicoLsExtractCameraX + kPico2MaxScrollX;
-  if (cam_y < (int)kPicoLsExtractCameraY)
-    cam_y = (int)kPicoLsExtractCameraY;
-  if (cam_y > (int)kPicoLsExtractCameraY + kPico2MaxScrollY)
-    cam_y = (int)kPicoLsExtractCameraY + kPico2MaxScrollY;
-
+  /* Display camera is layer1_* (MiniAuthoredFollowCamera), not samus-128.
+   * PackExtractScrolls clamps to the 512×256 extract; Samus may walk to the
+   * screen edge. Same helper the host test calls. */
+  PicoViewport_PackExtractScrolls(pkt, layer1_x_pos, layer1_y_pos);
+  cam_x = (int)kPicoLsExtractCameraX + (int)pkt->bg1hofs;
+  cam_y = (int)kPicoLsExtractCameraY + (int)pkt->bg1vofs;
   sx = world_x - cam_x;
   sy = world_y - cam_y - PicoOam_SamusYOffset(pose);
 
@@ -338,16 +330,6 @@ static void pack_from_samus(PicoFramePacket *pkt, uint32_t frame_id,
   pkt->frame_id = frame_id;
   pkt->vsync_token = (uint16_t)kPicoFramePacketVsync;
   pkt->joypad_echo = joy;
-  pkt->bg1hofs = (uint16_t)(cam_x - (int)kPicoLsExtractCameraX);
-  pkt->bg1vofs = (uint16_t)(cam_y - (int)kPicoLsExtractCameraY);
-  /* room_91F8.json scroll.bgScrolling = 0x0181 (sm_rev-k5q.5).
-   * layer2_scroll_x 0x81 makes vanilla CalculateLayer2Xpos() compute
-   * layer1_x_pos / 2, so BG2 parallaxes at HALF the BG1 rate. layer2_scroll_y
-   * 0x01 makes CalculateLayer2Ypos() bail out before reg_BG2VOFS is touched,
-   * so BG2 never scrolls vertically: it holds its room-load value, and the
-   * packed map was expanded from exactly that row. */
-  pkt->bg2hofs = (uint16_t)(pkt->bg1hofs >> 1);
-  pkt->bg2vofs = (uint16_t)kPicoLsBg2VerticalScroll;
 
   PicoOam_WriteSamusFrame(pkt, frame_index, sx, sy);
   /* Fixed extract-space OAM, rewritten after the Samus slots are cleared. */

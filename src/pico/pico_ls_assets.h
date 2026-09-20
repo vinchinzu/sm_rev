@@ -15,9 +15,12 @@ extern "C" {
  * for Mode 1 (same PPU regs as MiniPpu_InitGameplay / InitDummy).
  *
  * Packed BG maps are a spawn window whose (0,0) is world pixel
- * (kPicoLsExtractCameraX, kPicoLsExtractCameraY). Live scrolls should be
- * layer1_* minus these origins, not raw camera. Y is 32px below JSON
- * cameraY 976 so pal4 platforms sit in the 224-line viewport at scroll 0.
+ * (kPicoLsExtractCameraX, kPicoLsExtractCameraY). Live scrolls are
+ * PicoViewport_ExtractScroll(layer1_*, origin), clamped to the extract
+ * (hofs 0..256, vofs 0..32) — not samus-128 and not the full 144×80 room.
+ * Walking past the window has no BG tiles; Samus goes to the screen edge.
+ * Follow-up: VRAM window / dirty upload. Y is 32px below JSON cameraY 976
+ * so pal4 platforms sit in the 224-line viewport at scroll 0.
  */
 enum {
   kPicoLsExtractCameraX = 1024,

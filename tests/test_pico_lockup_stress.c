@@ -211,7 +211,8 @@ static void test_camera_range(void) {
 
 /* --- 4: live soak, the real pico2_main.c frame path -------------------- */
 
-/* Byte-for-byte the camera clamp and OAM writes from pico2_main.c. */
+/* Same camera path as pico2_main.c pack_from_samus: layer1_* via the extract
+ * helper, not samus-128. */
 static int soak_pack(PicoFramePacket *pkt, uint32_t frame_id, uint16_t joy,
                      int *last_frame_index) {
   int world_x = (int)samus_x_pos;
@@ -219,20 +220,14 @@ static int soak_pack(PicoFramePacket *pkt, uint32_t frame_id, uint16_t joy,
   int pose = (int)samus_pose;
   int anim = (int)samus_anim_frame;
   int frame_index = PicoOam_SamusFrameIndex(pose, anim);
-  int cam_x = world_x - kViewportW / 2;
-  int cam_y = world_y - kViewportH / 2;
+  int cam_x;
+  int cam_y;
   int sx;
   int sy;
 
-  if (cam_x < (int)kPicoLsExtractCameraX)
-    cam_x = (int)kPicoLsExtractCameraX;
-  if (cam_x > (int)kPicoLsExtractCameraX + kMaxScrollX)
-    cam_x = (int)kPicoLsExtractCameraX + kMaxScrollX;
-  if (cam_y < (int)kPicoLsExtractCameraY)
-    cam_y = (int)kPicoLsExtractCameraY;
-  if (cam_y > (int)kPicoLsExtractCameraY + kMaxScrollY)
-    cam_y = (int)kPicoLsExtractCameraY + kMaxScrollY;
-
+  PicoViewport_PackExtractScrolls(pkt, layer1_x_pos, layer1_y_pos);
+  cam_x = (int)kPicoLsExtractCameraX + (int)pkt->bg1hofs;
+  cam_y = (int)kPicoLsExtractCameraY + (int)pkt->bg1vofs;
   sx = world_x - cam_x;
   sy = world_y - cam_y - PicoOam_SamusYOffset(pose);
 
@@ -244,10 +239,6 @@ static int soak_pack(PicoFramePacket *pkt, uint32_t frame_id, uint16_t joy,
   pkt->frame_id = frame_id;
   pkt->vsync_token = (uint16_t)kPicoFramePacketVsync;
   pkt->joypad_echo = joy;
-  pkt->bg1hofs = (uint16_t)(cam_x - (int)kPicoLsExtractCameraX);
-  pkt->bg1vofs = (uint16_t)(cam_y - (int)kPicoLsExtractCameraY);
-  pkt->bg2hofs = (uint16_t)(pkt->bg1hofs >> 1);
-  pkt->bg2vofs = (uint16_t)kPicoLsBg2VerticalScroll;
 
   PicoOam_WriteSamusFrame(pkt, frame_index, sx, sy);
   PicoOam_WriteGunship(pkt, -(int)pkt->bg1hofs, -(int)pkt->bg1vofs);

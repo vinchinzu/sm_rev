@@ -59,26 +59,33 @@ static void expect_true(const char *name, int cond) {
 }
 
 static void pack_from_samus(PicoFramePacket *pkt, uint32_t frame_id) {
+  /* Fallback MiniCreate (no PicoLsRoom): Samus screen pos is game-camera
+   * relative. Scrolls still go through the extract helper so this path and
+   * pico2_main.c pack_from_samus cannot drift. At spawn x=80, layer1 is below
+   * the LS origin so hofs stays 0 and the sprite walks across the screen. */
   int sx = (int)samus_x_pos - (int)layer1_x_pos;
   int sy = (int)samus_y_pos - (int)layer1_y_pos - PicoOam_SamusYOffset((int)samus_pose);
-  uint16_t hofs = PicoViewport_ExtractScroll(layer1_x_pos,
-                                             (uint16_t)kPicoLsExtractCameraX);
-  uint16_t vofs = PicoViewport_ExtractScroll(layer1_y_pos,
-                                             (uint16_t)kPicoLsExtractCameraY);
 
   pkt->frame_id = frame_id;
   pkt->vsync_token = (uint16_t)kPicoFramePacketVsync;
   pkt->joypad_echo = kButton_Right;
-  pkt->bg1hofs = hofs;
-  pkt->bg1vofs = vofs;
-  pkt->bg2hofs = hofs;
-  pkt->bg2vofs = vofs;
+  PicoViewport_PackExtractScrolls(pkt, layer1_x_pos, layer1_y_pos);
   {
     int frame_index =
         PicoOam_SamusFrameIndex((int)samus_pose, (int)samus_anim_frame);
     PicoOam_PlantSamusFrame(pkt, frame_index);
     PicoOam_WriteSamusFrame(pkt, frame_index, sx, sy);
   }
+}
+
+static int samus_extract_screen_x(uint16_t hofs) {
+  return (int)samus_x_pos - ((int)kPicoLsExtractCameraX + (int)hofs);
+}
+
+static uint16_t layer1_extract_hofs(void) {
+  return PicoViewport_ExtractScrollMax(layer1_x_pos,
+                                       (uint16_t)kPicoLsExtractCameraX,
+                                       (uint16_t)kPicoExtractMaxScrollX);
 }
 
 static void raster_packet(const PicoFramePacket *pkt, uint16_t *out) {
@@ -252,6 +259,83 @@ static void check_packed_room(void) {
                   kBlockType_Air &&
                   MiniStubs_GetCollisionMaterial(kPicoLsRoomSpawnBlockX, 75) ==
                       kBlockType_Air);
+
+  /* sm_rev-k5q.10: packet scrolls come from layer1_*, not samus-128. */
+  {
+    static PicoFramePacket pkt;
+    uint16 saved_layer1_x;
+    uint16 start_x;
+    uint16 end_x;
+    uint16_t start_hofs;
+    uint16_t end_hofs;
+    uint16_t invented_hofs;
+    int sx;
+    int i;
+
+    MiniStepButtons(state, 0, false);
+    memset(&pkt, 0, sizeof(pkt));
+    PicoViewport_PackExtractScrolls(&pkt, layer1_x_pos, layer1_y_pos);
+    printf("packed camera spawn samus=%u,%u layer1=%u,%u hofs=%u vofs=%u\n",
+           (unsigned)samus_x_pos, (unsigned)samus_y_pos,
+           (unsigned)layer1_x_pos, (unsigned)layer1_y_pos,
+           (unsigned)pkt.bg1hofs, (unsigned)pkt.bg1vofs);
+    expect_true("spawn bg1hofs == ExtractScroll(layer1) clamped 0..256",
+                pkt.bg1hofs == layer1_extract_hofs() &&
+                    pkt.bg1hofs == PicoViewport_ExtractScroll(
+                        layer1_x_pos, (uint16_t)kPicoLsExtractCameraX) &&
+                    pkt.bg1hofs <= (uint16_t)kPicoExtractMaxScrollX);
+    expect_true("spawn hofs not stuck at 0 unless layer1 is origin",
+                pkt.bg1hofs != 0 ||
+                    layer1_x_pos <= (uint16)kPicoLsExtractCameraX);
+    sx = samus_extract_screen_x(pkt.bg1hofs);
+    expect_true("spawn samus screen x in 0..255", sx >= 0 && sx <= 255);
+    expect_true("BG2 hofs is half BG1",
+                pkt.bg2hofs == (uint16_t)(pkt.bg1hofs >> 1));
+    expect_true("BG2 vofs locked at packed value",
+                pkt.bg2vofs == (uint16_t)kPicoLsBg2VerticalScroll);
+
+    /* Poke layer1 even if k5q.9 is red and she cannot walk. Invented
+     * cam = samus-128 would stay at spawn; layer1 must win. */
+    saved_layer1_x = layer1_x_pos;
+    invented_hofs = PicoViewport_ExtractScrollMax(
+        (uint16_t)((int)samus_x_pos - kViewportW / 2),
+        (uint16_t)kPicoLsExtractCameraX, (uint16_t)kPicoExtractMaxScrollX);
+    layer1_x_pos = (uint16)(kPicoLsExtractCameraX + 76);
+    PicoViewport_PackExtractScrolls(&pkt, layer1_x_pos, layer1_y_pos);
+    expect_true("poked layer1 1100 -> hofs 76", pkt.bg1hofs == 76);
+    expect_true("poked hofs is not the invented samus-128 camera",
+                pkt.bg1hofs != invented_hofs || invented_hofs == 76);
+    sx = samus_extract_screen_x(pkt.bg1hofs);
+    expect_true("poked samus screen x in 0..255", sx >= 0 && sx <= 255);
+
+    layer1_x_pos = (uint16)(kPicoLsExtractCameraX + 400);
+    PicoViewport_PackExtractScrolls(&pkt, layer1_x_pos, layer1_y_pos);
+    expect_true("hofs clamps to extract max 256",
+                pkt.bg1hofs == (uint16_t)kPicoExtractMaxScrollX);
+    layer1_x_pos = saved_layer1_x;
+
+    start_x = samus_x_pos;
+    start_hofs = layer1_extract_hofs();
+    for (i = 0; i < kMoveFrames; i++) {
+      MiniStepButtons(state, kButton_Right, false);
+      PicoViewport_PackExtractScrolls(&pkt, layer1_x_pos, layer1_y_pos);
+      expect_true("live hofs tracks layer1", pkt.bg1hofs == layer1_extract_hofs());
+      if (pkt.bg1hofs < (uint16_t)kPicoExtractMaxScrollX) {
+        sx = samus_extract_screen_x(pkt.bg1hofs);
+        expect_true("samus screen x in view while camera can follow",
+                    sx >= 0 && sx <= 255);
+      }
+    }
+    end_x = samus_x_pos;
+    end_hofs = pkt.bg1hofs;
+    printf("packed camera walk x %u -> %u hofs %u -> %u layer1 %u\n",
+           (unsigned)start_x, (unsigned)end_x, (unsigned)start_hofs,
+           (unsigned)end_hofs, (unsigned)layer1_x_pos);
+    if (end_x > start_x && start_hofs < (uint16_t)kPicoExtractMaxScrollX &&
+        layer1_x_pos > saved_layer1_x)
+      expect_true("hofs advanced with samus", end_hofs > start_hofs);
+  }
+
   MiniDestroy(state);
 
   (void)walk_off_deck("walk right off the deck", kButton_Right);

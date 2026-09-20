@@ -13,6 +13,7 @@
 #include "variables.h"
 
 #include "explorer_buttons.h"
+#include "pico_frame_packet.h"
 #include "pico_viewport.h"
 
 enum {
@@ -81,6 +82,25 @@ int main(void) {
               PicoViewport_ExtractScroll(0, 1024) == 0);
   expect_true("scroll below origin is 0 (camera 80)",
               PicoViewport_ExtractScroll(80, 1024) == 0);
+  expect_true("scroll max clamps to extract 256",
+              PicoViewport_ExtractScrollMax(2000, 1024,
+                                            (uint16_t)kPicoExtractMaxScrollX) ==
+                  (uint16_t)kPicoExtractMaxScrollX);
+  expect_true("scroll max keeps in-window value",
+              PicoViewport_ExtractScrollMax(1100, 1024,
+                                            (uint16_t)kPicoExtractMaxScrollX) ==
+                  76);
+  {
+    PicoFramePacket pkt;
+    memset(&pkt, 0, sizeof(pkt));
+    PicoViewport_PackExtractScrolls(&pkt, 1100, 1008);
+    expect_true("pack helper hofs from layer1 1100", pkt.bg1hofs == 76);
+    expect_true("pack helper BG2 is half-rate", pkt.bg2hofs == 38);
+    expect_true("pack helper BG2 vofs locked", pkt.bg2vofs == 0);
+    PicoViewport_PackExtractScrolls(&pkt, 80, 0);
+    expect_true("pack helper below origin is 0",
+                pkt.bg1hofs == 0 && pkt.bg1vofs == 0);
+  }
 
   state = MiniCreate(kViewportW, kViewportH);
   if (state == NULL) {
