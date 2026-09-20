@@ -39,6 +39,8 @@ enum {
 static PicoFramePacket s_pkt;
 static uint64_t s_bootsel_held_from;
 static int s_last_frame_index = -1;
+/* sm_rev-28r: owns the boot/chord gate and the B morph-toggle latch. */
+static ExplorerButtonsState s_buttons;
 
 static void enter_bootloader(void) {
   printf("pico2: A+B+X+Y held, reset_usb_boot\n");
@@ -200,6 +202,7 @@ int main(void) {
   gpio_put(PICO_DEFAULT_LED_PIN, 1);
 
   explorer_buttons_init();
+  ExplorerButtons_Init(&s_buttons);
   St7789Explorer_Init();
   /* Black, not magenta: a boot hang must not look like the old ship-1 fill. */
   St7789Explorer_Fill(RGB565(0, 0, 0));
@@ -228,7 +231,13 @@ int main(void) {
     printf("pico2: PlantGunshipGfx failed\n");
   pack_from_samus(&s_pkt, 1, 0);
 
-  printf("pico2 ls+explorer map Y=Right X=Left B=Down A=Jump\n");
+  /* sm_rev-28r: B is a morph TOGGLE, not a plain Down. The Pico runs
+   * MiniAuthoredMovement_Step (g_rom == NULL), where one new Down morphs
+   * instantly and only a new Up unmorphs -- and this board has no Up button.
+   * ExplorerButtons_Step() emits Down when she is standing and Up when she is
+   * a ball, and swallows anything already held at boot. */
+  printf("pico2 ls+explorer map Y=Right X=Left A=Jump B=Morph/Unmorph\n");
+  printf("pico2 input: buttons ignored until all four are released once\n");
   {
     MiniRoomInfo info;
     MiniStubs_GetRoomInfo(&info);
@@ -251,7 +260,8 @@ int main(void) {
   for (;;) {
     unsigned pressed = explorer_buttons_poll();
     maybe_enter_bootloader(pressed);
-    uint16_t joy = ExplorerButtons_ToJoypad(pressed);
+    uint16_t joy =
+        ExplorerButtons_Step(&s_buttons, pressed, (unsigned)samus_movement_type);
     uint64_t t;
     uint32_t step_us;
     uint32_t pack_us;
@@ -282,11 +292,12 @@ int main(void) {
       uint32_t frame_us =
           (acc_step + acc_pack + acc_raster + acc_spi) / acc_n;
       printf("pico2 step=%u pack=%u raster=%u spi=%u present=%u frame=%u us "
-             "x=%u y=%u pose=%u af=%u joy=%04x btn=%x\n",
+             "x=%u y=%u pose=%u mvt=%u af=%u joy=%04x btn=%x\n",
              acc_step / acc_n, acc_pack / acc_n, acc_raster / acc_n,
              acc_spi / acc_n, present_us, frame_us, (unsigned)samus_x_pos,
              (unsigned)samus_y_pos, (unsigned)samus_pose,
-             (unsigned)samus_anim_frame, (unsigned)joy, pressed);
+             (unsigned)samus_movement_type, (unsigned)samus_anim_frame,
+             (unsigned)joy, pressed);
       acc_step = acc_pack = acc_raster = acc_spi = acc_n = 0;
     }
   }
