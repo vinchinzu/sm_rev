@@ -46,7 +46,10 @@ enum {
   kSettleFrames = 4,
   /* Deck top to terrain is 7 block rows. Anything under a block of movement is
    * slope jitter on the deck itself, so demand well over half the real drop. */
-  kMinDeckDrop = 96
+  kMinDeckDrop = 96,
+  /* Gunship nose ~bx76. Right from spawn must pass this before the fall
+   * counts as walking off the deck rather than dropping in place. */
+  kShipNoseWorldX = 76 * kPicoLsRoomBlockPx
 };
 
 static int g_failures;
@@ -170,6 +173,23 @@ static int feet_block_row(void) {
   return ((int)samus_y_pos + (int)samus_y_radius - 1) / kPicoLsRoomBlockPx;
 }
 
+/* Public-seam stall dump: world pos + the collision cell underfoot. */
+static void dump_slope_bts_at_samus(const char *why) {
+  int bx = (int)samus_x_pos / kPicoLsRoomBlockPx;
+  int by = feet_block_row();
+  uint16 level = MiniStubs_GetLevelBlock(bx, by);
+  BlockType mat = MiniStubs_GetCollisionMaterial(bx, by);
+  uint8 bts = MiniStubs_GetBts(bx, by);
+
+  fprintf(stderr,
+          "stall %s: x=%u y=%u pose=%u feet=(%d,%d) level=0x%04x mat=0x%04x "
+          "bts=0x%02x shape=%u mx=%d ceil=%d\n",
+          why, (unsigned)samus_x_pos, (unsigned)samus_y_pos,
+          (unsigned)samus_pose, bx, by, (unsigned)level, (unsigned)mat,
+          (unsigned)bts, (unsigned)(bts & kSlopeBts_ShapeMask),
+          (bts & kSlopeBts_MirrorX) != 0, (bts & kSlopeBts_Ceiling) != 0);
+}
+
 /* Walks one direction off the gunship deck and reports the descent. */
 static int walk_off_deck(const char *tag, uint16 button) {
   MiniGameState *state = MiniCreate(kViewportW, kViewportH);
@@ -202,6 +222,13 @@ static int walk_off_deck(const char *tag, uint16 button) {
   printf("%s: start y=%d feet_by=%d -> end x=%u y=%u feet_by=%d drop=%d og=%d\n",
          tag, start_y, start_feet, (unsigned)samus_x_pos,
          (unsigned)samus_y_pos, end_feet, drop, state->samus.on_ground);
+  if (button == kButton_Right && (int)samus_x_pos <= kShipNoseWorldX)
+    dump_slope_bts_at_samus("did not pass ship nose");
+  if (drop < kMinDeckDrop)
+    dump_slope_bts_at_samus("did not fall off the deck");
+  if (button == kButton_Right)
+    expect_true("walk right past ship nose x>1216",
+                (int)samus_x_pos > kShipNoseWorldX);
   expect_true("walking off the deck descends", drop >= kMinDeckDrop);
   expect_true("lands on the terrain below the deck",
               end_feet >= kPicoLsRoomFloorTopRow - 1);
