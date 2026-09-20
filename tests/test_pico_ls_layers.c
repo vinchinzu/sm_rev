@@ -17,6 +17,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include "mini_asset_bootstrap.h"
 #include "pico_ls_assets.h"
 #include "pico_oam_from_samus.h"
 #include "pico_oam_gunship.h"
@@ -50,8 +51,19 @@ enum {
   /* Between the gunship's underside and the terrain strip: the band that was
    * uniform wallpaper. */
   kBg2BandY0 = 157,
-  kBg2BandY1 = 207
+  kBg2BandY1 = 207,
+  /* pico2_main clamps the camera to the packed window, so BG2 -- which runs at
+   * half the BG1 rate -- travels this far. The second 32-tile copy of the
+   * backdrop is on screen here, so this catches a fix that only repaired the
+   * first screen. */
+  kBg2MaxHofs = (512 - kPicoScreenWidth) / 2,
+  kBg2ScreenWords = 32 * 32,
+  kBg2FileWords = 2048
 };
+
+/* room_91F8.json backgroundAssets.defaultVariantKey. The packer reads this
+ * same file; the test re-reads it to check the mini renderer agrees. */
+#define kBg2SourceBin "assets/local_mini/backgrounds/bg2_91F8_door_896A.bin"
 
 static int g_failures;
 
@@ -406,6 +418,67 @@ static void map_window_unique(const uint8_t *vram, uint16_t word_base,
   *out_tiles = tile_n;
 }
 
+/* SNES 64x32 tilemap address: two 32x32 screens, 0x400 words apart. */
+static size_t snes_map_index(int tile_x, int tile_y) {
+  size_t addr = (size_t)(tile_y & 31) * 32u + (size_t)(tile_x & 31);
+  if (tile_x & 32)
+    addr += 0x400u;
+  return addr;
+}
+
+static uint16_t map_word_at(const uint8_t *vram, uint16_t word_base, size_t index) {
+  size_t addr = ((size_t)word_base + index) * 2u;
+  return (uint16_t)(vram[addr] | ((uint16_t)vram[addr + 1u] << 8));
+}
+
+static void map_word_set(uint8_t *vram, uint16_t word_base, size_t index, uint16_t w) {
+  size_t addr = ((size_t)word_base + index) * 2u;
+  vram[addr] = (uint8_t)w;
+  vram[addr + 1u] = (uint8_t)(w >> 8);
+}
+
+/* The raw two-screen BG2 VRAM dump the packer and the mini both start from. */
+static int read_bg2_source(uint16_t *out) {
+  FILE *f = fopen(kBg2SourceBin, "rb");
+  int i;
+  if (f == NULL)
+    return 0;
+  for (i = 0; i < kBg2FileWords; i++) {
+    int lo = fgetc(f);
+    int hi = fgetc(f);
+    if (lo < 0 || hi < 0) {
+      fclose(f);
+      return 0;
+    }
+    out[i] = (uint16_t)(lo | (hi << 8));
+  }
+  i = fgetc(f);
+  fclose(f);
+  return i == EOF;
+}
+
+/* Rows of the packed map that are a single word repeated across all 64
+ * columns. The real backdrop's sky rows legitimately are, so only the band
+ * under the ship is measured: mountains and foliage, never one flat tile. */
+static int map_uniform_rows(const uint8_t *vram, uint16_t word_base, int first_row,
+                            int last_row) {
+  int ty;
+  int tx;
+  int n = 0;
+  for (ty = first_row; ty <= last_row; ty++) {
+    uint16_t first = map_word_at(vram, word_base, snes_map_index(0, ty));
+    int uniform = 1;
+    for (tx = 1; tx < 64; tx++) {
+      if (map_word_at(vram, word_base, snes_map_index(tx, ty)) != first) {
+        uniform = 0;
+        break;
+      }
+    }
+    n += uniform;
+  }
+  return n;
+}
+
 /* Park every sprite outside [first,last] so one gunship piece renders alone. */
 static void keep_only_slots(PicoFramePacket *pkt, int first, int last) {
   int i;
@@ -461,6 +534,9 @@ int main(void) {
   static uint16_t frame_bg1[kPicoScreenHeight * kPicoScreenWidth];
   static uint16_t frame_bg1_vofs32[kPicoScreenHeight * kPicoScreenWidth];
   static uint16_t frame_bg2[kPicoScreenHeight * kPicoScreenWidth];
+  static uint16_t frame_bg2_scrolled[kPicoScreenHeight * kPicoScreenWidth];
+  static uint16_t frame_bg2_linear[kPicoScreenHeight * kPicoScreenWidth];
+  static uint16_t bg2_src[kBg2FileWords];
   static uint16_t frame_obj[kPicoScreenHeight * kPicoScreenWidth];
   static uint16_t frame_composite[kPicoScreenHeight * kPicoScreenWidth];
   static uint16_t frame_bg[kPicoScreenHeight * kPicoScreenWidth];
@@ -486,6 +562,15 @@ int main(void) {
   int bg2_band_colors;
   int bg2_win_words;
   int bg2_win_tiles;
+  int bg2_uniform_rows;
+  int bg2_right_screen_mismatch;
+  int bg2_scrolled_band;
+  int bg2_mini_mismatch;
+  int bg2_live_screen;
+  int bg2_linear_band;
+  int bg2_linear_uniform_rows;
+  int tx;
+  int ty;
   int i;
 
   PicoFramePacket_InitLandingSiteExtracted(&pkt);
@@ -601,6 +686,87 @@ int main(void) {
          (unsigned)kBg2StaleFill, bg2_stale, bg2_priority, bg2_win_words,
          bg2_win_tiles, (int)kBg2BandY0, (int)kBg2BandY1, bg2_band_colors);
 
+  /* Every packed row must be real backdrop. Uniform wallpaper -- one word
+   * repeated across all 64 columns -- is exactly the failure this bead is
+   * about, and the linear-64 control below scores 16 here. */
+  bg2_uniform_rows = map_uniform_rows(master_vram, (uint16_t)kBg2MapWord,
+                                      kBg2BandY0 / 8, kBg2BandY1 / 8);
+  /* The packer tiles one 32x32 screen twice, so the right screen must repeat
+   * the left. A fix that only repaired columns 0-31 fails here. */
+  bg2_right_screen_mismatch = 0;
+  for (ty = 0; ty < 32; ty++) {
+    for (tx = 0; tx < 32; tx++) {
+      if (map_word_at(master_vram, (uint16_t)kBg2MapWord, snes_map_index(tx, ty)) !=
+          map_word_at(master_vram, (uint16_t)kBg2MapWord, snes_map_index(tx + 32, ty)))
+        bg2_right_screen_mismatch++;
+    }
+  }
+
+  /* BG2 at the far end of its travel (half the BG1 rate, vofs locked): the
+   * second copy of the backdrop is on screen. */
+  memcpy(work_vram, master_vram, kPicoVramSize);
+  fill_map_transparent(work_vram, (uint16_t)kBg1MapWord);
+  pkt.vram = work_vram;
+  pkt.oam_full = 0;
+  pkt.bg1hofs = 0;
+  pkt.bg1vofs = 0;
+  pkt.bg2hofs = (uint16_t)kBg2MaxHofs;
+  pkt.bg2vofs = (uint16_t)kPicoLsBg2VerticalScroll;
+  raster_packet(&pkt, frame_bg2_scrolled);
+  (void)write_ppm("out/pico_ls_bg2_scrolled.ppm", frame_bg2_scrolled);
+  bg2_scrolled_band = band_unique_colors(frame_bg2_scrolled, kBg2BandY0, kBg2BandY1);
+
+  /* sm_rev-k5q.8: mini_renderer.c indexed this same .bin as a linear 64-wide
+   * map. Rebuild the window the way MiniAssetBootstrap_Bg2Word now does and
+   * require it to agree with the packer word for word, so a mini screenshot
+   * and out/pico_ls_composite.ppm are the same oracle again. */
+  expect_true("BG2 source bin readable", read_bg2_source(bg2_src));
+  bg2_live_screen = MiniAssetBootstrap_Bg2LiveScreen(bg2_src);
+  bg2_mini_mismatch = 0;
+  for (ty = 0; ty < 32; ty++) {
+    for (tx = 0; tx < 64; tx++) {
+      if (MiniAssetBootstrap_Bg2Word(bg2_src, bg2_live_screen, tx, ty) !=
+          map_word_at(master_vram, (uint16_t)kBg2MapWord, snes_map_index(tx, ty)))
+        bg2_mini_mismatch++;
+    }
+  }
+
+  /* Negative control: the old linear-64 reading, rastered and measured, so the
+   * assertions above are known to reject the bug and not merely to pass. */
+  memcpy(work_vram, master_vram, kPicoVramSize);
+  fill_map_transparent(work_vram, (uint16_t)kBg1MapWord);
+  for (ty = 0; ty < 32; ty++) {
+    for (tx = 0; tx < 64; tx++)
+      map_word_set(work_vram, (uint16_t)kBg2MapWord, snes_map_index(tx, ty),
+                   bg2_src[ty * 64 + tx]);
+  }
+  pkt.vram = work_vram;
+  pkt.oam_full = 0;
+  pkt.bg1hofs = 0;
+  pkt.bg1vofs = 0;
+  pkt.bg2hofs = 0;
+  pkt.bg2vofs = 0;
+  raster_packet(&pkt, frame_bg2_linear);
+  (void)write_ppm("out/pico_ls_bg2_linear64_bug.ppm", frame_bg2_linear);
+  bg2_linear_band = band_unique_colors(frame_bg2_linear, kBg2BandY0, kBg2BandY1);
+  bg2_linear_uniform_rows =
+      map_uniform_rows(work_vram, (uint16_t)kBg2MapWord, kBg2BandY0 / 8, kBg2BandY1 / 8);
+  /* Leave the packet as the composite pass left it: the run-frame check below
+   * rasters OBJ from this state. */
+  pkt.oam_full = 1;
+  pkt.bg1hofs = (uint16_t)kBootHofs;
+  pkt.bg1vofs = (uint16_t)kBootVofs;
+  pkt.bg2hofs = (uint16_t)kBootHofs;
+  pkt.bg2vofs = (uint16_t)kBootVofs;
+  printf("bg2 band_uniform_rows=%d right_screen_mismatch=%d scrolled(hofs=%d) "
+         "band_colors=%d\n",
+         bg2_uniform_rows, bg2_right_screen_mismatch, (int)kBg2MaxHofs,
+         bg2_scrolled_band);
+  printf("bg2 mini live_screen=%d mismatch_vs_packed=%d | linear-64 control "
+         "band_colors=%d uniform_rows=%d\n",
+         bg2_live_screen, bg2_mini_mismatch, bg2_linear_band,
+         bg2_linear_uniform_rows);
+
   magenta_count = 0;
   for (i = 0; i < kFramePx; i++) {
     if (frame_composite[i] == magenta)
@@ -641,6 +807,17 @@ int main(void) {
   expect_true("BG2 window has >= 100 unique tilemap words", bg2_win_words >= 100);
   expect_true("BG2 window has >= 90 unique tile indices", bg2_win_tiles >= 90);
   expect_true("BG2 band under the ship is not wallpaper", bg2_band_colors >= 10);
+  expect_true("no BG2 row under the ship is uniform wallpaper",
+              bg2_uniform_rows == 0);
+  expect_true("packed BG2 right screen repeats the left",
+              bg2_right_screen_mismatch == 0);
+  expect_true("BG2 is still real at the far end of its travel",
+              bg2_scrolled_band >= 10);
+  /* sm_rev-k5q.8 */
+  expect_true("BG2 source has exactly one live 32x32 screen", bg2_live_screen == 0);
+  expect_true("mini BG2 indexing matches the packed map", bg2_mini_mismatch == 0);
+  expect_true("the linear-64 reading is wallpaper these checks reject",
+              bg2_linear_band < 10 && bg2_linear_uniform_rows > 0);
   expect_true("composite magenta gone", magenta_count < 16);
   /* Word 0 is opaque tile 0. Air-fill isolation must not paint a full frame. */
   expect_true("BG1-only is not opaque tile-0 fill",
