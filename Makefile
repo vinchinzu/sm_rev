@@ -86,6 +86,7 @@ PICO_MOVE_TEST := sm_rev_pico_move_tileset_test
 PICO_LS_LAYERS_TEST := sm_rev_pico_ls_layers_test
 PICO_FEEL_TEST := sm_rev_pico_feel_test
 PICO_EXPLORER_BUTTONS_TEST := sm_rev_pico_explorer_buttons_test
+PICO_SAMUS_ANIM_LR_TEST := sm_rev_pico_samus_anim_lr_test
 PICO_KERNEL_LIB := libsm_rev_pico_kernel.a
 PICO_SDL_EXCLUDE_SRCS := src/config.c src/default_controls.c src/mini/mini_editor_path.c
 PICO_KERNEL_LIB_SRCS := $(filter-out $(PICO_SDL_EXCLUDE_SRCS),$(PICO_KERNEL_SRCS)) \
@@ -136,7 +137,7 @@ else
     SDLFLAGS := $(shell sdl2-config --libs) -lm
 endif
 
-.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-predict-test mini-predict-golden mini-wram-peek-test mini-predict-cli mini-rust-host mini-browser-lib mini-browser-server moddable moddable-test mini-enemy-obs-test mini-enemy-hookup-test mini-cli-enemy-test mini-emu-residual hm-test pico-kernel pico-kernel-test pico-kernel-size pico-kernel-rp2350 pico-explorer-test pico-move-test pico-ls-layers-test pico-feel-test pico-explorer-buttons-test pico-picotool pico-flash
+.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-predict-test mini-predict-golden mini-wram-peek-test mini-predict-cli mini-rust-host mini-browser-lib mini-browser-server moddable moddable-test mini-enemy-obs-test mini-enemy-hookup-test mini-cli-enemy-test mini-emu-residual hm-test pico-kernel pico-kernel-test pico-kernel-size pico-kernel-rp2350 pico-explorer-test pico-move-test pico-ls-layers-test pico-feel-test pico-explorer-buttons-test pico-samus-anim-lr-test pico-picotool pico-flash
 
 all: $(TARGET_EXEC)
 
@@ -371,9 +372,27 @@ $(PICO_EXPLORER_BUTTONS_TEST): tests/test_pico_explorer_buttons.c \
 		src/pico/explorer_buttons.c src/pico/pico_viewport.c \
 		-o $@ -L. -lsm_rev_pico_kernel $(PICO_LDFLAGS)
 
+# Sideline: sm_rev-17t. Left/right Samus animation parity: every packed pose's
+# bank 0x91 delay stream is inside the packed window, each L/R pair packs the
+# same frame count, a held Left animates as much as a held Right (standing and
+# morphball), and no pose mini can reach falls back to the static stand pose.
+pico-samus-anim-lr-test: $(PICO_SAMUS_ANIM_LR_TEST)
+	./$(PICO_SAMUS_ANIM_LR_TEST)
+
+$(PICO_SAMUS_ANIM_LR_TEST): tests/test_pico_samus_anim_lr.c \
+		src/pico/pico_oam_from_samus.c src/pico/pico_ls_room.c \
+		src/pico/pico_frame_packet.c src/pico/pico_ls_assets.c \
+		src/pico/scanline_mode1.c \
+		src/pico/assets/pico_samus_anim.inc $(PICO_KERNEL_LIB)
+	$(CC) $(PICO_CFLAGS) -Isrc/pico tests/test_pico_samus_anim_lr.c \
+		src/pico/pico_oam_from_samus.c src/pico/pico_ls_room.c \
+		src/pico/pico_frame_packet.c src/pico/pico_ls_assets.c \
+		src/pico/scanline_mode1.c \
+		-o $@ -L. -lsm_rev_pico_kernel $(PICO_LDFLAGS)
+
 clean: clean_obj
 clean_obj:
-	@$(RM) $(OBJS) $(TARGET_EXEC) $(MINI_TARGET_EXEC) $(MODDABLE_TARGET_EXEC) $(MINI_KERNEL_OBJS) $(MINI_KERNEL_LIB) $(MINI_BROWSER_LIB) $(MINI_ROLLBACK_TEST) $(MINI_PREDICT_TEST) $(MINI_PREDICT_GOLDEN) $(MINI_WRAM_PEEK_TEST) $(MINI_PREDICT_CLI) $(MINI_RUST_HOST) src/embedded/*.o src/embedded/*.c $(PICO_KERNEL_LIB_OBJS) $(PICO_KERNEL_LIB) $(PICO_TARGET_EXEC) $(PICO_KERNEL_TEST) $(PICO_MOVE_TEST) $(PICO_LS_LAYERS_TEST) $(PICO_FEEL_TEST) $(PICO_EXPLORER_BUTTONS_TEST) src/pico/*.pico.o
+	@$(RM) $(OBJS) $(TARGET_EXEC) $(MINI_TARGET_EXEC) $(MODDABLE_TARGET_EXEC) $(MINI_KERNEL_OBJS) $(MINI_KERNEL_LIB) $(MINI_BROWSER_LIB) $(MINI_ROLLBACK_TEST) $(MINI_PREDICT_TEST) $(MINI_PREDICT_GOLDEN) $(MINI_WRAM_PEEK_TEST) $(MINI_PREDICT_CLI) $(MINI_RUST_HOST) src/embedded/*.o src/embedded/*.c $(PICO_KERNEL_LIB_OBJS) $(PICO_KERNEL_LIB) $(PICO_TARGET_EXEC) $(PICO_KERNEL_TEST) $(PICO_MOVE_TEST) $(PICO_LS_LAYERS_TEST) $(PICO_FEEL_TEST) $(PICO_EXPLORER_BUTTONS_TEST) $(PICO_SAMUS_ANIM_LR_TEST) src/pico/*.pico.o
 	@$(RM) -r $(PICO2_BUILD_DIR) $(PICO2_EXPLORER_BUILD_DIR)
 
 test: all

@@ -23,7 +23,13 @@ enum {
   kPicoOamSamusBlobBgr555 = 0x7C1F, /* leftover magenta; must not appear */
   kPicoOamSamusCgramIndex = 192,
   kPicoOamSamusMaxSlots = 64,
-  kPicoOamSamusFallbackPose = 1 /* kPose_01_FaceR_Normal */
+  /* kPose_01_FaceR_Normal. This fallback keeps Samus on screen when the sim
+   * reaches a pose the packer skipped, but it is SILENT and it faces right, so
+   * a missing left-facing pose reads on glass as "moves without animating"
+   * (sm_rev-17t: 0x41, roll-left-on-the-ground, was unpacked). Nothing mini
+   * can reach may rely on it -- tests/test_pico_samus_anim_lr.c sweeps the
+   * reachable poses and fails if any of them lands here. */
+  kPicoOamSamusFallbackPose = 1
 };
 
 /* Non-zero when this pose has packed frames. */
