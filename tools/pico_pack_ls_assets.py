@@ -121,6 +121,20 @@ K_SAMUS_POSES = (
     (0x1D, "MorphR"),
     (0x1E, "MorphMoveR"),
     (0x1F, "MorphMoveL"),
+    # sm_rev-17t: 0x41 is 0x1D's LEFT-facing partner, and it is the pose mini
+    # actually uses to roll left on the ground (0x1F is never reached -- see
+    # tests/test_pico_samus_anim_lr.c). Leaving it out made every left-facing
+    # morphball frame resolve to kPicoOamSamusFallbackPose, i.e. a standing
+    # Samus that slides without animating. That was the reported on-glass bug.
+    (0x41, "MorphL"),
+    # The rest of the morphball family, so a hop or a (un)morph transition
+    # cannot land on an unpacked pose either.
+    (0x31, "MorphAirR"),
+    (0x32, "MorphAirL"),
+    (0x37, "MorphTransR"),
+    (0x38, "MorphTransL"),
+    (0x3D, "UnmorphTransR"),
+    (0x3E, "UnmorphTransL"),
     (0x27, "CrouchR"),
     (0x28, "CrouchL"),
     (0x35, "CrouchTransR"),
