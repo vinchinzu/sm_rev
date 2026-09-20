@@ -91,6 +91,34 @@ void MiniAssetBootstrap_PrimeEditorRoomFxAndMissingRomVisuals(const MiniEditorRo
                                                              bool load_bg2_visuals);
 void MiniAssetBootstrap_GetEditorTilesetView(MiniEditorTilesetView *view);
 void MiniAssetBootstrap_GetEditorBg2View(MiniEditorBg2View *view);
+
+/*
+ * sm_rev-k5q.8. The editor BG2 buffer is a raw image of BG2 VRAM
+ * 0x4800..0x4FFF. reg_BG2SC is 0x49 in gameplay (mini_ppu_stub.c): a 64x32
+ * map, which on the SNES is TWO 32x32 screens laid out sequentially (0x4800 =
+ * columns 0-31, 0x4C00 = columns 32-63), NOT a 64-wide linear array. Reading
+ * it linearly interleaves the two halves.
+ *
+ * Nothing fills both for the Landing Site: the bgdata record list at $8F:B76A
+ * is six door-dependent entries, each a single 0x800-byte (32x32) DMA -- five
+ * to 0x4800, door $89B2 to 0x4C00. The screen nobody wrote still holds
+ * game_init's memset of 0x2C0F (tile 0x0F, palette 3, priority 1), the uniform
+ * grey "wallpaper" that covered the bottom of the frame and painted over BG1.
+ */
+enum {
+  kMiniEditorBg2ScreenWords = 32 * 32
+};
+
+/* Word offset of the one live 32x32 screen (a screen nobody DMA'd is a single
+ * repeated word), or -1 when both carry content and the buffer really is a
+ * 64x32 map. */
+int MiniAssetBootstrap_Bg2LiveScreen(const uint16 *words);
+
+/* One BG2 tilemap word, wrapped. With a single live screen the 256x256 px
+ * backdrop repeats every 32 tiles in both axes, which is what vanilla shows;
+ * with a full 64x32 map, address it as the SNES does. */
+uint16 MiniAssetBootstrap_Bg2Word(const uint16 *words, int live_screen, int tile_x,
+                                  int tile_y);
 int MiniAssetBootstrap_GetEditorRoomSpriteViews(const MiniEditorRoomSpriteView **sprites);
 int MiniAssetBootstrap_GetEditorEnemySpawnViews(const MiniEditorEnemySpawnView **enemies);
 void MiniAssetBootstrap_GetEditorSamusRenderedSpritesView(MiniEditorSamusRenderedSpritesView *view);

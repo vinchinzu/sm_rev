@@ -225,9 +225,11 @@ static int MiniComputeEditorLayer2Pos(int layer1_pos, uint8 scroll_mode) {
 static void MiniRenderEditorBg2(uint32_t *pixels, int pitch_pixels, const MiniGameState *state,
                                 const MiniEditorTilesetView *tileset_view) {
   MiniEditorBg2View bg2_view;
+  int bg2_live_screen;
   MiniAssetBootstrap_GetEditorBg2View(&bg2_view);
   if (!bg2_view.loaded || bg2_view.tilemap_words == NULL || !tileset_view->loaded)
     return;
+  bg2_live_screen = MiniAssetBootstrap_Bg2LiveScreen(bg2_view.tilemap_words);
 
   int base_scroll_x = reg_BG2HOFS + MiniRoomFx_EditorBg2DriftX(state);
   int scroll_y = reg_BG2VOFS;
@@ -239,8 +241,9 @@ static void MiniRenderEditorBg2(uint32_t *pixels, int pitch_pixels, const MiniGa
     int first_tile_x = scroll_x / 8;
     int last_tile_x = (scroll_x + kMiniGameWidth + 7) / 8;
     for (int tile_x = first_tile_x; tile_x <= last_tile_x; tile_x++) {
-      int wrapped_x = tile_x & 63;
-      uint16 tile_attr = bg2_view.tilemap_words[wrapped_y * 64 + wrapped_x];
+      uint16 tile_attr =
+          MiniAssetBootstrap_Bg2Word(bg2_view.tilemap_words, bg2_live_screen, tile_x,
+                                     wrapped_y);
       int screen_x = tile_x * 8 - scroll_x;
       MiniRenderTileScanline(pixels, pitch_pixels, tileset_view->tiles4bpp, tileset_view->palette,
                              0, tile_attr, screen_x, screen_y, tile_row);

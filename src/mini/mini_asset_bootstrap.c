@@ -400,6 +400,45 @@ void MiniAssetBootstrap_GetEditorTilesetView(MiniEditorTilesetView *view) {
   };
 }
 
+/* A screen nobody DMA'd is one word repeated 1024 times: game_init's 0x2C0F
+ * fill, or whatever the previous room left behind. */
+static bool MiniBg2ScreenIsFlat(const uint16 *screen) {
+  int i;
+  for (i = 1; i < kMiniEditorBg2ScreenWords; i++) {
+    if (screen[i] != screen[0])
+      return false;
+  }
+  return true;
+}
+
+int MiniAssetBootstrap_Bg2LiveScreen(const uint16 *words) {
+  bool flat0;
+  bool flat1;
+
+  if (words == NULL)
+    return 0;
+  flat0 = MiniBg2ScreenIsFlat(words);
+  flat1 = MiniBg2ScreenIsFlat(words + kMiniEditorBg2ScreenWords);
+  if (flat0 == flat1)
+    return flat0 ? 0 : -1; /* both flat: nothing loaded. Neither: a real 64x32 */
+  return flat0 ? kMiniEditorBg2ScreenWords : 0;
+}
+
+uint16 MiniAssetBootstrap_Bg2Word(const uint16 *words, int live_screen, int tile_x,
+                                  int tile_y) {
+  int y = tile_y & 31;
+  int x;
+  int addr;
+
+  if (live_screen >= 0)
+    return words[(size_t)live_screen + (size_t)y * 32 + (size_t)(tile_x & 31)];
+  x = tile_x & 63;
+  addr = y * 32 + (x & 31);
+  if (x & 32)
+    addr += 0x400;
+  return words[(size_t)addr];
+}
+
 void MiniAssetBootstrap_GetEditorBg2View(MiniEditorBg2View *view) {
   *view = (MiniEditorBg2View){
     .loaded = g_mini_has_editor_bg2_assets,
