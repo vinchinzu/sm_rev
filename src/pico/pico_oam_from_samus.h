@@ -73,6 +73,14 @@ int PicoOam_InstallSamusBank91(void);
 /* pkt->vram must be writable. Plants the frame's 4bpp tiles + sprite pal 4. */
 int PicoOam_PlantSamusFrame(PicoFramePacket *pkt, int frame_index);
 
+/*
+ * Non-zero when the packed spritemap for frame_index is self-consistent: its
+ * 2-byte header and every 5-byte entry it declares lie inside the packed blob.
+ * PicoOam_WriteSamusFrame clamps to this at run time (sm_rev-khe); the host
+ * stress test asserts it for every frame so a bad re-pack fails on the host.
+ */
+int PicoOam_SamusSpritemapFits(int frame_index);
+
 /* Writes the frame's spritemap at origin (x, y) into slots 0..63. */
 void PicoOam_WriteSamusFrame(PicoFramePacket *pkt, int frame_index,
                              int screen_x, int screen_y);
