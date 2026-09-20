@@ -83,7 +83,9 @@ PICO_LDFLAGS := -lm -Wl,--gc-sections
 PICO_TARGET_EXEC := sm_rev_pico_kernel
 PICO_KERNEL_TEST := sm_rev_pico_kernel_test
 PICO_MOVE_TEST := sm_rev_pico_move_tileset_test
+PICO_LS_LAYERS_TEST := sm_rev_pico_ls_layers_test
 PICO_FEEL_TEST := sm_rev_pico_feel_test
+PICO_EXPLORER_BUTTONS_TEST := sm_rev_pico_explorer_buttons_test
 PICO_KERNEL_LIB := libsm_rev_pico_kernel.a
 PICO_SDL_EXCLUDE_SRCS := src/config.c src/default_controls.c src/mini/mini_editor_path.c
 PICO_KERNEL_LIB_SRCS := $(filter-out $(PICO_SDL_EXCLUDE_SRCS),$(PICO_KERNEL_SRCS)) \
@@ -98,7 +100,11 @@ PICO_SDK_PATH ?= /home/v/01_projects/13_hardware/pico/pico-sdk
 PICO2_BUILD_DIR := build/pico2
 PICO2_CMAKE_DIR := src/pico/rp2350
 PICO2_TARGET := sm_rev_pico2
-PICO2_PICOTOOL_DIR ?= /home/v/01_projects/13_hardware/pico/gameboy/build/_deps/picotool
+# Explorer ST7789 display-test sideline. Objects live in build/pico2-explorer/.
+PICO2_EXPLORER_BUILD_DIR := build/pico2-explorer
+PICO2_EXPLORER_CMAKE_DIR := src/pico/rp2350/explorer
+PICO2_EXPLORER_TARGET := sm_rev_pico_explorer_test
+PICO2_PICOTOOL_DIR ?= $(firstword $(wildcard $(HOME)/.local/lib/cmake/picotool) /home/v/01_projects/13_hardware/pico/gameboy/build/_deps/picotool)
 PICO2_PIOASM_DIR ?= /home/v/01_projects/13_hardware/pico/gameboy/build/pioasm-install/pioasm
 PICO2_SKIP_PACKAGES := extra/arm-none-eabi-gcc extra/arm-none-eabi-newlib extra/arm-none-eabi-binutils
 PICO2_ARM_GCC ?= $(shell command -v arm-none-eabi-gcc 2>/dev/null)
@@ -130,7 +136,7 @@ else
     SDLFLAGS := $(shell sdl2-config --libs) -lm
 endif
 
-.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-predict-test mini-predict-golden mini-wram-peek-test mini-predict-cli mini-rust-host mini-browser-lib mini-browser-server moddable moddable-test mini-enemy-obs-test mini-enemy-hookup-test mini-cli-enemy-test mini-emu-residual hm-test pico-kernel pico-kernel-test pico-kernel-size pico-kernel-rp2350 pico-move-test pico-feel-test
+.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-predict-test mini-predict-golden mini-wram-peek-test mini-predict-cli mini-rust-host mini-browser-lib mini-browser-server moddable moddable-test mini-enemy-obs-test mini-enemy-hookup-test mini-cli-enemy-test mini-emu-residual hm-test pico-kernel pico-kernel-test pico-kernel-size pico-kernel-rp2350 pico-explorer-test pico-move-test pico-ls-layers-test pico-feel-test pico-explorer-buttons-test pico-picotool pico-flash
 
 all: $(TARGET_EXEC)
 
@@ -287,17 +293,66 @@ else
 	@echo "UF2: $(PICO2_BUILD_DIR)/$(PICO2_TARGET).uf2"
 endif
 
+# Host picotool with libusb (no sudo). USB nodes still need install_picotool_udev.sh.
+pico-picotool:
+	src/pico/rp2350/install_picotool.sh
+
+# Flash serial 3973D48FD625B2E8 via picotool load -f -x (BOOTSEL MSC fallback).
+pico-flash: pico-kernel-rp2350
+	src/pico/rp2350/flash.sh $(PICO2_BUILD_DIR)/$(PICO2_TARGET).uf2
+
+# Sideline: Explorer ST7789 test UF2. Does not link the pico kernel / MiniCreate.
+# EXPLORER_FALLBACK_PINS=1 uses CircuitPython demo DC=GP20 RESET=GP21.
+pico-explorer-test:
+ifeq ($(PICO2_ARM_GCC),)
+	@echo "skip: pico-explorer-test: arm-none-eabi-gcc not found. Install Arch packages: $(PICO2_SKIP_PACKAGES)"
+else ifeq ($(wildcard $(PICO_SDK_PATH)/pico_sdk_init.cmake),)
+	@echo "skip: pico-explorer-test: PICO_SDK_PATH missing pico_sdk_init.cmake (tried $(PICO_SDK_PATH)). Install Arch packages: $(PICO2_SKIP_PACKAGES)"
+else
+	PATH="$(PICO2_ARM_GCC_DIR):$$PATH" PICO_SDK_PATH="$(PICO_SDK_PATH)" cmake -S $(PICO2_EXPLORER_CMAKE_DIR) -B $(PICO2_EXPLORER_BUILD_DIR) \
+	  -DPICO_SDK_PATH="$(PICO_SDK_PATH)" \
+	  -DPICO_BOARD=pico2 \
+	  -DCMAKE_BUILD_TYPE=Release \
+	  -DEXPLORER_FALLBACK_PINS=$(if $(filter 1,$(EXPLORER_FALLBACK_PINS)),ON,OFF) \
+	  $(if $(wildcard $(PICO2_PICOTOOL_DIR)/picotoolConfig.cmake),-Dpicotool_DIR="$(PICO2_PICOTOOL_DIR)") \
+	  $(if $(wildcard $(PICO2_PIOASM_DIR)/pioasmConfig.cmake),-Dpioasm_DIR="$(PICO2_PIOASM_DIR)")
+	PATH="$(PICO2_ARM_GCC_DIR):$$PATH" cmake --build $(PICO2_EXPLORER_BUILD_DIR) --target $(PICO2_EXPLORER_TARGET) -j
+	@echo "=== pico-explorer-test size (RP2350 / Pico 2; not kernel, not sm_rev_mini) ==="
+	PATH="$(PICO2_ARM_GCC_DIR):$$PATH" arm-none-eabi-size $(PICO2_EXPLORER_BUILD_DIR)/$(PICO2_EXPLORER_TARGET).elf
+	@echo "ELF: $(PICO2_EXPLORER_BUILD_DIR)/$(PICO2_EXPLORER_TARGET).elf"
+	@echo "UF2: $(PICO2_EXPLORER_BUILD_DIR)/$(PICO2_EXPLORER_TARGET).uf2"
+endif
+
 # Sideline: not a dependency of mini / all / test. Display TUs stay off PICO_KERNEL_LIB_SRCS.
 pico-move-test: $(PICO_MOVE_TEST)
 	./$(PICO_MOVE_TEST)
 
 $(PICO_MOVE_TEST): tests/test_pico_move_tileset.c src/pico/pico_oam_from_samus.c \
 		src/pico/pico_frame_wire.c src/pico/pico_frame_packet.c \
-		src/pico/pico_ls_assets.c src/pico/scanline_mode1.c $(PICO_KERNEL_LIB)
+		src/pico/pico_ls_assets.c src/pico/pico_ls_room.c \
+		src/pico/scanline_mode1.c \
+		src/pico/pico_viewport.c $(PICO_KERNEL_LIB)
 	$(CC) $(PICO_CFLAGS) -Isrc/pico tests/test_pico_move_tileset.c \
 		src/pico/pico_oam_from_samus.c src/pico/pico_frame_wire.c \
 		src/pico/pico_frame_packet.c src/pico/pico_ls_assets.c \
-		src/pico/scanline_mode1.c -o $@ -L. -lsm_rev_pico_kernel $(PICO_LDFLAGS)
+		src/pico/pico_ls_room.c \
+		src/pico/scanline_mode1.c src/pico/pico_viewport.c \
+		-o $@ -L. -lsm_rev_pico_kernel $(PICO_LDFLAGS)
+
+# Sideline: not a dependency of mini / all / test. Isolates packed LS layers.
+pico-ls-layers-test: $(PICO_LS_LAYERS_TEST)
+	mkdir -p out
+	./$(PICO_LS_LAYERS_TEST)
+
+$(PICO_LS_LAYERS_TEST): tests/test_pico_ls_layers.c src/pico/pico_ls_assets.c \
+		src/pico/pico_frame_packet.c src/pico/scanline_mode1.c \
+		src/pico/pico_oam_from_samus.c src/pico/pico_oam_gunship.c \
+		$(PICO_KERNEL_LIB)
+	$(CC) $(PICO_CFLAGS) -Isrc/pico tests/test_pico_ls_layers.c \
+		src/pico/pico_ls_assets.c src/pico/pico_frame_packet.c \
+		src/pico/scanline_mode1.c src/pico/pico_oam_from_samus.c \
+		src/pico/pico_oam_gunship.c \
+		-o $@ -L. -lsm_rev_pico_kernel $(PICO_LDFLAGS)
 
 # Sideline: not a dependency of mini / all / test.
 pico-feel-test: $(PICO_FEEL_TEST)
@@ -306,10 +361,20 @@ pico-feel-test: $(PICO_FEEL_TEST)
 $(PICO_FEEL_TEST): tests/test_pico_feel.c $(PICO_KERNEL_LIB)
 	$(CC) $(PICO_CFLAGS) tests/test_pico_feel.c -o $@ -L. -lsm_rev_pico_kernel $(PICO_LDFLAGS)
 
+# Sideline: Explorer A/B/X/Y mask → MiniStepButtons. No GPIO, not sm_rev_mini.
+pico-explorer-buttons-test: $(PICO_EXPLORER_BUTTONS_TEST)
+	./$(PICO_EXPLORER_BUTTONS_TEST)
+
+$(PICO_EXPLORER_BUTTONS_TEST): tests/test_pico_explorer_buttons.c \
+		src/pico/explorer_buttons.c src/pico/pico_viewport.c $(PICO_KERNEL_LIB)
+	$(CC) $(PICO_CFLAGS) -Isrc/pico tests/test_pico_explorer_buttons.c \
+		src/pico/explorer_buttons.c src/pico/pico_viewport.c \
+		-o $@ -L. -lsm_rev_pico_kernel $(PICO_LDFLAGS)
+
 clean: clean_obj
 clean_obj:
-	@$(RM) $(OBJS) $(TARGET_EXEC) $(MINI_TARGET_EXEC) $(MODDABLE_TARGET_EXEC) $(MINI_KERNEL_OBJS) $(MINI_KERNEL_LIB) $(MINI_BROWSER_LIB) $(MINI_ROLLBACK_TEST) $(MINI_PREDICT_TEST) $(MINI_PREDICT_GOLDEN) $(MINI_WRAM_PEEK_TEST) $(MINI_PREDICT_CLI) $(MINI_RUST_HOST) src/embedded/*.o src/embedded/*.c $(PICO_KERNEL_LIB_OBJS) $(PICO_KERNEL_LIB) $(PICO_TARGET_EXEC) $(PICO_KERNEL_TEST) $(PICO_MOVE_TEST) $(PICO_FEEL_TEST) src/pico/*.pico.o
-	@$(RM) -r $(PICO2_BUILD_DIR)
+	@$(RM) $(OBJS) $(TARGET_EXEC) $(MINI_TARGET_EXEC) $(MODDABLE_TARGET_EXEC) $(MINI_KERNEL_OBJS) $(MINI_KERNEL_LIB) $(MINI_BROWSER_LIB) $(MINI_ROLLBACK_TEST) $(MINI_PREDICT_TEST) $(MINI_PREDICT_GOLDEN) $(MINI_WRAM_PEEK_TEST) $(MINI_PREDICT_CLI) $(MINI_RUST_HOST) src/embedded/*.o src/embedded/*.c $(PICO_KERNEL_LIB_OBJS) $(PICO_KERNEL_LIB) $(PICO_TARGET_EXEC) $(PICO_KERNEL_TEST) $(PICO_MOVE_TEST) $(PICO_LS_LAYERS_TEST) $(PICO_FEEL_TEST) $(PICO_EXPLORER_BUTTONS_TEST) src/pico/*.pico.o
+	@$(RM) -r $(PICO2_BUILD_DIR) $(PICO2_EXPLORER_BUILD_DIR)
 
 test: all
 	$(PYTHON) tests/run_tests.py -v

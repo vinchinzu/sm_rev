@@ -27,6 +27,7 @@ static int g_mini_world_ceiling;
 static int g_mini_world_floor;
 static bool g_mini_explicit_room_export_path;
 static bool g_mini_start_ceres;
+static const MiniBakedRoom *g_mini_baked_room;
 static MiniRoomInfo g_mini_room_info;
 
 static void MiniClampCamera(void);
@@ -228,6 +229,101 @@ void MiniStubs_SetRoomExportPath(const char *path) {
   MiniEditorBridge_SetRoomExportPath(path);
 }
 
+void MiniStubs_SetBakedRoom(const MiniBakedRoom *room) {
+  g_mini_baked_room = room;
+}
+
+const MiniBakedRoom *MiniStubs_GetBakedRoom(void) {
+  return g_mini_baked_room;
+}
+
+/*
+ * Same shape as MiniTryConfigureEditorRoom, minus the asset install: a baked
+ * room carries gameplay data only, and the display side of a no-filesystem
+ * target packs its own tiles. The room info still reports EditorExport so the
+ * runtime treats it as an authored room rather than a ROM one.
+ */
+static bool MiniTryConfigureBakedRoom(void) {
+  const MiniBakedRoom *room = g_mini_baked_room;
+  if (room == NULL || room->block_words == NULL || room->bts == NULL)
+    return false;
+  if (room->width_blocks <= 0 || room->height_blocks <= 0)
+    return false;
+  if ((size_t)room->width_blocks * (size_t)room->height_blocks > kMiniLevelDataCapacity)
+    return false;
+  if (!MiniContentScope_AllowsRoom(room->room_id))
+    return false;
+
+  room_ptr = room->room_id;
+  MiniInitializeScrollState(room->width_blocks, room->height_blocks);
+  up_scroller = room->export_up_scroller;
+  down_scroller = room->export_down_scroller;
+  if (room->scroll_values != NULL) {
+    int scroll_count = room_width_in_scrolls * room_height_in_scrolls;
+    if (scroll_count > 256)
+      scroll_count = 256;
+    memset(scrolls, 0, 256);
+    memcpy(scrolls, room->scroll_values, (size_t)scroll_count);
+  }
+
+  layer1_x_pos = room->camera_x;
+  layer1_y_pos = room->camera_y;
+  layer1_x_subpos = 0;
+  layer1_y_subpos = 0;
+  ideal_layer1_xpos = layer1_x_pos;
+  ideal_layer1_ypos = layer1_y_pos;
+  *(uint16 *)&layer2_scroll_x = (uint16)room->export_bg_scrolling;
+  CalculateLayer2Xpos();
+  CalculateLayer2Ypos();
+  bg2_x_scroll = 0;
+  bg2_y_scroll = 0;
+  CalculateBgScrolls();
+  samus_x_pos = (uint16)room->spawn_x;
+  samus_y_pos = (uint16)room->spawn_y;
+
+  memset(level_data, 0, sizeof(uint16) * kMiniLevelDataCapacity);
+  memset(BTS, 0, kMiniLevelDataCapacity);
+  for (int y = 0; y < room->height_blocks; y++) {
+    for (int x = 0; x < room->width_blocks; x++) {
+      size_t index = (size_t)y * (size_t)room->width_blocks + (size_t)x;
+      MiniWriteBlock(x, y, room->block_words[index], room->bts[index]);
+    }
+  }
+
+  g_mini_room_info = (MiniRoomInfo){
+    .has_room = true,
+    .uses_rom_room = false,
+    .booted_from_save_slot = false,
+    .has_editor_room_visuals = false,
+    .uses_original_gameplay_runtime = false,
+    .has_original_enemies = false,
+    .has_original_plms = false,
+    .samus_suit = kMiniSamusSuit_Power,
+    .room_id = room->room_id,
+    .room_source = kMiniRoomSource_EditorExport,
+    .room_left = 0,
+    .room_top = 0,
+    .room_right = room->width_blocks * kMiniBlockSize,
+    .room_bottom = room->height_blocks * kMiniBlockSize,
+    .room_width_blocks = room->width_blocks,
+    .room_height_blocks = room->height_blocks,
+    .camera_x = room->camera_x,
+    .camera_y = room->camera_y,
+    .spawn_x = room->spawn_x,
+    .spawn_y = room->spawn_y,
+    .camera_target_x_percent = room->camera_target_x_percent > 0
+        ? room->camera_target_x_percent
+        : kMiniCameraFollowDefaultTargetPercent,
+    .camera_target_y_percent = room->camera_target_y_percent > 0
+        ? room->camera_target_y_percent
+        : kMiniCameraFollowDefaultTargetPercent,
+  };
+  MiniSetRoomLabel(&g_mini_room_info, room->handle, room->name);
+  MiniApplyRoomInfoWorld();
+  MiniClampCamera();
+  return true;
+}
+
 void MiniStubs_SetStartHandle(const char *handle) {
   g_mini_start_ceres = handle != NULL && strcmp(handle, "ceres") == 0;
 }
@@ -247,6 +343,11 @@ void MiniStubs_RefreshRomRoomFromGlobals(void) {
 }
 
 void MiniStubs_ConfigureWorld(int viewport_width, int viewport_height) {
+  /* A baked room wins: on a target that registered one there is no filesystem
+   * to load an editor export from, and the fallback room is not the room. */
+  if (MiniTryConfigureBakedRoom())
+    return;
+
   if (BUILD_IS_MODDABLE) {
     if (MiniTryConfigureEditorRoom())
       return;

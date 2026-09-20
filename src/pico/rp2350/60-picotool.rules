@@ -1,0 +1,11 @@
+# Raspberry Pi Pico / RP2350: picotool USB + CDC without BOOTSEL unplug.
+# Install (one-time, needs root):
+#   sudo src/pico/rp2350/install_picotool_udev.sh
+#
+# MODE 0666 so this host does not need plugdev/uucp. TAG uaccess also grants
+# the active seat. Vendor 2e8a covers BOOTSEL (0003/000f), CDC (0009/000a/000b),
+# and the stdio_usb vendor reset interface picotool -f uses.
+
+SUBSYSTEM=="usb", ATTRS{idVendor}=="2e8a", MODE="0666", TAG+="uaccess"
+
+KERNEL=="ttyACM*", ATTRS{idVendor}=="2e8a", MODE="0666", TAG+="uaccess", GROUP="uucp"

@@ -4,6 +4,7 @@
 *.so
 *.dylib
 build/pico2/
+build/pico2-explorer/
 
 # Binaries
 sm_rev

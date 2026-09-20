@@ -5,6 +5,23 @@
 
 #include "sm_rtl.h"
 
+/*
+ * ROM bank 0x91 window ($91B000..$91BFFF): kPoseParams and the Samus animation
+ * delay data. See sm_rtl.h. Unlike the bank 0x92 blob below this is NOT copied
+ * -- on the Pico the source is a const array in flash and copying it would cost
+ * 4KB of the RAM budget for nothing. The caller owns the storage and must
+ * outlive every Samus frame.
+ */
+const uint8 *g_samus_bank91;
+
+void SamusBank91_Install(const uint8 *window, uint32 size) {
+  if (window != NULL && size != (uint32)kSamusBank91WindowSize) {
+    g_samus_bank91 = NULL;
+    return;
+  }
+  g_samus_bank91 = window;
+}
+
 static bool g_samus_asset_bridge_loaded;
 static uint8 g_samus_bank92[kSamusAssetBridgeBank92Size];
 static uint8 *g_samus_data;

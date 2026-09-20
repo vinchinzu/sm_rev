@@ -24,6 +24,15 @@ include("${PICO_KERNEL_SRCS_CMAKE}")
 
 add_executable(sm_rev_pico2
   ${CMAKE_CURRENT_LIST_DIR}/pico2_main.c
+  ${CMAKE_CURRENT_LIST_DIR}/st7789_explorer.c
+  ${SM_REV_ROOT}/src/pico/explorer_buttons.c
+  ${SM_REV_ROOT}/src/pico/pico_viewport.c
+  ${SM_REV_ROOT}/src/pico/pico_oam_from_samus.c
+  ${SM_REV_ROOT}/src/pico/pico_oam_gunship.c
+  ${SM_REV_ROOT}/src/pico/pico_ls_assets.c
+  ${SM_REV_ROOT}/src/pico/pico_ls_room.c
+  ${SM_REV_ROOT}/src/pico/pico_frame_packet.c
+  ${SM_REV_ROOT}/src/pico/scanline_mode1.c
   ${PICO_KERNEL_LIB_SRCS}
 )
 
@@ -31,6 +40,8 @@ target_include_directories(sm_rev_pico2 PRIVATE
   ${SM_REV_ROOT}
   ${SM_REV_ROOT}/src
   ${SM_REV_ROOT}/src/mini
+  ${SM_REV_ROOT}/src/pico
+  ${CMAKE_CURRENT_LIST_DIR}
 )
 target_compile_options(sm_rev_pico2 PRIVATE
   -O2
@@ -47,13 +58,21 @@ target_compile_options(sm_rev_pico2 PRIVATE
 )
 
 # Heap 64KiB for MiniCreate. Keep default 2KiB stack: RP2350 SCRATCH_Y is 4KiB.
+# USB CDC + vendor reset iface so `picotool load -f -x` can force BOOTSEL.
 target_compile_definitions(sm_rev_pico2 PRIVATE
   CURRENT_BUILD=BUILD_PICO
   SYSTEM_VOLUME_MIXER_AVAILABLE=0
   PICO_HEAP_SIZE=0x10000
+  PICO_STDIO_USB_ENABLE_RESET_VIA_VENDOR_INTERFACE=1
+  PICO_STDIO_USB_ENABLE_RESET_VIA_BAUD_RATE=1
 )
 
-target_link_libraries(sm_rev_pico2 pico_stdlib)
+target_link_libraries(sm_rev_pico2
+  pico_stdlib
+  hardware_spi
+  hardware_pwm
+  hardware_dma
+)
 
 pico_enable_stdio_usb(sm_rev_pico2 1)
 pico_enable_stdio_uart(sm_rev_pico2 1)

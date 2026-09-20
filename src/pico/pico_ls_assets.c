@@ -4,6 +4,19 @@
 
 #include "assets/pico_ls_extracted.inc"
 
+_Static_assert((int)kPicoLsExtractCameraX == (int)kPicoLsCameraX,
+               "extract X must match packed LS origin");
+_Static_assert((int)kPicoLsExtractCameraY == (int)kPicoLsCameraY,
+               "extract Y must match packed LS origin");
+_Static_assert((int)kPicoLsRoomSpawnX == (int)kPicoLsSpawnX,
+               "spawn X must match room_91F8.json");
+_Static_assert((int)kPicoLsRoomSpawnY == (int)kPicoLsSpawnY,
+               "spawn Y must match room_91F8.json");
+_Static_assert((int)kPicoLsBg2VerticalScroll == (int)kPicoLsBg2Vofs,
+               "BG2 vofs must match the row the packer expanded from");
+_Static_assert((int)kPicoLsBg2ScrollX == 0x81 && (int)kPicoLsBg2ScrollY == 0x01,
+               "BG2 is half-rate horizontally and locked vertically");
+
 enum {
   kTileBytes4bpp = 32,
   kLsInidisp = 0x0F,
@@ -36,11 +49,16 @@ size_t PicoLsAssets_UnpackedSourceSize(void) {
 }
 
 void PicoFramePacket_InitLandingSiteExtracted(PicoFramePacket *pkt) {
+  int i;
+
   if (pkt == NULL)
     return;
 
   memset(pkt, 0, sizeof(*pkt));
   memset(s_ls_vram, 0, sizeof(s_ls_vram));
+  /* Park unused OAM: Y=224 is off-screen so tile 0 does not draw. */
+  for (i = 0; i < kPicoSpriteCount; i++)
+    pkt->oam[(size_t)i * 4u + 1u] = 224;
 
   memcpy(s_ls_vram, kPicoLsTiles4bpp, sizeof(kPicoLsTiles4bpp));
   copy_words_le(s_ls_vram, kLsBg2MapWord, kPicoLsBg2Tilemap, kPicoLsPackedTilemapWords);

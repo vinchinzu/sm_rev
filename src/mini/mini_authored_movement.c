@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 
+#include "funcs.h"
 #include "ida_types.h"
 #include "mini_door_transition.h"
 #include "physics_config.h"
@@ -358,11 +359,51 @@ static bool MiniAuthoredTryDoorwayTransition(MiniGameState *state) {
   return true;
 }
 
+/*
+ * The animation clock (sm_rev-k5q.6).
+ *
+ * This path replaces the vanilla Samus frame handlers outright: MiniStepGameplay
+ * calls MiniAuthoredMovement_Step() instead of HandleSamusMovementAndPause(), so
+ * frame_handler_beta is never dispatched and Samus_Animate() never ran. That is
+ * why samus_anim_frame sat at 0 for a whole walk and Samus slid. Authored
+ * movement owns position and pose; the clock below is the vanilla one, reading
+ * the real per-pose delay bytes out of ROM bank 0x91.
+ *
+ * Gate: only when the packed bank 0x91 window is installed. A ROM build reaches
+ * this code only for editor-export rooms, where the frame counter has always
+ * been frozen; changing that is not this bead's business.
+ */
+static bool MiniAuthoredAnimClockAvailable(void) {
+  return g_samus_bank91 != NULL;
+}
+
+static void MiniAuthoredSeedAnimClock(void) {
+  samus_anim_frame_skip = 0;
+  samus_anim_frame = 0;
+  samus_anim_frame_timer = 1;
+  if (!MiniAuthoredAnimClockAvailable())
+    return;
+  /* Samus_SetAnimationFrameIfPoseChanged() only fires on a pose change, and on
+   * the first frame there is no previous pose. Seed it the same way it would. */
+  samus_prev_pose = samus_pose;
+  samus_anim_frame_timer =
+      samus_x_speed_divisor + *RomPtr_91(kSamusAnimationDelayData[samus_pose]);
+}
+
+void MiniAuthoredMovement_StepAnimation(void) {
+  if (!MiniAuthoredAnimClockAvailable())
+    return;
+  Samus_SetAnimationFrameIfPoseChanged();
+  Samus_UpdatePreviousPose_0();
+  Samus_Animate();
+}
+
 void MiniAuthoredMovement_InitializeSamusGlobals(void) {
   samus_x_radius = kMiniAuthoredSamusXRadius;
   samus_y_radius = kMiniAuthoredSamusYRadius;
   samus_pose = kPose_01_FaceR_Normal;
   samus_movement_type = kMovementType_00_Standing;
+  MiniAuthoredSeedAnimClock();
   MiniAuthoredClearBomb();
 }
 
@@ -456,6 +497,7 @@ void MiniAuthoredMovement_Step(MiniGameState *state) {
   samus_y_pos = state->samus.world_y;
   samus_pose = state->samus.pose;
   samus_movement_type = state->samus.movement_type;
+  MiniAuthoredMovement_StepAnimation();
   if (!doorway_transitioned)
     MiniAuthoredFollowCamera(state);
 }

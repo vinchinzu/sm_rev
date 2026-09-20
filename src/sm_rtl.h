@@ -47,6 +47,42 @@ static inline const uint8 *RomFixedPtr(uint32_t addr) { return &g_rom[(((addr >>
 
 #define GET_BYTE(p) (*(uint8*)(p))
 
+/*
+ * ROM bank 0x91 stand-in (sm_rev-k5q.6). The Pico has no ROM image: g_rom is
+ * NULL there, so every RomFixedPtr(0x91....) below would dereference NULL and
+ * the two tables the Samus path needs -- kPoseParams and the animation delay
+ * data -- could not be read at all. tools/pico_pack_ls_assets.py packs the one
+ * 4KB window of bank 0x91 that carries both ($91B000..$91BFFF) and the Pico
+ * installs it here. Nothing is installed in a ROM build, so those builds keep
+ * reading g_rom exactly as before.
+ *
+ * Deliberately narrow: an address outside the window falls through to g_rom, so
+ * a bank 0x91 read this window does not cover fails loudly on the Pico instead
+ * of quietly returning the wrong bytes.
+ */
+enum {
+  kSamusBank91WindowBase = 0xB000,
+  kSamusBank91WindowSize = 0x1000,
+};
+extern const uint8 *g_samus_bank91;
+void SamusBank91_Install(const uint8 *window, uint32 size);
+
+static inline const uint8 *SamusBank91Window(uint16_t addr) {
+  if (g_samus_bank91 == NULL)
+    return NULL;
+  if ((unsigned)(addr - (unsigned)kSamusBank91WindowBase) >= (unsigned)kSamusBank91WindowSize)
+    return NULL;
+  return g_samus_bank91 + (addr - (unsigned)kSamusBank91WindowBase);
+}
+
+/* RomFixedPtr for bank 0x91, honouring the packed window. The extra parens
+ * around the argument matter: RomFixedPtr() does not parenthesise `addr`, and
+ * `>>` binds tighter than `|`. */
+static inline const uint8 *Bank91FixedPtr(uint16_t addr) {
+  const uint8 *p = SamusBank91Window(addr);
+  return p != NULL ? p : RomFixedPtr((0x910000u | (uint32_t)addr));
+}
+
 const uint8 *RomPtr(uint32_t addr);
 static inline uint8 *RomPtr_RAM(uint16_t addr) { assert(addr < 0x2000); return g_ram + addr; }
 static inline const uint8 *RomPtr_80(uint16_t addr) { return RomPtr(0x800000 | addr); }
@@ -66,7 +102,10 @@ static inline const uint8 *RomPtr_8D(uint16_t addr) { return RomPtr(0x8d0000 | a
 static inline const uint8 *RomPtr_8E(uint16_t addr) { return RomPtr(0x8e0000 | addr); }
 static inline const uint8 *RomPtr_8F(uint16_t addr) { return RomPtr(0x8f0000 | addr); }
 static inline const uint8 *RomPtr_90(uint16_t addr) { return RomPtr(0x900000 | addr); }
-static inline const uint8 *RomPtr_91(uint16_t addr) { return RomPtr(0x910000 | addr); }
+static inline const uint8 *RomPtr_91(uint16_t addr) {
+  const uint8 *p = SamusBank91Window(addr);
+  return p != NULL ? p : RomPtr(0x910000 | addr);
+}
 static inline const uint8 *RomPtr_92(uint16_t addr) { return RomPtr(0x920000 | addr); }
 static inline const uint8 *RomPtr_93(uint16_t addr) { return RomPtr(0x930000 | addr); }
 static inline const uint8 *RomPtr_94(uint16_t addr) { return RomPtr(0x940000 | addr); }
@@ -156,7 +195,7 @@ struct VramWriteEntry;
 
 PairU16 MakePairU16(uint16 k, uint16 j);
 
-#define kPoseParams ((SamusPoseParams*)RomFixedPtr(0x91b629))
+#define kPoseParams ((SamusPoseParams*)Bank91FixedPtr(0xb629))
 #define kAtmosphericGraphicAnimationTimers ((uint16*)RomFixedPtr(0x908b93))
 #define kAtmosphericTypeNumFrames ((uint16*)RomFixedPtr(0x908bef))
 #define g_off_908BFF ((uint16*)RomFixedPtr(0x908bff))
@@ -166,11 +205,11 @@ PairU16 MakePairU16(uint16 k, uint16 j);
 extern const int16 kSinCosTable8bit_Sext[320];
 #define kPoseTransitionTable ((uint16*)RomFixedPtr(0x919ee2))
 #define kDemoSetDefPtrs ((uint16*)RomFixedPtr(0x918885))
-#define kSpeedBoostToCtr ((uint16*)RomFixedPtr(0x91b61f))
-#define kSpeedBoostToAnimFramePtr ((uint16 *)RomFixedPtr(0x91B5DE))
+#define kSpeedBoostToCtr ((uint16*)Bank91FixedPtr(0xb61f))
+#define kSpeedBoostToAnimFramePtr ((uint16 *)Bank91FixedPtr(0xB5DE))
 #define kSamusPoseToBaseSpritemapIndexTop ((uint16*)RomFixedPtr(0x929263))
 #define kSamusPoseToBaseSpritemapIndexBottom ((uint16*)RomFixedPtr(0x92945d))
-#define kSamusAnimationDelayData ((uint16*)RomFixedPtr(0x91b010))
+#define kSamusAnimationDelayData ((uint16*)Bank91FixedPtr(0xb010))
 #define kCommonEnemySpeeds_Linear ((uint16*)RomFixedPtr(0xa28187))
 #define kCommonEnemySpeeds_Quadratic ((uint16*)RomFixedPtr(0xa2838f))
 #define kCommonEnemySpeeds_Quadratic32 ((uint32*)RomFixedPtr(0xa0cbc7))

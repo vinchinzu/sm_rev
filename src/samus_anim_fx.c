@@ -91,7 +91,7 @@ static Func_V *const kSamus_FootstepGraphics[8] = {  // 0x90ED88
   Samus_FootstepGraphics_1,
 };
 
-#define kDefaultAnimFramePtr ((uint16 *)RomFixedPtr(0x91B5D1))
+#define kDefaultAnimFramePtr ((uint16 *)Bank91FixedPtr(0xB5D1))
 
 void Samus_Animate(void) {  // 0x908000
   kSamusFxHandlers[(fx_type & 0xF) >> 1]();

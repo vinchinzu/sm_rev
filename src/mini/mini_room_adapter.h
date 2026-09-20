@@ -68,6 +68,36 @@ typedef struct MiniRoomInfo {
   MiniDoorwayTransition doorways[kMiniDoorwayTransitionCapacity];
 } MiniRoomInfo;
 
+/*
+ * A room compiled into the binary, for targets with no filesystem to read an
+ * editor export from. Registering one makes MiniStubs_ConfigureWorld use it in
+ * place of the built-in fallback room, so the collision the player sees drawn
+ * is the collision the physics runs on.
+ *
+ * block_words is width_blocks * height_blocks block words, row-major, with the
+ * collision type in the top nibble exactly as an editor export carries it; bts
+ * is the matching byte per block. Both must outlive every MiniGameState.
+ */
+typedef struct MiniBakedRoom {
+  uint16 room_id;
+  const char *handle;
+  const char *name;
+  int width_blocks;
+  int height_blocks;
+  const uint16 *block_words;
+  const uint8 *bts;
+  const uint8 *scroll_values;  /* (width_blocks/16) * (height_blocks/16), or NULL */
+  int export_up_scroller;
+  int export_down_scroller;
+  int export_bg_scrolling;
+  int camera_x;
+  int camera_y;
+  int spawn_x;
+  int spawn_y;
+  int camera_target_x_percent;
+  int camera_target_y_percent;
+} MiniBakedRoom;
+
 typedef struct MiniCollisionMapView {
   int block_size;
   int width_blocks;
@@ -88,6 +118,9 @@ typedef struct MiniStubsSnapshot {
 } MiniStubsSnapshot;
 
 void MiniStubs_SetRoomExportPath(const char *path);
+/* NULL clears it. Call before MiniCreate; it is read at world configure. */
+void MiniStubs_SetBakedRoom(const MiniBakedRoom *room);
+const MiniBakedRoom *MiniStubs_GetBakedRoom(void);
 void MiniStubs_SetStartHandle(const char *handle);
 void MiniStubs_ConfigureWorld(int viewport_width, int viewport_height);
 void MiniStubs_RefreshRomRoomFromGlobals(void);

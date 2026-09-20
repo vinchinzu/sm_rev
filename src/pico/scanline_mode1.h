@@ -51,6 +51,17 @@ uint16_t PicoBgr555ToRgb565(uint16_t bgr555);
 /* Render scanline y (0..223) into out256[256] as RGB565. */
 void PicoScanline_Mode1(const PicoPpuState *ppu, int y, uint16_t *out256);
 
+/*
+ * As PicoScanline_Mode1, but only computes columns [x0, x1) of the line.
+ * Pixels are still written at their absolute index in out256, and columns
+ * outside the range are left untouched -- so a caller that only ever reads a
+ * sub-range (the 240-column Explorer panel drops x 0..7 and 248..255) can skip
+ * the raster work for the columns it throws away. x0/x1 are clamped to
+ * [0, 256]; Mode1() is exactly Mode1Range(..., 0, 256).
+ */
+void PicoScanline_Mode1Range(const PicoPpuState *ppu, int y, uint16_t *out256,
+                             int x0, int x1);
+
 #ifdef __cplusplus
 }
 #endif
