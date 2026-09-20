@@ -89,6 +89,7 @@ PICO_EXPLORER_BUTTONS_TEST := sm_rev_pico_explorer_buttons_test
 PICO_SAMUS_ANIM_LR_TEST := sm_rev_pico_samus_anim_lr_test
 PICO_MORPH_TEST := sm_rev_pico_morph_input_test
 PICO_LOCKUP_TEST := sm_rev_pico_lockup_stress_test
+PICO_DISPLAY_TEST := sm_rev_pico_display_capture_test
 # sm_rev-khe: the lockup hunt wants the sanitizers, since the bug class it is
 # looking for is out-of-bounds. libsm_rev_pico_kernel.a is not instrumented, so
 # this catches bad accesses in the pico display TUs (the raster, the packer, the
@@ -144,7 +145,7 @@ else
     SDLFLAGS := $(shell sdl2-config --libs) -lm
 endif
 
-.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-predict-test mini-predict-golden mini-wram-peek-test mini-predict-cli mini-rust-host mini-browser-lib mini-browser-server moddable moddable-test mini-enemy-obs-test mini-enemy-hookup-test mini-cli-enemy-test mini-emu-residual hm-test pico-kernel pico-kernel-test pico-kernel-size pico-kernel-rp2350 pico-explorer-test pico-move-test pico-ls-layers-test pico-feel-test pico-explorer-buttons-test pico-samus-anim-lr-test pico-morph-test pico-lockup-test pico-picotool pico-flash
+.PHONY: all clean clean_obj run test test-fast mini mini-test mini-mac mini-rollback-test mini-predict-test mini-predict-golden mini-wram-peek-test mini-predict-cli mini-rust-host mini-browser-lib mini-browser-server moddable moddable-test mini-enemy-obs-test mini-enemy-hookup-test mini-cli-enemy-test mini-emu-residual hm-test pico-kernel pico-kernel-test pico-kernel-size pico-kernel-rp2350 pico-explorer-test pico-move-test pico-ls-layers-test pico-feel-test pico-explorer-buttons-test pico-samus-anim-lr-test pico-morph-test pico-lockup-test pico-display-test pico-picotool pico-flash
 
 all: $(TARGET_EXEC)
 
@@ -431,9 +432,25 @@ $(PICO_MORPH_TEST): tests/test_pico_morph_input.c \
 		src/pico/pico_frame_packet.c src/pico/pico_frame_wire.c \
 		-o $@ -L. -lsm_rev_pico_kernel $(PICO_LDFLAGS)
 
+# Sideline: sm_rev-k5q.11 display-driver seam. Capture adapter only; not
+# sm_rev_mini, not the UF2, not a dependency of mini / all / test.
+pico-display-test: $(PICO_DISPLAY_TEST)
+	mkdir -p out
+	./$(PICO_DISPLAY_TEST)
+
+$(PICO_DISPLAY_TEST): tests/test_pico_display_capture.c \
+		src/pico/pico_display_capture.c src/pico/pico_frame_packet.c \
+		src/pico/pico_ls_assets.c src/pico/scanline_mode1.c \
+		src/pico/pico_viewport.c
+	$(CC) $(PICO_CFLAGS) -Isrc/pico tests/test_pico_display_capture.c \
+		src/pico/pico_display_capture.c src/pico/pico_frame_packet.c \
+		src/pico/pico_ls_assets.c src/pico/scanline_mode1.c \
+		src/pico/pico_viewport.c \
+		-o $@ $(PICO_LDFLAGS)
+
 clean: clean_obj
 clean_obj:
-	@$(RM) $(OBJS) $(TARGET_EXEC) $(MINI_TARGET_EXEC) $(MODDABLE_TARGET_EXEC) $(MINI_KERNEL_OBJS) $(MINI_KERNEL_LIB) $(MINI_BROWSER_LIB) $(MINI_ROLLBACK_TEST) $(MINI_PREDICT_TEST) $(MINI_PREDICT_GOLDEN) $(MINI_WRAM_PEEK_TEST) $(MINI_PREDICT_CLI) $(MINI_RUST_HOST) src/embedded/*.o src/embedded/*.c $(PICO_KERNEL_LIB_OBJS) $(PICO_KERNEL_LIB) $(PICO_TARGET_EXEC) $(PICO_KERNEL_TEST) $(PICO_MOVE_TEST) $(PICO_LS_LAYERS_TEST) $(PICO_FEEL_TEST) $(PICO_EXPLORER_BUTTONS_TEST) $(PICO_SAMUS_ANIM_LR_TEST) $(PICO_MORPH_TEST) $(PICO_LOCKUP_TEST) src/pico/*.pico.o
+	@$(RM) $(OBJS) $(TARGET_EXEC) $(MINI_TARGET_EXEC) $(MODDABLE_TARGET_EXEC) $(MINI_KERNEL_OBJS) $(MINI_KERNEL_LIB) $(MINI_BROWSER_LIB) $(MINI_ROLLBACK_TEST) $(MINI_PREDICT_TEST) $(MINI_PREDICT_GOLDEN) $(MINI_WRAM_PEEK_TEST) $(MINI_PREDICT_CLI) $(MINI_RUST_HOST) src/embedded/*.o src/embedded/*.c $(PICO_KERNEL_LIB_OBJS) $(PICO_KERNEL_LIB) $(PICO_TARGET_EXEC) $(PICO_KERNEL_TEST) $(PICO_MOVE_TEST) $(PICO_LS_LAYERS_TEST) $(PICO_FEEL_TEST) $(PICO_EXPLORER_BUTTONS_TEST) $(PICO_SAMUS_ANIM_LR_TEST) $(PICO_MORPH_TEST) $(PICO_LOCKUP_TEST) $(PICO_DISPLAY_TEST) src/pico/*.pico.o
 	@$(RM) -r $(PICO2_BUILD_DIR) $(PICO2_EXPLORER_BUILD_DIR)
 
 test: all

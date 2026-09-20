@@ -96,7 +96,7 @@ static PicoFramePacket g_pkt;
 static uint16_t g_line256[kPicoScreenWidth];
 static uint16_t g_line240[kPicoPanelWidth];
 
-/* Exactly what present_frame() does on the Pico, minus the panel. */
+/* Exactly what PicoDisplay_Present does on the ST7789 adapter, minus the panel. */
 static void raster_frame(const PicoFramePacket *pkt) {
   PicoPpuState ppu;
   int y;

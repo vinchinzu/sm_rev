@@ -10,17 +10,13 @@
 #include "explorer_buttons.h"
 #include "ida_types.h"
 #include "mini/mini_game.h"
+#include "pico_display.h"
 #include "pico_ls_assets.h"
 #include "pico_ls_room.h"
 #include "pico_oam_from_samus.h"
 #include "pico_oam_gunship.h"
-#include "pico_viewport.h"
 #include "sm_rtl.h"
-#include "st7789_explorer.h"
 #include "variables.h"
-
-#define RGB565(r, g, b) \
-  ((uint16_t)((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | (((b) & 0xF8) >> 3)))
 
 enum {
   kPico2ViewportWidth = 256,
@@ -358,56 +354,6 @@ static void pack_from_samus(PicoFramePacket *pkt, uint32_t frame_id,
   PicoOam_WriteGunship(pkt, -(int)pkt->bg1hofs, -(int)pkt->bg1vofs);
 }
 
-static void present_frame(const PicoFramePacket *pkt, uint32_t *raster_us,
-                          uint32_t *spi_us) {
-  PicoPpuState ppu;
-  /* static: ~1KB of line buffers would not fit the default 2KiB stack. */
-  static uint16_t line256[kPicoScreenWidth];
-  static uint16_t line240[kPicoPanelWidth];
-  uint64_t t;
-  int y;
-
-  PicoFramePacket_ToPpu(pkt, &ppu);
-  *raster_us = 0;
-  *spi_us = 0;
-
-  t = time_us_64();
-  crumb(kCrumbBegin);
-  St7789Explorer_BeginFrame();
-  for (y = 0; y < kPicoViewportLetterboxY; y++)
-    St7789Explorer_WriteSolidLine(0, kPicoPanelWidth);
-  *spi_us += (uint32_t)(time_us_64() - t);
-
-  for (y = 0; y < kPicoScreenHeight; y++) {
-    /* Scanline in the high half so a watchdog reboot names the exact line. */
-    watchdog_hw->scratch[3] =
-        (watchdog_hw->scratch[3] & 0xFFFFu) | ((uint32_t)y << 16);
-    crumb(kCrumbRaster);
-    t = time_us_64();
-    /* sm_rev-k5q.7 item 6: the panel only ever shows columns 8..247, and
-     * PicoViewport_CropLineRgb565 throws the other 16 away. Raster the 240
-     * that survive. The columns outside the range keep whatever line256 held;
-     * nothing reads them. Host renders still call PicoScanline_Mode1 and stay
-     * 256 wide and byte-identical. */
-    PicoScanline_Mode1Range(&ppu, y, line256, kPicoViewportCropX,
-                            kPicoViewportCropX + kPicoPanelWidth);
-    PicoViewport_CropLineRgb565(line256, line240);
-    *raster_us += (uint32_t)(time_us_64() - t);
-
-    crumb(kCrumbLine);
-    t = time_us_64();
-    St7789Explorer_WriteRgb565Line(line240, kPicoPanelWidth);
-    *spi_us += (uint32_t)(time_us_64() - t);
-  }
-
-  t = time_us_64();
-  crumb(kCrumbEnd);
-  for (y = 0; y < kPicoViewportLetterboxY; y++)
-    St7789Explorer_WriteSolidLine(0, kPicoPanelWidth);
-  St7789Explorer_EndFrame();
-  *spi_us += (uint32_t)(time_us_64() - t);
-}
-
 int main(void) {
   MiniGameState *state;
   uint32_t frame = 0;
@@ -429,9 +375,7 @@ int main(void) {
 
   explorer_buttons_init();
   ExplorerButtons_Init(&s_buttons);
-  St7789Explorer_Init();
-  /* Black, not magenta: a boot hang must not look like the old ship-1 fill. */
-  St7789Explorer_Fill(RGB565(0, 0, 0));
+  PicoDisplay_Init();
 
   /* Before MiniCreate: with no filesystem on-device, this is the only way
    * mini gets Landing Site collision instead of its flat fallback room. */
@@ -502,8 +446,7 @@ int main(void) {
     uint64_t t;
     uint32_t step_us;
     uint32_t pack_us;
-    uint32_t raster_us;
-    uint32_t spi_us;
+    PicoDisplayStats disp;
 
     crumb_state(frame, s_last_frame_index, joy);
     crumb(kCrumbStep);
@@ -518,12 +461,12 @@ int main(void) {
     /* Refresh now that the sim has moved and the frame index is resolved. */
     crumb_state(frame, s_last_frame_index, joy);
 
-    present_frame(&s_pkt, &raster_us, &spi_us);
+    PicoDisplay_Present(&s_pkt, &disp);
 
     acc_step += step_us;
     acc_pack += pack_us;
-    acc_raster += raster_us;
-    acc_spi += spi_us;
+    acc_raster += disp.raster_us;
+    acc_spi += disp.spi_us;
     acc_n++;
     frame++;
 
@@ -533,11 +476,7 @@ int main(void) {
       uint32_t present_us = (acc_raster + acc_spi) / acc_n;
       uint32_t frame_us =
           (acc_step + acc_pack + acc_raster + acc_spi) / acc_n;
-      uint32_t stall_dma;
-      uint32_t stall_abort;
-      uint32_t stall_spi;
 
-      St7789Explorer_GetStalls(&stall_dma, &stall_abort, &stall_spi);
       crumb(kCrumbPrint);
       printf("pico2 step=%u pack=%u raster=%u spi=%u present=%u frame=%u us "
              "x=%u y=%u pose=%u mvt=%u af=%u joy=%04x btn=%x stall=%u/%u/%u stk=%u\n",
@@ -546,7 +485,8 @@ int main(void) {
              (unsigned)samus_y_pos, (unsigned)samus_pose,
              (unsigned)samus_movement_type, (unsigned)samus_anim_frame,
              (unsigned)joy, pressed,
-             (unsigned)stall_dma, (unsigned)stall_abort, (unsigned)stall_spi,
+             (unsigned)disp.stall_dma, (unsigned)disp.stall_abort,
+             (unsigned)disp.stall_spi,
              (unsigned)stack_used_max());
       acc_step = acc_pack = acc_raster = acc_spi = acc_n = 0;
     }

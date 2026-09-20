@@ -25,6 +25,7 @@ include("${PICO_KERNEL_SRCS_CMAKE}")
 add_executable(sm_rev_pico2
   ${CMAKE_CURRENT_LIST_DIR}/pico2_main.c
   ${CMAKE_CURRENT_LIST_DIR}/st7789_explorer.c
+  ${SM_REV_ROOT}/src/pico/pico_display_st7789.c
   ${SM_REV_ROOT}/src/pico/explorer_buttons.c
   ${SM_REV_ROOT}/src/pico/pico_viewport.c
   ${SM_REV_ROOT}/src/pico/pico_oam_from_samus.c
