@@ -57,14 +57,36 @@ target_compile_options(sm_rev_pico2 PRIVATE
   -Wno-unknown-pragmas
 )
 
-# Heap 64KiB for MiniCreate. Keep default 2KiB stack: RP2350 SCRATCH_Y is 4KiB.
+# Heap 64KiB for MiniCreate.
 # USB CDC + vendor reset iface so `picotool load -f -x` can force BOOTSEL.
+#
+# sm_rev-khe, three robustness settings:
+#
+# PICO_STACK_SIZE 0x1000 -- was the 2KiB default, which put __StackBottom at
+#   0x20081800, halfway up SCRATCH_Y. 4KiB claims all of SCRATCH_Y, which is
+#   free (nothing else is linked there and .stack1_dummy for core1 is empty).
+#   This is margin, not a fix: the map shows the old 2KiB stack had ~6KiB of
+#   unused SCRATCH_X/Y below it to fall through before reaching anything live,
+#   so an overflow could not have been silently corrupting bss. pico2_main.c
+#   paints the stack and prints the real high-water mark (stk= in the stats
+#   line) so this stops being a guess.
+#
+# PICO_STDIO_USB_STDOUT_TIMEOUT_US 20000 -- the SDK default is 500000, so a CDC
+#   host that stops draining parks the main loop in printf() for half a second
+#   per stats line. 20ms keeps the log when the host is reading and gets out of
+#   the way when it is not. (It is a timeout, not a hang: stdio_usb_out_chars
+#   does break out. It is still the largest blocking call in the loop.)
+#
+# PICO_STDIO_DEADLOCK_TIMEOUT_MS 100 -- same idea for the stdio mutex.
 target_compile_definitions(sm_rev_pico2 PRIVATE
   CURRENT_BUILD=BUILD_PICO
   SYSTEM_VOLUME_MIXER_AVAILABLE=0
   PICO_HEAP_SIZE=0x10000
+  PICO_STACK_SIZE=0x1000
   PICO_STDIO_USB_ENABLE_RESET_VIA_VENDOR_INTERFACE=1
   PICO_STDIO_USB_ENABLE_RESET_VIA_BAUD_RATE=1
+  PICO_STDIO_USB_STDOUT_TIMEOUT_US=20000
+  PICO_STDIO_DEADLOCK_TIMEOUT_MS=100
 )
 
 target_link_libraries(sm_rev_pico2
@@ -72,6 +94,7 @@ target_link_libraries(sm_rev_pico2
   hardware_spi
   hardware_pwm
   hardware_dma
+  hardware_watchdog
 )
 
 pico_enable_stdio_usb(sm_rev_pico2 1)

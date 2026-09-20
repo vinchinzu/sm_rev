@@ -28,6 +28,17 @@ void St7789Explorer_WriteRgb565Line(const uint16_t *px, int count);
 void St7789Explorer_WriteSolidLine(uint16_t color, int count);
 void St7789Explorer_EndFrame(void);
 
+/*
+ * sm_rev-khe. Running totals of bounded-wait timeouts since Init:
+ *   dma   - a line DMA did not retire within the per-wait budget
+ *   abort - the recovery abort handshake itself did not retire
+ *   spi   - the PL022 did not go idle / accept a byte within the budget
+ * All three must stay 0 on a healthy board. Any of them going non-zero is the
+ * panel path failing to complete a transfer, which before this bead was an
+ * unbounded spin (a silent freeze of both the glass and the CDC log).
+ */
+void St7789Explorer_GetStalls(uint32_t *dma, uint32_t *abort, uint32_t *spi);
+
 #ifdef __cplusplus
 }
 #endif

@@ -112,6 +112,59 @@ int PicoOam_PlantSamusFrame(PicoFramePacket *pkt, int frame_index) {
   return 1;
 }
 
+/*
+ * sm_rev-khe: the blob walk used to trust the 16-bit count in the spritemap
+ * header and step 5 bytes per entry with no end-of-blob test, so a re-pack that
+ * emitted a short tail (or an offset table out of step with the blob) would
+ * read past kPicoLsSamusSpritemaps. The writes were always bounded by
+ * kPicoOamSamusMaxSlots; the READS were not. On the Pico an over-read lands in
+ * neighbouring flash and quietly produces garbage sprites rather than a fault,
+ * which is exactly the kind of thing that never shows up until it does.
+ *
+ * Bound by three things now: the slots we own, the count in the header, and the
+ * bytes actually left in the blob. Returns the entry count and hands back the
+ * pointer to the first entry.
+ */
+static uint16_t samus_spritemap_entries(int frame_index, const uint8_t **out_pp) {
+  size_t off = (size_t)kPicoLsSamusFrameSmOffset[frame_index];
+  size_t avail;
+  uint16_t n;
+
+  if (off + 2u > (size_t)kPicoLsSamusSpritemapSize) {
+    *out_pp = kPicoLsSamusSpritemaps;
+    return 0;
+  }
+  n = (uint16_t)(kPicoLsSamusSpritemaps[off] |
+                 ((uint16_t)kPicoLsSamusSpritemaps[off + 1u] << 8));
+  *out_pp = kPicoLsSamusSpritemaps + off + 2u;
+  avail = ((size_t)kPicoLsSamusSpritemapSize - off - 2u) / 5u;
+  if ((size_t)n > avail)
+    n = (uint16_t)avail;
+  if (n > (unsigned)kPicoOamSamusMaxSlots)
+    n = (uint16_t)kPicoOamSamusMaxSlots;
+  return n;
+}
+
+/*
+ * Non-zero when frame_index's header and every 5-byte entry it declares lie
+ * inside the packed blob -- i.e. when the clamp above is a no-op. The host
+ * stress test asserts this for every packed frame, so a re-pack that breaks the
+ * invariant fails on the host instead of drawing garbage on glass.
+ */
+int PicoOam_SamusSpritemapFits(int frame_index) {
+  size_t off;
+  uint16_t n;
+
+  if ((unsigned)frame_index >= (unsigned)kPicoLsSamusFrameCount)
+    return 0;
+  off = (size_t)kPicoLsSamusFrameSmOffset[frame_index];
+  if (off + 2u > (size_t)kPicoLsSamusSpritemapSize)
+    return 0;
+  n = (uint16_t)(kPicoLsSamusSpritemaps[off] |
+                 ((uint16_t)kPicoLsSamusSpritemaps[off + 1u] << 8));
+  return off + 2u + (size_t)n * 5u <= (size_t)kPicoLsSamusSpritemapSize;
+}
+
 void PicoOam_WriteSamusFrame(PicoFramePacket *pkt, int frame_index,
                              int screen_x, int screen_y) {
   const uint8_t *pp;
@@ -129,12 +182,7 @@ void PicoOam_WriteSamusFrame(PicoFramePacket *pkt, int frame_index,
     pkt->oam_hi[i >> 2] = (uint8_t)(pkt->oam_hi[i >> 2] & ~(3u << ((i & 3) * 2)));
   }
 
-  pp = kPicoLsSamusSpritemaps + kPicoLsSamusFrameSmOffset[frame_index];
-  n = (uint16_t)(pp[0] | ((uint16_t)pp[1] << 8));
-  /* Bound by the slots we own, not by the count we just read from the blob. */
-  if (n > (unsigned)kPicoOamSamusMaxSlots)
-    n = (uint16_t)kPicoOamSamusMaxSlots;
-  pp += 2;
+  n = samus_spritemap_entries(frame_index, &pp);
 
   for (i = 0; i < (int)n; i++) {
     uint16_t xword = (uint16_t)(pp[0] | ((uint16_t)pp[1] << 8));

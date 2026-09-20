@@ -103,21 +103,127 @@ static uint16_t s_line[2][kSt7789ExplorerWidth];
 static int s_line_idx;
 static uint16_t s_solid_word;
 static uint s_spi_hz;
+static uint32_t s_stall_dma;
+static uint32_t s_stall_abort;
+static uint32_t s_stall_spi;
 
-static void st_write(const uint8_t *data, size_t n) {
-  spi_write_blocking(spi0, data, n);
+/* ======================================================================== *
+ *  BOUNDED WAITS  --  sm_rev-khe                                           *
+ *                                                                          *
+ *  Every wait in this file used to be an unbounded `while (busy)`:          *
+ *  dma_channel_wait_for_finish_blocking(), spi_is_busy(), and the FIFO      *
+ *  poll inside spi_write_blocking(). If the PL022 ever stops draining its   *
+ *  TX FIFO -- a stuck DREQ, a format switch that lost SSE, a channel that   *
+ *  was aborted underneath us -- the core spins there forever with           *
+ *  interrupts on but the main loop dead: the panel holds its last frame and *
+ *  the CDC log stops, which is exactly the reported symptom.                *
+ *                                                                          *
+ *  We cannot prove that is what happens (no board here), so instead of      *
+ *  guessing a fix these waits now time out, count the stall, try to recover *
+ *  and let the caller carry on. A stalled frame is a torn frame; a stalled  *
+ *  frame that never returns is a dead console. St7789Explorer_GetStalls()  *
+ *  hands the counts to the main loop, which prints them -- so if this IS    *
+ *  the lockup, the next one announces itself over CDC instead of being      *
+ *  silent.                                                                  *
+ *                                                                          *
+ *  Budget: one 240-frame line at the slowest reachable rung (18.75 MHz) is  *
+ *  about 205 us, and a whole 240-line frame about 50 ms. 20 ms per single   *
+ *  wait is ~100x the expected line time and still well inside the ~53 ms    *
+ *  frame budget, so a healthy frame can never hit it.                       *
+ * ======================================================================== */
+enum {
+  kStWaitTimeoutUs = 20000
+};
+
+static int st_timed_out(uint64_t t0) {
+  return time_us_64() - t0 > (uint64_t)kStWaitTimeoutUs;
 }
 
 static void st_spi_idle(void) {
-  while (spi_is_busy(spi0))
+  uint64_t t0 = time_us_64();
+  while (spi_is_busy(spi0)) {
+    if (st_timed_out(t0)) {
+      s_stall_spi++;
+      return;
+    }
     tight_loop_contents();
+  }
+}
+
+/*
+ * Own 8-bit write, because spi_write_blocking()'s FIFO poll is unbounded.
+ * Same semantics otherwise: push every byte, ignore RX, then settle the wire
+ * and clear the overrun the TX-only traffic left behind.
+ */
+static void st_write(const uint8_t *data, size_t n) {
+  size_t i;
+  uint64_t t0 = time_us_64();
+
+  for (i = 0; i < n; i++) {
+    while (!spi_is_writable(spi0)) {
+      if (st_timed_out(t0)) {
+        s_stall_spi++;
+        return;
+      }
+      tight_loop_contents();
+    }
+    spi_get_hw(spi0)->dr = (uint32_t)data[i];
+  }
+  st_spi_idle();
+  while (spi_is_readable(spi0))
+    (void)spi_get_hw(spi0)->dr;
+  spi_get_hw(spi0)->icr = SPI_SSPICR_RORIC_BITS | SPI_SSPICR_RTIC_BITS;
+}
+
+/*
+ * Bounded stand-in for dma_channel_abort(), whose own `while (dma_hw->abort)`
+ * spin is documented as not retiring for a channel parked on a DREQ that never
+ * comes -- precisely the case we reach this from. Clear EN first so the channel
+ * stops asking for the DREQ, then bound the abort handshake as well.
+ */
+static void st_dma_abort(void) {
+  uint32_t mask = 1u << (uint)s_dma_ch;
+  uint64_t t0;
+
+  hw_clear_bits(&dma_hw->ch[(uint)s_dma_ch].al1_ctrl, DMA_CH0_CTRL_TRIG_EN_BITS);
+  dma_hw->abort = mask;
+  t0 = time_us_64();
+  while (dma_hw->abort & mask) {
+    if (st_timed_out(t0)) {
+      s_stall_abort++;
+      break;
+    }
+    tight_loop_contents();
+  }
 }
 
 static void st_dma_wait(void) {
-  if (s_dma_busy) {
-    dma_channel_wait_for_finish_blocking(s_dma_ch);
-    s_dma_busy = 0;
+  uint64_t t0;
+
+  if (!s_dma_busy)
+    return;
+  t0 = time_us_64();
+  while (dma_channel_is_busy((uint)s_dma_ch)) {
+    if (st_timed_out(t0)) {
+      s_stall_dma++;
+      st_dma_abort();
+      break;
+    }
+    tight_loop_contents();
   }
+  /* Keeps the compiler from hoisting a s_line[] store above the completion,
+   * the way dma_channel_wait_for_finish_blocking() does. */
+  __compiler_memory_barrier();
+  s_dma_busy = 0;
+}
+
+void St7789Explorer_GetStalls(uint32_t *dma, uint32_t *abort, uint32_t *spi) {
+  if (dma != NULL)
+    *dma = s_stall_dma;
+  if (abort != NULL)
+    *abort = s_stall_abort;
+  if (spi != NULL)
+    *spi = s_stall_spi;
 }
 
 /* count is in 16-bit frames. incr=0 repeats one word (solid fill). */
@@ -138,7 +244,8 @@ static void st_dma_send16(const void *src, uint count, bool incr) {
 /* TX-only DMA leaves the RX FIFO full and the overrun flag set; clear both so
  * the next 8-bit spi_write_blocking() (a command) starts from a clean FIFO. */
 static void st_spi_drain_rx(void) {
-  while (spi_is_readable(spi0))
+  int guard = 16; /* the PL022 RX FIFO is 8 deep; 16 is a hard stop, not a wait */
+  while (spi_is_readable(spi0) && guard-- > 0)
     (void)spi_get_hw(spi0)->dr;
   spi_get_hw(spi0)->icr = SPI_SSPICR_RORIC_BITS | SPI_SSPICR_RTIC_BITS;
 }
@@ -228,8 +335,12 @@ void St7789Explorer_Init(void) {
 
   /* The boot log, not the comment above kSpiHz, is the authority on the rate
    * the PL022 dividers actually reached. */
-  printf("st7789: spi req=%u actual=%u Hz dma_ch=%d 16bit frames\n",
-         (unsigned)kSpiHz, (unsigned)s_spi_hz, s_dma_ch);
+  s_stall_dma = 0;
+  s_stall_abort = 0;
+  s_stall_spi = 0;
+  printf("st7789: spi req=%u actual=%u Hz dma_ch=%d 16bit frames wait_to=%uus\n",
+         (unsigned)kSpiHz, (unsigned)s_spi_hz, s_dma_ch,
+         (unsigned)kStWaitTimeoutUs);
 }
 
 void St7789Explorer_Fill(uint16_t color) {
