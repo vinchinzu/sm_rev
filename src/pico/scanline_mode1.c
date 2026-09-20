@@ -203,31 +203,172 @@ static int obj_tile_byte(int charnum, int tile_x, int tile_y) {
   return packed * kTileBytes4bpp;
 }
 
-static int sprite_on_line(int sprite_y, int size, int y) {
-  int y1 = sprite_y + size;
-  if (y >= sprite_y && y < y1)
-    return 1;
-  if (y1 > 256 && y < (y1 - 256))
-    return 1;
-  return 0;
-}
-
 /*
- * sm_rev-k5q.7 item 4: one pass over the 128 OAM slots per scanline instead of
- * four (one per priority). Slots are appended walking 127..0, so each list is
- * already in the descending-index order the old blit_obj() drew in and sprite 0
- * still lands on top. Sprites that fall entirely outside [x0,x1) are dropped
- * here, which is exactly the set the old per-pixel screen_x check discarded.
+ * sm_rev-k5q.7 item 4 + sm_rev-k5q.12: one pass over OAM, then a per-line
+ * candidate list.
+ *
+ * k5q.7 still walked all 128 slots on every scanline (128 x 224) and binned
+ * the hits by priority. k5q.12 walks OAM once per distinct OAM image, records
+ * each sprite's visible lines, and the per-scanline walk is only the sprites
+ * that cover that y. Parked Y=224 8x8 slots contribute zero hits, which is
+ * the packed-LS steady state. The 32-sprite/line cap is still not applied.
+ *
+ * Slots are appended walking 127..0, so each priority list is already in the
+ * descending-index order the old blit_obj() drew in and sprite 0 still lands
+ * on top. Sprites that fall entirely outside [x0,x1) are dropped here, which
+ * is exactly the set the old per-pixel screen_x check discarded. x0/x1 are
+ * not part of the cache key, so Mode1 (0..256) and Mode1Range (8..248) share
+ * one span table.
+ *
+ * Single-rasteriser assumption, same as palette_for(): the span table is
+ * process-global. Keyed on OAM *contents* (not just the pointer) because the
+ * host tests mutate the table in place between frames.
  */
+enum {
+  /* Max OBJ size in kObjSizePx is 64px. 128 sprites x 64 lines is exact. */
+  kObjHitMax = kPicoSpriteCount * 64
+};
+
 static uint8_t s_obj_list[4][kPicoSpriteCount];
 static uint8_t s_obj_n[4];
 
+static uint8_t s_hit_slot[kObjHitMax];
+static uint16_t s_line_off[kPicoScreenHeight + 1];
+static uint8_t s_oam_copy[kPicoOamSize];
+static uint8_t s_hi_copy[kPicoOamHiSize];
+static int16_t s_spr_x[kPicoSpriteCount];
+static uint8_t s_spr_size[kPicoSpriteCount];
+static uint8_t s_spr_pri[kPicoSpriteCount];
+static const uint8_t *s_oam_ptr;
+static const uint8_t *s_hi_ptr;
+static int s_count_cached;
+static uint8_t s_obsel_cached;
+static int s_obj_cache_valid;
+static int s_seq_y = -2; /* last y that used this cache; not adjacent to 0 */
+
+static int obj_count(const PicoPpuState *ppu) {
+  int count = ppu->sprite_count;
+  if (count <= 0 || count > kPicoSpriteCount)
+    count = kPicoSpriteCount;
+  return count;
+}
+
+static int obj_cache_hit(const PicoPpuState *ppu, int count, int y) {
+  if (!s_obj_cache_valid)
+    return 0;
+  if (ppu->oam != s_oam_ptr || ppu->oam_hi != s_hi_ptr)
+    return 0;
+  if (count != s_count_cached || ppu->obsel != s_obsel_cached)
+    return 0;
+  if (ppu->oam == NULL)
+    return 1;
+  /* Sequential lines of the same PPU share one OAM image. A new frame starts
+   * at y=0 after y=223, which is not sequential, so in-place mutation between
+   * frames still hits the memcmp. Mid-line-table mutation is not a caller. */
+  if (y == s_seq_y + 1)
+    return 1;
+  if (memcmp(s_oam_copy, ppu->oam, sizeof s_oam_copy) != 0)
+    return 0;
+  if (ppu->oam_hi != NULL &&
+      memcmp(s_hi_copy, ppu->oam_hi, sizeof s_hi_copy) != 0)
+    return 0;
+  return 1;
+}
+
+static void rebuild_obj_cache(const PicoPpuState *ppu, int count) {
+  static uint16_t hist[kPicoScreenHeight];
+  int size_sel = (ppu->obsel >> 5) & 7;
+  int small = kObjSizePx[size_sel][0];
+  int large = kObjSizePx[size_sel][1];
+  int i;
+  int y;
+  uint32_t total;
+
+  s_oam_ptr = ppu->oam;
+  s_hi_ptr = ppu->oam_hi;
+  s_count_cached = count;
+  s_obsel_cached = ppu->obsel;
+  s_obj_cache_valid = 0;
+  memset(hist, 0, sizeof hist);
+  memset(s_line_off, 0, sizeof s_line_off);
+
+  if (ppu->oam == NULL) {
+    memset(s_oam_copy, 0, sizeof s_oam_copy);
+    memset(s_hi_copy, 0, sizeof s_hi_copy);
+    s_obj_cache_valid = 1;
+    return;
+  }
+
+  memcpy(s_oam_copy, ppu->oam, sizeof s_oam_copy);
+  if (ppu->oam_hi != NULL)
+    memcpy(s_hi_copy, ppu->oam_hi, sizeof s_hi_copy);
+  else
+    memset(s_hi_copy, 0, sizeof s_hi_copy);
+
+  for (i = count - 1; i >= 0; i--) {
+    const uint8_t *ent = ppu->oam + (size_t)i * 4;
+    uint8_t hi = 0;
+    int size;
+    int sprite_x;
+    int sprite_y;
+    int yy;
+
+    if (ppu->oam_hi != NULL)
+      hi = (uint8_t)((ppu->oam_hi[i >> 2] >> ((i & 3) * 2)) & 3);
+    size = (hi & 2) ? large : small;
+    sprite_x = ent[0] | ((hi & 1) << 8);
+    if (sprite_x >= 256)
+      sprite_x -= 512;
+    s_spr_x[i] = (int16_t)sprite_x;
+    s_spr_size[i] = (uint8_t)size;
+    s_spr_pri[i] = (uint8_t)((ent[3] >> 4) & 3);
+    sprite_y = ent[1];
+    for (yy = 0; yy < size; yy++) {
+      int ly = sprite_y + yy;
+      if (ly >= 256)
+        ly -= 256;
+      if ((unsigned)ly < (unsigned)kPicoScreenHeight)
+        hist[ly]++;
+    }
+  }
+
+  total = 0;
+  for (y = 0; y < kPicoScreenHeight; y++) {
+    s_line_off[y] = (uint16_t)total;
+    total += hist[y];
+    if (total > (uint32_t)kObjHitMax)
+      total = (uint32_t)kObjHitMax;
+    hist[y] = s_line_off[y];
+  }
+  s_line_off[kPicoScreenHeight] = (uint16_t)total;
+
+  for (i = count - 1; i >= 0; i--) {
+    int size = s_spr_size[i];
+    int sprite_y = ppu->oam[(size_t)i * 4 + 1];
+    int yy;
+    for (yy = 0; yy < size; yy++) {
+      int ly = sprite_y + yy;
+      uint16_t slot;
+      if (ly >= 256)
+        ly -= 256;
+      if ((unsigned)ly >= (unsigned)kPicoScreenHeight)
+        continue;
+      slot = hist[ly];
+      if (slot < s_line_off[ly + 1] && slot < (uint16_t)kObjHitMax)
+        s_hit_slot[slot] = (uint8_t)i;
+      if (hist[ly] < s_line_off[ly + 1])
+        hist[ly]++;
+    }
+  }
+
+  s_obj_cache_valid = 1;
+}
+
 static void build_obj_lists(const PicoPpuState *ppu, int y, int x0, int x1) {
   int count;
-  int size_sel;
-  int small;
-  int large;
-  int i;
+  uint16_t a;
+  uint16_t b;
+  uint16_t i;
 
   s_obj_n[0] = 0;
   s_obj_n[1] = 0;
@@ -236,31 +377,22 @@ static void build_obj_lists(const PicoPpuState *ppu, int y, int x0, int x1) {
   if (ppu->oam == NULL)
     return;
 
-  count = ppu->sprite_count;
-  if (count <= 0 || count > kPicoSpriteCount)
-    count = kPicoSpriteCount;
-  size_sel = (ppu->obsel >> 5) & 7;
-  small = kObjSizePx[size_sel][0];
-  large = kObjSizePx[size_sel][1];
+  count = obj_count(ppu);
+  if (!obj_cache_hit(ppu, count, y))
+    rebuild_obj_cache(ppu, count);
+  s_seq_y = y;
 
-  for (i = count - 1; i >= 0; i--) {
-    const uint8_t *ent = ppu->oam + (size_t)i * 4;
-    uint8_t hi = 0;
-    int obj_pri;
-    int size;
-    int sprite_x;
-    if (ppu->oam_hi != NULL)
-      hi = (uint8_t)((ppu->oam_hi[i >> 2] >> ((i & 3) * 2)) & 3);
-    size = (hi & 2) ? large : small;
-    if (!sprite_on_line(ent[1], size, y))
-      continue;
-    sprite_x = ent[0] | ((hi & 1) << 8);
-    if (sprite_x >= 256)
-      sprite_x -= 512;
+  a = s_line_off[y];
+  b = s_line_off[y + 1];
+  for (i = a; i < b; i++) {
+    uint8_t slot = s_hit_slot[i];
+    int sprite_x = s_spr_x[slot];
+    int size = s_spr_size[slot];
+    uint8_t pri;
     if (sprite_x >= x1 || sprite_x + size <= x0)
       continue;
-    obj_pri = (ent[3] >> 4) & 3;
-    s_obj_list[obj_pri][s_obj_n[obj_pri]++] = (uint8_t)i;
+    pri = s_spr_pri[slot];
+    s_obj_list[pri][s_obj_n[pri]++] = slot;
   }
 }
 

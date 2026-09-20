@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 
 #include "mini_asset_bootstrap.h"
 #include "pico_ls_assets.h"
@@ -657,6 +658,23 @@ int main(void) {
   PicoOam_WriteGunship(&pkt, -kBootHofs, -kBootVofs);
   expect_true("gunship OAM present", gunship_oam_present(&pkt));
   raster_packet(&pkt, frame_composite);
+  {
+    /* sm_rev-k5q.12: host-measurable raster time for one packed LS frame.
+     * Warm (OAM span cache already built by the composite pass above). */
+    enum { kBenchFrames = 50 };
+    struct timespec t0;
+    struct timespec t1;
+    int b;
+    unsigned us;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+    for (b = 0; b < kBenchFrames; b++)
+      raster_packet(&pkt, frame_composite);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    us = (unsigned)((t1.tv_sec - t0.tv_sec) * 1000000L +
+                    (t1.tv_nsec - t0.tv_nsec) / 1000L);
+    printf("raster_us=%u (packed LS composite, %d-frame avg %u us)\n", us,
+           kBenchFrames, us / (unsigned)kBenchFrames);
+  }
   pkt.oam_full = 0;
   raster_packet(&pkt, frame_bg);
   pkt.oam_full = 1;
