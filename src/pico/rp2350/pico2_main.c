@@ -15,6 +15,7 @@
 #include "pico_ls_room.h"
 #include "pico_oam_from_samus.h"
 #include "pico_oam_gunship.h"
+#include "pico_viewport.h"
 #include "sm_rtl.h"
 #include "variables.h"
 
