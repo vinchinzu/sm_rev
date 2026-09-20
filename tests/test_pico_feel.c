@@ -4,8 +4,9 @@
  *   make pico-feel-test
  *
  * MiniAuthoredMovement has bombs (X+Down), not beams. Slope tiles are
- * JSON materials "slope" plus a bts grid; authored snap uses MirrorX /
- * Ceiling flags only, not ROM kAlignYPos_Tab0 shapes.
+ * JSON materials "slope" plus a bts grid. BTS shape >= 5 uses the packed
+ * kAlignYPos_Tab0 copy; this toy ramp is BTS 0 and still interpolates
+ * same-MirrorX segments.
  */
 
 #include <stdio.h>

@@ -44,12 +44,17 @@ enum {
    * fall at the authored terminal fall speed. Measured landing is frame ~45. */
   kDeckWalkFrames = 70,
   kSettleFrames = 4,
-  /* Deck top to terrain is 7 block rows. Anything under a block of movement is
-   * slope jitter on the deck itself, so demand well over half the real drop. */
-  kMinDeckDrop = 96,
+  /* First terrain can be a BTS hill a few rows under the deck, not only the
+   * floor at row 77. Demand more than a block of deck jitter. */
+  kMinDeckDrop = 64,
   /* Gunship nose ~bx76. Right from spawn must pass this before the fall
    * counts as walking off the deck rather than dropping in place. */
-  kShipNoseWorldX = 76 * kPicoLsRoomBlockPx
+  kShipNoseWorldX = 76 * kPicoLsRoomBlockPx,
+  /* Packed LS terrain just past the stall at x=1289: (80,76) is slope BTS
+   * 0x53 and (81,76) is solid 0x8114. The slope at (81,75) should carry
+   * her over that solid; extra Right frames after the deck fall prove it. */
+  kFirstTerrainSolidWorldX = 81 * kPicoLsRoomBlockPx,
+  kSlopeContinueFrames = 40
 };
 
 static int g_failures;
@@ -231,8 +236,22 @@ static int walk_off_deck(const char *tag, uint16 button) {
                 (int)samus_x_pos > kShipNoseWorldX);
   expect_true("walking off the deck descends", drop >= kMinDeckDrop);
   expect_true("lands on the terrain below the deck",
-              end_feet >= kPicoLsRoomFloorTopRow - 1);
-  expect_true("ends standing on something", state->samus.on_ground);
+              end_feet >= kPicoLsRoomDeckBottomRow);
+  if (button != kButton_Right)
+    expect_true("ends standing on something", state->samus.on_ground);
+  if (button == kButton_Right) {
+    int before_x = (int)samus_x_pos;
+    for (i = 0; i < kSlopeContinueFrames; i++)
+      MiniStepButtons(state, button, false);
+    printf("%s continue: x %d -> %u y=%u feet_by=%d og=%d\n", tag, before_x,
+           (unsigned)samus_x_pos, (unsigned)samus_y_pos, feet_block_row(),
+           state->samus.on_ground);
+    if ((int)samus_x_pos <= kFirstTerrainSolidWorldX)
+      dump_slope_bts_at_samus("stopped at first terrain solid");
+    expect_true("walk right rides slope past first solid x>1296",
+                (int)samus_x_pos > kFirstTerrainSolidWorldX);
+    expect_true("still standing after riding the slope", state->samus.on_ground);
+  }
   MiniDestroy(state);
   return drop;
 }

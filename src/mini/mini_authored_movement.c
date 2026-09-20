@@ -108,6 +108,45 @@ static bool MiniAuthoredSamusCollidesAt(const MiniGameState *state, int world_x,
   return MiniAuthoredSamusCollidesWithRadius(world_x, world_y, x_radius, y_radius);
 }
 
+/*
+ * Pico has no ROM image (g_rom == NULL), so RomFixedPtr(0x948b2b) cannot
+ * supply kAlignYPos_Tab0. This is the vanilla bank-94 copy from sm_94.c.
+ */
+static const uint8 kAlignYPos_Tab0[512] = {
+   8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,
+  16, 16, 16, 16, 16, 16, 16, 16,  0,  0,  0,  0,  0,  0,  0,  0,
+  16, 16, 16, 16, 16, 16, 16, 16,  8,  8,  8,  8,  8,  8,  8,  8,
+   8,  8,  8,  8,  8,  8,  8,  8,  0,  0,  0,  0,  0,  0,  0,  0,
+   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+  16, 15, 14, 13, 12, 11, 10,  9,  9, 10, 11, 12, 13, 14, 15, 16,
+  16, 14, 12, 10,  8,  6,  4,  2,  2,  4,  6,  8, 10, 12, 14, 16,
+   8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,
+   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+  12, 12, 12, 12,  8,  8,  8,  8,  4,  4,  4,  4,  0,  0,  0,  0,
+  14, 14, 12, 12, 10, 10,  8,  8,  6,  6,  4,  4,  2,  2,  0,  0,
+  16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+  20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 16, 16, 16,
+  16, 15, 14, 13, 12, 11, 10,  9,  8,  7,  6,  5,  4,  3,  2,  1,
+   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+  16, 16, 16, 16, 16, 16, 16, 16, 16, 15, 14, 13, 12, 11, 10,  9,
+   8,  7,  6,  5,  4,  3,  2,  1,  0,  0,  0,  0,  0,  0,  0,  0,
+  16, 16, 15, 15, 14, 14, 13, 13, 12, 12, 11, 11, 10, 10,  9,  9,
+   8,  8,  7,  7,  6,  6,  5,  5,  4,  4,  3,  3,  2,  2,  1,  1,
+  16, 16, 16, 15, 15, 15, 14, 14, 14, 13, 13, 13, 12, 12, 12, 11,
+  11, 11, 10, 10, 10,  9,  9,  9,  8,  8,  8,  7,  7,  7,  6,  6,
+   6,  5,  5,  5,  4,  4,  4,  3,  3,  3,  2,  2,  2,  1,  1,  1,
+  20, 20, 20, 20, 20, 20, 20, 20, 16, 14, 12, 10,  8,  6,  4,  2,
+  16, 14, 12, 10,  8,  6,  4,  2,  0,  0,  0,  0,  0,  0,  0,  0,
+  20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 15, 12,  9,  6,  3,
+  20, 20, 20, 20, 20, 20, 14, 11,  8,  5,  2,  0,  0,  0,  0,  0,
+  16, 13, 10,  7,  4,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+};
+
 static bool MiniAuthoredSlopeBlockMatches(int block_x, int block_y, uint8 slope_flags) {
   if (MiniStubs_GetCollisionMaterial(block_x, block_y) != kBlockType_Slope)
     return false;
@@ -115,16 +154,36 @@ static bool MiniAuthoredSlopeBlockMatches(int block_x, int block_y, uint8 slope_
   return (bts & (kSlopeBts_MirrorX | kSlopeBts_Ceiling)) == slope_flags;
 }
 
+static uint8 MiniAuthoredSlopeHeightAt(uint8 bts, int world_x) {
+  uint16 x = (bts & kSlopeBts_MirrorX) != 0 ? (uint16)world_x ^ kBlockPixelMask
+                                           : (uint16)world_x;
+  return kAlignYPos_Tab0[kBlockPixelSize * (bts & kSlopeBts_ShapeMask) +
+                         (x & kBlockPixelMask)] &
+         kSlopeBts_ShapeMask;
+}
+
 static bool MiniAuthoredSlopeGroundAt(int world_x, int world_y, int *ground_y) {
   int block_x = world_x >> kBlockPixelShift;
   int block_y = world_y >> kBlockPixelShift;
+  uint8 bts;
+  uint8 slope_flags;
+  uint8 shape;
+
   if (MiniStubs_GetCollisionMaterial(block_x, block_y) != kBlockType_Slope)
     return false;
 
-  uint8 bts = MiniStubs_GetBts(block_x, block_y);
-  uint8 slope_flags = bts & (kSlopeBts_MirrorX | kSlopeBts_Ceiling);
+  bts = MiniStubs_GetBts(block_x, block_y);
+  slope_flags = bts & (kSlopeBts_MirrorX | kSlopeBts_Ceiling);
   if ((slope_flags & kSlopeBts_Ceiling) != 0)
     return false;
+
+  shape = bts & kSlopeBts_ShapeMask;
+  if (shape >= kSlopeBts_FirstAlignedShape) {
+    /* Vanilla Samus_AlignYPosSlope: rest when foot_in_tile == height - 1. */
+    *ground_y = (block_y << kBlockPixelShift) +
+                (int)MiniAuthoredSlopeHeightAt(bts, world_x) - 1;
+    return true;
+  }
 
   int segment_left_block = block_x;
   int segment_right_block = block_x;
@@ -303,8 +362,12 @@ static void MiniAuthoredMoveHorizontal(MiniGameState *state, int velocity) {
   int step = velocity < 0 ? -1 : 1;
   for (int remaining = abs(velocity); remaining != 0; remaining--) {
     int next_x = state->samus.world_x + step;
-    if (MiniAuthoredSamusCollidesAt(state, next_x, state->samus.world_y))
-      break;
+    if (MiniAuthoredSamusCollidesAt(state, next_x, state->samus.world_y)) {
+      if (state->samus.on_ground)
+        MiniAuthoredTrySnapToSlopeFloor(state, kMiniAuthoredSlopeSnapPixels, 1);
+      if (MiniAuthoredSamusCollidesAt(state, next_x, state->samus.world_y))
+        break;
+    }
     state->samus.world_x = next_x;
   }
 }
